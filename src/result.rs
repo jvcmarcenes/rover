@@ -1,21 +1,12 @@
 
-use std::{fmt::Debug, process};
+use std::fmt::Debug;
 
-use crate::source_pos::SourcePos;
+use crate::{source_pos::SourcePos, utils::Wrap};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub trait IntoOk {
-	type Output;
-	fn into_ok(self) -> Result<Self::Output>;
-}
-
-impl<T> IntoOk for T {
-	type Output = T;
-
-	fn into_ok(self) -> Result<Self::Output> {
-		Ok(self)
-	}
+impl<T> Wrap<Result<Option<T>>> for T {
+	fn wrap(self) -> Result<Option<T>> { Ok(Some(self)) }
 }
 
 #[derive(Clone, Debug)]
@@ -29,25 +20,53 @@ impl Error {
 		Error { msg, pos }
 	}
 
-	pub fn throw_and_exit(self, path: &str, stage: &str) -> ! {
-		self.throw_and_continue(path, stage);
-		process::exit(0);
+	pub fn report(self, path: &str, stage: &str) {
+		eprintln!("{} {}: {}",
+			ansi_term::Color::Red.bold().paint(format!("{} error", stage)),
+			format!("[{}:{}:{}]", path, self.pos.lin, self.pos.col),
+			self.msg
+		);
+
+		let data = std::fs::read_to_string(path).unwrap();
+		let line = data.lines().skip(self.pos.lin as usize - 1).next().unwrap();
+
+		let bar_offset = " ".repeat(self.pos.lin.to_string().len());
+
+		eprintln!(" {} |", bar_offset);
+		eprintln!(" {} | {}", self.pos.lin, line);
+		eprintln!(" {} | {}^",
+			bar_offset,
+			" ".repeat(self.pos.col as usize - 1),
+		);
+		eprintln!();
 	}
 
-	pub fn throw_and_continue(self, path: &str, stage: &str) {
+	#[allow(dead_code)]
+	pub fn print_lines(self, path: &str, stage: &str) {
 		eprintln!("\n{} {}: {}\n",
-			ansi_term::Color::Red.paint(format!("{} error", stage)),
+			ansi_term::Color::Red.bold().paint(format!("{} error", stage)),
 			format!("[{}:{}:{}]", path, self.pos.lin, self.pos.col),
 			self.msg
 		);
 		let data = std::fs::read_to_string(path).unwrap();
+
+		if self.pos.lin > 1 {
+			let prev_line = data.lines().skip(self.pos.lin as usize - 2).next().unwrap();
+			eprintln!(" {} | {}", self.pos.lin - 1, prev_line);
+		}
+
 		let line = data.lines().skip(self.pos.lin as usize - 1).next().unwrap();
-		eprintln!("  {} | {}", self.pos.lin, line);
-		eprintln!("  {}   {}^",
+		eprintln!(" {} | {}", self.pos.lin, line);
+		eprintln!(" {}   {}^",
 			" ".repeat(self.pos.lin.to_string().len()),
 			" ".repeat(self.pos.col as usize - 1)
 		);
+	
+		if let Some(next_line) = data.lines().skip(self.pos.lin as usize).next() {
+			eprintln!(" {} | {}\n", self.pos.lin + 1, next_line);
+		}
 	}
+	
 }
 
 impl<T> Into<Result<T>> for Error {

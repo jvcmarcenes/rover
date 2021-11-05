@@ -1,2 +1,2 @@
 
-writeline Hello World"
+writeline $"Hello World"
