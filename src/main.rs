@@ -5,10 +5,13 @@ mod utils;
 mod result;
 mod source_pos;
 mod lexer;
+mod ast;
+mod parser;
 
 use std::process;
 
 use lexer::Lexer;
+use parser::Parser;
 
 fn main() {
 	let mut args = std::env::args();
@@ -34,8 +37,11 @@ fn main() {
 		}
 	};
 
-	for token in tokens {
-		println!("{}", token);
+	let mut parser = Parser::new(tokens);
+
+	match parser.expression() {
+		Ok(expr) => println!("{:?}", expr),
+		Err(err) => err.report(&path, "parser"),
 	}
-	
+
 }

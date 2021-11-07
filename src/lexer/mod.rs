@@ -3,9 +3,12 @@ pub mod token;
 
 use std::{iter::Peekable, vec::IntoIter};
 
-use crate::{result::{Error, Result}, source_pos::SourcePos, utils::Wrap};
+use crate::{result::{Error, Result}, source_pos::SourcePos, utils::wrap::Wrap};
 
 use self::token::{Keyword, LiteralType::*, Symbol::{self, *}, Token, TokenType::*};
+
+type TokenResult = Result<Option<Token>>;
+type LexerResult = std::result::Result<Vec<Token>, Vec<Error>>;
 
 #[derive(Debug, Clone)]
 pub struct Lexer {
@@ -27,10 +30,6 @@ impl Lexer {
 	pub fn from_file(path: &str) -> std::io::Result<Self> {
 		let text = std::fs::read_to_string(path)?;
 		Ok(Self::from_text(&text))
-	}
-
-	pub fn set_cursor(&mut self, new_cursor: SourcePos) {
-		self.cursor = new_cursor;
 	}
 
 	fn next_char(&mut self) -> Option<char> {
@@ -73,14 +72,14 @@ impl Lexer {
 		}
 	}
 
-	fn symbol(&mut self, symbol: Symbol) -> Result<Option<Token>> { Token::new(Symbol(symbol), self.cursor).wrap() }
+	fn symbol(&mut self, symbol: Symbol) -> TokenResult { Token::new(Symbol(symbol), self.cursor).wrap() }
 
-	fn scan_comment(&mut self) -> Result<Option<Token>> {
+	fn scan_comment(&mut self) -> TokenResult {
 		let _ = self.scan_raw_while(&mut String::new(), |c| c != '\n');
 		return Ok(None);
 	}
 
-	fn scan_block_comment(&mut self) -> Result<Option<Token>> {
+	fn scan_block_comment(&mut self) -> TokenResult {
 		let pos = self.cursor;
 		loop {
 			match self.next_char() {
@@ -91,7 +90,7 @@ impl Lexer {
 		}
 	}
 
-	fn scan_string(&mut self) -> Result<Option<Token>> {
+	fn scan_string(&mut self) -> TokenResult {
 		let pos = self.cursor;
 		let mut str = String::new();
 		self.scan_raw_while(&mut str, |c| c != '"')?;
@@ -99,7 +98,7 @@ impl Lexer {
 		Token::new(Literal(Str(str)), pos).wrap()
 	}
 
-	fn scan_number(&mut self, first_digit: char) -> Result<Option<Token>> {
+	fn scan_number(&mut self, first_digit: char) -> TokenResult {
 		let mut value = String::from(first_digit);
 		loop {
 			match self.source.peek() {
@@ -116,7 +115,7 @@ impl Lexer {
 		}
 	}
 
-	fn scan_identifier_or_keyword(&mut self, first_char: char) -> Result<Option<Token>> {
+	fn scan_identifier_or_keyword(&mut self, first_char: char) -> TokenResult {
 		let mut word = String::from(first_char);
 		let _ = self.scan_raw_while(&mut word, |c| c.is_ascii_alphanumeric() || c == '_');
 		match Keyword::get(&word) {
@@ -125,7 +124,7 @@ impl Lexer {
 		}
 	}
 
-	fn scan_token(&mut self, first_char: char) -> Result<Option<Token>> {
+	fn scan_token(&mut self, first_char: char) -> TokenResult {
 		match first_char {
 			c if c.is_ascii_alphabetic() => self.scan_identifier_or_keyword(c),
 			c if c.is_ascii_digit() => self.scan_number(c),
@@ -142,7 +141,7 @@ impl Lexer {
 			'>' => self.symbol(CloseAng),
 			'.' => self.symbol(Dot),
 			',' => self.symbol(Comma),
-			';' => self.symbol(SemiColon),
+			';' => Token::new(EOL, self.cursor).wrap(),
 			':' => self.symbol(Colon),
 			'+' if self.next_match('=') => self.symbol(PlusEquals),
 			'+' => self.symbol(Plus),
@@ -154,7 +153,7 @@ impl Lexer {
 			'!' => self.symbol(Exclam),
 			'=' if self.next_match('=') => self.symbol(DoubleEquals),
 			'=' => self.symbol(Equals),
-			'\'' => self.symbol(SingleQuote),
+			'\'' => todo!("yet to implement template strings"),
 			'"' => return self.scan_string(),
 			'#' if self.next_match('{') => self.symbol(HashtagOpenBracket),
 			'#' => self.scan_comment(),
@@ -162,7 +161,7 @@ impl Lexer {
 		}
 	}
 
-	pub fn scan_tokens(&mut self) -> std::result::Result<Vec<Token>, Vec<Error>> {
+	pub fn scan_tokens(&mut self) -> LexerResult {
 		let mut tokens = Vec::new();
 		let mut errors = Vec::new();
 
@@ -170,12 +169,10 @@ impl Lexer {
 			match self.next_char() {
 				Some(c) if c == '\n' => tokens.push(Token::new(EOL, self.cursor)),
 				Some(c) if c.is_whitespace() => continue,
-				Some(c) => {
-					match self.scan_token(c) {
-						Ok(Some(token)) => tokens.push(token),
-						Ok(None) => continue,
-						Err(err) => errors.push(err),
-					}
+				Some(c) => match self.scan_token(c) {
+					Ok(Some(token)) => tokens.push(token),
+					Ok(None) => continue,
+					Err(err) => errors.push(err),
 				}
 				None => break,
 			}
