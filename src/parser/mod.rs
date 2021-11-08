@@ -3,7 +3,7 @@ pub mod expression;
 
 use std::{iter::Peekable, vec::IntoIter};
 
-use crate::{lexer::token::{Token, TokenType}, result::{Result, Error}, utils::wrap::Wrap};
+use crate::{lexer::token::{Token, TokenType}, utils::{result::{Result, Error}, wrap::Wrap}};
 
 pub type TokenIter = Peekable<IntoIter<Token>>;
 

@@ -3,7 +3,7 @@ pub mod token;
 
 use std::{iter::Peekable, vec::IntoIter};
 
-use crate::{result::{Error, Result}, source_pos::SourcePos, utils::wrap::Wrap};
+use crate::utils::{result::{Error, Result}, source_pos::SourcePos, wrap::Wrap};
 
 use self::token::{Keyword, LiteralType::*, Symbol::{self, *}, Token, TokenType::*};
 
@@ -116,11 +116,12 @@ impl Lexer {
 	}
 
 	fn scan_identifier_or_keyword(&mut self, first_char: char) -> TokenResult {
+		let pos = self.cursor;
 		let mut word = String::from(first_char);
 		let _ = self.scan_raw_while(&mut word, |c| c.is_ascii_alphanumeric() || c == '_');
 		match Keyword::get(&word) {
-			Some(keyword) => Token::new(Keyword(keyword), self.cursor).wrap(),
-			None => Token::new(Identifier(word), self.cursor).wrap(),
+			Some(keyword) => Token::new(Keyword(keyword), pos).wrap(),
+			None => Token::new(Identifier(word), pos).wrap(),
 		}
 	}
 

@@ -1,7 +1,7 @@
 
 use std::fmt::Display;
 
-use crate::source_pos::SourcePos;
+use crate::utils::source_pos::SourcePos;
 
 use self::{Keyword::*, TokenType::*};
 
@@ -15,6 +15,7 @@ pub enum LiteralType {
 pub enum Keyword {
 	Writeline,
 	True, False,
+	Mod,
 }
 
 impl Keyword {
@@ -23,6 +24,7 @@ impl Keyword {
 			"writeline" => Writeline,
 			"true" => True,
 			"false" => False,
+			"mod" => Mod,
 			_ => return None,
 		};
 		Some(keyword)

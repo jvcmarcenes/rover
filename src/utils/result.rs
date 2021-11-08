@@ -1,7 +1,7 @@
 
 use std::fmt::Debug;
 
-use crate::{source_pos::SourcePos, utils::wrap::Wrap};
+use super::{source_pos::SourcePos, wrap::Wrap};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -38,6 +38,17 @@ impl Error {
 			bar_offset,
 			" ".repeat(self.pos.col as usize - 1),
 		);
+		eprintln!();
+	}
+
+	pub fn repl_err(self, line: &str, stage: &str) {
+		eprintln!("{}: {}",
+			ansi_term::Color::Red.bold().paint(format!("{} error", stage)),
+			self.msg
+		);
+		eprintln!(" |");
+		eprintln!(" | {}", line.trim_end_matches(|c| c == '\n' || c == '\r'));
+		eprintln!(" | {}^", " ".repeat(self.pos.col as usize - 1));
 		eprintln!();
 	}
 	
