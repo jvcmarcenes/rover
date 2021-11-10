@@ -31,15 +31,10 @@ impl Interpreter {
 		Ok(())
 	}
 
-	pub fn execute_block(&mut self, statements: Vec<Statement>, env: Environment) -> Result<()> {
+	pub fn execute_block(&mut self, block: Block) -> Result<()> {
 		let prev = self.env.clone();
-		self.env = env;
-		for stmt in statements {
-			if let err @ Err(_) = stmt.accept(self) {
-				self.env = prev;
-				return err
-			}
-		}
+		self.env = Environment::with_parent(self.env.clone());
+		for stmt in block { stmt.accept(self)?; }
 		self.env = prev;
 		Ok(())
 	}
@@ -65,12 +60,11 @@ impl ExprVisitor<Value> for Interpreter {
 		let value = match data.op {
 			BinaryOperator::Add => match (&lhs, &rhs) {
 				(Value::Str(_), _) | (_, Value::Str(_)) => Value::Str(format!("{}{}", lhs, rhs)),
-				(Value::Num(l), Value::Num(r)) => Value::Num(l + r),
-				_ => return ErrorList::new("Invalid operation for types".to_owned(), l_pos).err()
+				_ => Value::Num(lhs.to_num(l_pos)? + rhs.to_num(r_pos)?),
 			}
 			BinaryOperator::Sub => Value::Num(lhs.to_num(l_pos)? - rhs.to_num(r_pos)?),
 			BinaryOperator::Mul => Value::Num(lhs.to_num(l_pos)? * rhs.to_num(r_pos)?),
-			BinaryOperator::Div => if rhs.to_num(l_pos)? == 0.0 {
+			BinaryOperator::Div => if rhs.to_num(r_pos)? == 0.0 {
 				return ErrorList::new("Cannot divide by zero".to_owned(), r_pos).err()
 			} else {
 				Value::Num(lhs.to_num(l_pos)? / rhs.to_num(r_pos)?)
@@ -82,8 +76,6 @@ impl ExprVisitor<Value> for Interpreter {
 			BinaryOperator::Gre => Value::Bool(lhs.to_num(l_pos)? >= rhs.to_num(r_pos)?),
 			BinaryOperator::Equ => Value::Bool(lhs.to_num(l_pos)? == rhs.to_num(r_pos)?),
 			BinaryOperator::Neq => Value::Bool(lhs.to_num(l_pos)? != rhs.to_num(r_pos)?),
-			BinaryOperator::And => todo!(),
-			BinaryOperator::Or => todo!(),
 		};
 		value.wrap()
 	}
@@ -95,6 +87,14 @@ impl ExprVisitor<Value> for Interpreter {
 			UnaryOperator::Neg => Value::Num(-val.to_num(pos)?).wrap(),
 			UnaryOperator::Not => Value::Bool(!is_truthy(&val)).wrap(),
 		}
+	}
+
+	fn logic(&mut self, data: LogicData, _pos: SourcePos) -> Result<Value> {
+		let left = is_truthy(&data.lhs.accept(self)?);
+		Value::Bool(match data.op {
+			LogicOperator::And => if left { is_truthy(&data.rhs.accept(self)?) } else { false },
+			LogicOperator::Or => if left { true } else { is_truthy(&data.rhs.accept(self)?) }
+		}).wrap()
 	}
 
 	fn grouping(&mut self, data: Box<Expression>, _pos: SourcePos) -> Result<Value> {
@@ -112,7 +112,7 @@ impl ExprVisitor<Value> for Interpreter {
 			Err(_) => ErrorList::new("Invalid console input".to_owned(), pos).err(),
 		}
 	}
-	
+
 	fn readnum(&mut self, pos: SourcePos) -> Result<Value> {
 		let in_res: std::result::Result<f64, text_io::Error> = try_read!("{}\r\n");
 		match in_res {
@@ -142,8 +142,12 @@ impl StmtVisitor<()> for Interpreter {
 		Ok(())
 	}
 
-	fn block(&mut self, data: Vec<Statement>, _pos: SourcePos) -> Result<()> {
-		self.execute_block(data, Environment::with_parent(self.env.clone()))?;
+	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> Result<()> {
+		if is_truthy(&data.cond.accept(self)?) {
+			self.execute_block(data.then_block)?;
+		} else {
+			self.execute_block(data.else_block)?;
+		}
 		Ok(())
 	}
 

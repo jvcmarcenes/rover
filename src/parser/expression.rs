@@ -1,5 +1,5 @@
 
-use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, ExprType::{self, *}, Expression, LiteralData, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::{self, *}, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, ExprType::{self, *}, Expression, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::{self, *}, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -32,6 +32,14 @@ fn un_operator_for_token(token: &Token) -> UnaryOperator {
 	}
 }
 
+fn lg_operator_for_token(token: &Token) -> LogicOperator {
+	match token.typ {
+		Keyword(And) => LogicOperator::And,
+		Keyword(Or) => LogicOperator::Or,
+		_ => panic!("This function should only be called when we know it will match"),
+	}
+}
+
 impl Parser {
 
 	pub fn expression_or_none(&mut self) -> ExprResult {
@@ -43,34 +51,41 @@ impl Parser {
 	}
 
 	pub fn expression(&mut self) -> ExprResult {
-		self.equality()
+		self.logic()
+	}
+
+	fn logic(&mut self) -> ExprResult {
+		let mut left = self.equality()?;
+		while let Some(token) = self.optional_any(&[Keyword(And), Keyword(Or)]) {
+			let op = lg_operator_for_token(&token);
+			let right = self.equality()?;
+			left = Logic(LogicData { lhs: Box::new(left), op, rhs: Box::new(right) }).to_expr(token.pos);
+		}
+		return left.wrap();
 	}
 
 	fn binary<F : FnMut(&mut Self) -> ExprResult>(&mut self, mut operand: F, operators: &[TokenType]) -> ExprResult {
 		let mut left = operand(self)?;
-		loop {
-			if let Some(token) = self.optional_any(operators) {
-				let op = bin_operation_for_token(&token);
-				let right = operand(self)?;
-				left = Binary(BinaryData { lhs: Box::new(left), op, rhs: Box::new(right) }).to_expr(token.pos);
-			} else {
-				return left.wrap();
-			}
+		while let Some(token) = self.optional_any(operators) {
+			let op = bin_operation_for_token(&token);
+			let right = operand(self)?;
+			left = Binary(BinaryData { lhs: Box::new(left), op, rhs: Box::new(right) }).to_expr(token.pos);
 		}
+		return left.wrap();
 	}
 
 	fn equality(&mut self) -> ExprResult {
 		self.binary(|parser| parser.comparison(), &[Symbol(DoubleEquals), Symbol(ExclamEquals)])
 	}
-	
+
 	fn comparison(&mut self) -> ExprResult {
 		self.binary(|parser| parser.term(), &[Symbol(CloseAng), Symbol(CloseAngEquals), Symbol(OpenAng), Symbol(OpenAngEquals)])
 	}
-	
+
 	fn term(&mut self) -> ExprResult {
 		self.binary(|parser| parser.factor(), &[Symbol(Plus), Symbol(Minus), Keyword(Mod)])
 	}
-	
+
 	fn factor(&mut self) -> ExprResult {
 		self.binary(|parser| parser.unary(), &[Symbol(Star), Symbol(Slash)])
 	}
@@ -90,6 +105,7 @@ impl Parser {
 		let expr_typ = match token.typ {
 			Keyword(False) => ExprType::Literal(LiteralData::Bool(false)),
 			Keyword(True) => ExprType::Literal(LiteralData::Bool(true)),
+			Keyword(_None) => ExprType::Literal(LiteralData::None),
 			Keyword(Keyword::Read) => ExprType::Read,
 			Keyword(Keyword::ReadNum) => ExprType::ReadNum,
 			TokenType::Literal(lit) => match lit {

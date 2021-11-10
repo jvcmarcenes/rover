@@ -4,7 +4,7 @@ pub mod statement;
 
 use std::{iter::Peekable, vec::IntoIter};
 
-use crate::{lexer::token::{Token, TokenType}, utils::{result::{Result, ErrorList}, wrap::Wrap}};
+use crate::{lexer::token::{Token, TokenType::{self, *}, Symbol}, utils::{result::{Result, ErrorList}, wrap::Wrap}};
 
 pub type TokenIter = Peekable<IntoIter<Token>>;
 
@@ -28,7 +28,7 @@ impl Parser {
 	fn next(&mut self) -> Token {
 		let peek = self.peek();
 		match peek.typ {
-			TokenType::EOF => peek,
+			EOF => peek,
 			_ => self.tokens.next().unwrap(),
 		}
 	}
@@ -52,8 +52,8 @@ impl Parser {
 
 	fn expect_eol(&mut self) -> Result<()> {
 		match self.peek() {
-			token if token.typ == TokenType::EOL => { self.next(); Ok(()) }
-			token if token.typ == TokenType::EOF => Ok(()),
+			token if token.typ == EOL => { self.next(); Ok(()) }
+			token if token.typ == EOF => Ok(()),
 			token => ErrorList::new(format!("Expected new line, found {}", token), token.pos).err()
 		}
 	}
@@ -72,26 +72,34 @@ impl Parser {
 		}
 	}
 
+	fn next_match(&mut self, expected: TokenType) -> bool {
+		self.peek().typ == expected
+	}
+
+	// fn next_match_any(&mut self, expected: &[TokenType]) -> bool {
+	// 	expected.contains(&self.peek().typ)
+	// }
+
 	fn skip_new_lines(&mut self) {
-		loop {
-			match self.peek().typ {
-				TokenType::EOL => { self.next(); },
-				_ => return,
-			}
-		}
+		while let EOL = self.peek().typ { self.next(); }
+	}
+
+	fn synchronize_with(&mut self, stop_at: TokenType) {
+		while self.next().typ != stop_at { }
 	}
 
 	fn synchronize(&mut self) {
 		loop {
-			match self.expect_eol() {
-				Ok(_) => return,
-				Err(_) => { self.next(); },
+			match self.next().typ {
+				EOL | EOF => return,
+				Symbol(Symbol::OpenBracket) => { self.synchronize_with(Symbol(Symbol::CloseBracket)); return }
+				_ => continue,
 			}
 		}
 	}
 
 	fn is_at_end(&mut self) -> bool {
-		self.peek().typ == TokenType::EOF
+		self.peek().typ == EOF
 	}
 
 }

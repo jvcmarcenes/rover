@@ -14,9 +14,10 @@ pub enum LiteralType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Keyword {
 	Writeline, Read, ReadNum,
-	True, False,
+	True, False, _None,
 	Let,
-	Mod,
+	Mod, And, Or,
+	If, Else,
 }
 
 impl Keyword {
@@ -27,8 +28,13 @@ impl Keyword {
 			"readnum" => ReadNum,
 			"true" => True,
 			"false" => False,
+			"none" => _None,
 			"let" => Let,
 			"mod" => Mod,
+			"and" => And,
+			"or" => Or,
+			"if" => If,
+			"else" => Else,
 			_ => return None,
 		};
 		Some(keyword)

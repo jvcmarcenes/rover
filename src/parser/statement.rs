@@ -1,15 +1,15 @@
 
-use crate::{ast::{expression::{ExprType, Expression, LiteralData}, statement::{AssignData, DeclarationData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::*, Symbol::*}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{expression::{ExprType, Expression, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::*, Symbol::*}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Parser;
 
 pub type StmtResult = Result<Statement>;
-pub type BlockResult = Result<Vec<Statement>>;
+pub type BlockResult = Result<Block>;
 
 impl Parser {
 
 	pub fn program(&mut self) -> BlockResult {
-		let mut statements = Vec::new();
+		let mut statements = Block::new();
 		let mut errors = ErrorList::empty();
 		loop {
 			self.skip_new_lines();
@@ -31,9 +31,12 @@ impl Parser {
 	}
 
 	fn block(&mut self) -> BlockResult {
-		let Token { pos, .. } = self.next();
-		let mut statements = Vec::new();
+		self.skip_new_lines();
+		let Token { pos, .. } = self.expect(Symbol(OpenBracket))?;
+
+		let mut statements = Block::new();
 		let mut errors = ErrorList::empty();
+
 		loop {
 			self.skip_new_lines();
 			match self.peek().typ {
@@ -49,6 +52,7 @@ impl Parser {
 			}
 		}
 		self.next();
+
 		if errors.is_empty() {
 			Ok(statements)
 		} else {
@@ -61,6 +65,7 @@ impl Parser {
 		let res = match peek.typ {
 			Keyword(Writeline) => self.writeline()?,
 			Keyword(Let) => self.declaration()?,
+			Keyword(If) => self.if_stmt()?,
 			_ => {
 				let expr = self.expression()?;
 				match self.optional(Symbol(Equals)) {
@@ -99,6 +104,23 @@ impl Parser {
 			None => ExprType::Literal(LiteralData::None).to_expr(next.pos),
 		};
 		StmtType::Declaration(DeclarationData { name, expr: Box::new(expr) }).to_stmt(pos).wrap()
+	}
+
+	fn if_stmt(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		let cond = self.expression()?;
+		let then_block = self.block()?;
+		self.skip_new_lines();
+		let else_block = if self.optional(Keyword(Else)).is_some() {
+			if self.next_match(Keyword(If)) {
+				Block::from([self.if_stmt()?])
+			} else {
+				self.block()?
+			}
+		} else {
+			Block::new()
+		};
+		StmtType::If(IfData { cond: Box::new(cond), then_block, else_block }).to_stmt(pos).wrap()
 	}
 
 }

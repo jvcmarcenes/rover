@@ -1,22 +1,21 @@
 
 use crate::utils::{result::Result, source_pos::SourcePos};
 
-use super::{expression::Expression};
+use super::expression::Expression;
 
 use self::StmtType::*;
 
-#[derive(Debug, Clone)]
+pub type Block = Vec<Statement>;
+
 pub struct DeclarationData { pub name: String, pub expr: Box<Expression> }
-
-#[derive(Clone, Debug)]
 pub struct AssignData { pub name: String, pub l_pos: SourcePos, pub expr: Box<Expression> }
+pub struct IfData { pub cond: Box<Expression>, pub then_block: Block, pub else_block: Block }
 
-#[derive(Debug, Clone)]
 pub enum StmtType {
 	Writeline(Box<Expression>),
 	Declaration(DeclarationData),
 	Assignment(AssignData),
-	Block(Vec<Statement>),
+	If(IfData),
 }
 
 impl StmtType {
@@ -25,7 +24,6 @@ impl StmtType {
 	}
 }
 
-#[derive(Debug, Clone)]
 pub struct Statement {
 	pub typ: StmtType,
 	pub pos: SourcePos,
@@ -43,7 +41,7 @@ impl Statement {
 			Writeline(expr) => visitor.writeline(expr, self.pos),
 			Declaration(data) => visitor.declaration(data, self.pos),
 			Assignment(data) => { let l_pos = data.l_pos; visitor.assignment(data, l_pos) },
-			Block(data) => visitor.block(data, self.pos),
+			If(data) => visitor.if_stmt(data, self.pos)
 		}
 	}
 }
@@ -52,5 +50,5 @@ pub trait StmtVisitor<T> {
 	fn writeline(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<T>;
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<T>;
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> Result<T>;
-	fn block(&mut self, data: Vec<Statement>, pos: SourcePos) -> Result<T>;
+	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<T>;
 }
