@@ -3,7 +3,6 @@ use crate::utils::{result::*, source_pos::*};
 
 use self::ExprType::*;
 
-
 #[derive(Clone, Debug)]
 pub enum BinaryOperator {
 	Add, Sub, Mul, Div, Rem,
@@ -21,6 +20,7 @@ pub enum LiteralData {
 	Str(String),
 	Num(f64),
 	Bool(bool),
+	None,
 }
 
 #[derive(Clone, Debug)]
@@ -35,6 +35,7 @@ pub enum ExprType {
 	Binary(BinaryData),
 	Unary(UnaryData),
 	Grouping(Box<Expression>),
+	Variable(String),
 }
 
 impl ExprType {
@@ -58,17 +59,19 @@ impl Expression {
 impl Expression {
 	pub fn accept<T>(self, visitor: &mut dyn ExprVisitor<T>) -> Result<T> {
 		match self.typ {
-			Literal(value) => visitor.literal(value),
-			Binary(data) => visitor.binary(data),
-			Unary(data) => visitor.unary(data),
-			Grouping(data) => visitor.grouping(data),
+			Literal(value) => visitor.literal(value, self.pos),
+			Binary(data) => visitor.binary(data, self.pos),
+			Unary(data) => visitor.unary(data, self.pos),
+			Grouping(data) => visitor.grouping(data, self.pos),
+			Variable(name) => visitor.variable(name, self.pos),
 		}
 	}
 }
 
 pub trait ExprVisitor<T> {
-	fn literal(&mut self, data: LiteralData) -> Result<T>;
-	fn binary(&mut self, data: BinaryData) -> Result<T>;
-	fn unary(&mut self, data: UnaryData) -> Result<T>;
-	fn grouping(&mut self, data: Box<Expression>) -> Result<T>;
+	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<T>;
+	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<T>;
+	fn unary(&mut self, data: UnaryData, pos: SourcePos) -> Result<T>;
+	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<T>;
+	fn variable(&mut self, data: String, pos: SourcePos) -> Result<T>;
 }

@@ -14,14 +14,16 @@ use lexer::Lexer;
 use parser::Parser;
 
 fn main() {
-	let mut args = std::env::args();
-	args.next();
+	let mut args = std::env::args().skip(1);
+
+	if cfg!(windows) {
+		ansi_term::enable_ansi_support().unwrap_or_else(|err| eprintln!("{}", err));
+	}
 
 	match args.next() {
 		Some(path) => run_file(&path),
 		None => run_repl(),
 	}
-
 }
 
 fn run_file(path: &str) {
@@ -30,29 +32,27 @@ fn run_file(path: &str) {
 		process::exit(1);
 	});
 
-	let tokens = lexer.scan_tokens().unwrap_or_else(|errors| {
-		for err in errors { err.report(&path, "lexer"); }
+	let (tokens, errors) = lexer.scan_tokens();
+	errors.report(&path, "lexer");
+	
+	let prog = Parser::new(tokens).program().unwrap_or_else(|errors| {
+		errors.report(&path, "parser");
 		process::exit(1);
 	});
 
-	let mut parser = Parser::new(tokens);
+	if !errors.is_empty() { process::exit(1); }
 
-	let expr = parser.expression().unwrap_or_else(|err| {
-		err.report(&path, "parser"); 
+	Interpreter::new().interpret(prog).unwrap_or_else(|err| {
+		err.report(&path, "runtime");
 		process::exit(1);
 	});
-
-	match Interpreter.evaluate(Box::new(expr)) {
-		Ok(val) => println!("{}", val),
-		Err(err) => err.report(&path, "runtime"),
-	}
 }
 
 fn run_repl() {
 
 	println!("Mars REPL");
 
-	let mut interpreter = Interpreter;
+	let mut interpreter = Interpreter::new();
 
 	loop {
 		print!("> ");
@@ -63,21 +63,15 @@ fn run_repl() {
 		if input.starts_with(".exit") { break }
 
 		let mut lexer = Lexer::from_text(&input);
-		let tokens = match lexer.scan_tokens() {
-			Ok(tokens) => tokens,
-			Err(errors) => {
-				for err in errors { err.repl_err(&input, "lexer") }
-				continue;
-			}
+		let (tokens, errors) = lexer.scan_tokens();
+		if !errors.is_empty() { errors.report_repl(&input, "lexer"); continue; }
+		let stmt = match Parser::new(tokens).statement() {
+			Ok(stmt) => stmt,
+			Err(err) => { err.report_repl(&input, "parser"); continue; }
 		};
-		let mut parser = Parser::new(tokens);
-		let expr = match parser.expression() {
-			Ok(expr) => expr,
-			Err(err) => { err.repl_err(&input, "parser"); continue; }
-		};
-		match interpreter.evaluate(Box::new(expr)) {
-			Ok(val) => println!("{}", val),
-			Err(err) => err.repl_err(&input, "runtime")
+		match stmt.accept(&mut interpreter) {
+			Ok(_) => (),
+			Err(err) => err.report_repl(&input, "runtime")
 		}
 
 	}

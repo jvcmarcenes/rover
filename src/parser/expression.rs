@@ -1,5 +1,5 @@
 
-use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, ExprType::{self, *}, Expression, LiteralData, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{Error, Result}, wrap::Wrap}};
+use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, ExprType::{self, *}, Expression, LiteralData, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -33,6 +33,14 @@ fn un_operator_for_token(token: &Token) -> UnaryOperator {
 }
 
 impl Parser {
+
+	pub fn expression_or_none(&mut self) -> ExprResult {
+		let peek = self.peek();
+		match peek.typ {
+			EOL | EOF => ExprType::Literal(LiteralData::None).to_expr(peek.pos).wrap(),
+			_ => self.expression()
+		}
+	}
 
 	pub fn expression(&mut self) -> ExprResult {
 		self.equality()
@@ -91,7 +99,8 @@ impl Parser {
 				self.expect(Symbol(ClosePar))?;
 				Grouping(Box::new(expr))
 			}
-			_ => return Error::new(format!("Expected expression, found {}", token), token.pos).into()
+			Identifier(name) => Variable(name),
+			_ => return ErrorList::new(format!("Expected expression, found {}", token), token.pos).err()
 		};
 		expr_typ.to_expr(token.pos).wrap()
 	}

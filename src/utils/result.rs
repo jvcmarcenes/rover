@@ -1,26 +1,23 @@
 
 use std::fmt::Debug;
 
-use super::{source_pos::SourcePos, wrap::Wrap};
+use super::{source_pos::SourcePos};
 
-pub type Result<T> = std::result::Result<T, Error>;
-
-impl<T> Wrap<Result<Option<T>>> for T {
-	fn wrap(self) -> Result<Option<T>> { Ok(Some(self)) }
-}
+pub type Result<T> = std::result::Result<T, ErrorList>;
 
 #[derive(Clone, Debug)]
-pub struct Error {
+struct Error {
 	msg: String,
 	pos: SourcePos,
 }
 
 impl Error {
-	pub fn new(msg: String, pos: SourcePos) -> Error {
+	
+	fn new(msg: String, pos: SourcePos) -> Error {
 		Error { msg, pos }
 	}
 
-	pub fn report(self, path: &str, stage: &str) {
+	fn report(&self, path: &str, stage: &str) {
 		eprintln!("{} {}: {}",
 			ansi_term::Color::Red.bold().paint(format!("{} error", stage)),
 			format!("[{}:{}:{}]", path, self.pos.lin, self.pos.col),
@@ -41,7 +38,7 @@ impl Error {
 		eprintln!();
 	}
 
-	pub fn repl_err(self, line: &str, stage: &str) {
+	fn report_repl(&self, line: &str, stage: &str) {
 		eprintln!("{}: {}",
 			ansi_term::Color::Red.bold().paint(format!("{} error", stage)),
 			self.msg
@@ -54,6 +51,16 @@ impl Error {
 	
 }
 
-impl<T> Into<Result<T>> for Error {
-	fn into(self) -> Result<T> { Err(self) }
+#[derive(Debug, Clone)]
+pub struct ErrorList(Vec<Error>);
+
+impl ErrorList {
+	pub fn empty() -> Self { Self(Vec::new()) }
+	pub fn new(msg: String, pos: SourcePos) -> Self { Self(vec![Error::new(msg, pos)]) }
+	pub fn err<T>(self) -> Result<T> { Err(self) }
+	pub fn is_empty(&self) -> bool { self.0.is_empty() }
+	pub fn add(&mut self, msg: String, pos: SourcePos) { self.0.push(Error::new(msg, pos)) }
+	pub fn append(&mut self, mut err: ErrorList) { self.0.append(&mut err.0) }
+	pub fn report(&self, path: &str, stage: &str) { self.0.iter().for_each(|err| err.report(path, stage)) }
+	pub fn report_repl(&self, path: &str, stage: &str) { self.0.iter().for_each(|err| err.report_repl(path, stage)) }
 }

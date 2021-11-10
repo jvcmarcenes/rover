@@ -3,12 +3,12 @@ pub mod token;
 
 use std::{iter::Peekable, vec::IntoIter};
 
-use crate::utils::{result::{Error, Result}, source_pos::SourcePos, wrap::Wrap};
+use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap};
 
 use self::token::{Keyword, LiteralType::*, Symbol::{self, *}, Token, TokenType::*};
 
 type TokenResult = Result<Option<Token>>;
-type LexerResult = std::result::Result<Vec<Token>, Vec<Error>>;
+type LexerResult = (Vec<Token>, ErrorList);
 
 #[derive(Debug, Clone)]
 pub struct Lexer {
@@ -67,7 +67,7 @@ impl Lexer {
 					self.next_char();
 				}
 				Some(_) => return Ok(()),
-				None => return Error::new("Unexpected EOF".to_owned(), self.cursor).into(),
+				None => return ErrorList::new("Unexpected EOF".to_owned(), self.cursor).err(),
 			}
 		}
 	}
@@ -85,7 +85,7 @@ impl Lexer {
 			match self.next_char() {
 				Some('#') if self.next_match(')') => return Ok(None),
 				Some(_) => continue,
-				None => return Error::new("Block comment left open".to_owned(), pos).into()
+				None => return ErrorList::new("Block comment left open".to_owned(), pos).err()
 			}
 		}
 	}
@@ -111,7 +111,7 @@ impl Lexer {
 		}
 		match value.parse::<f64>() {
 			Ok(n) => Token::new(Literal(Num(n)), self.cursor).wrap(),
-			Err(_) => Error::new(format!("Invalid number literal '{}'", value), self.cursor).into(),
+			Err(_) => ErrorList::new(format!("Invalid number literal '{}'", value), self.cursor).err(),
 		}
 	}
 
@@ -156,15 +156,15 @@ impl Lexer {
 			'=' => self.symbol(Equals),
 			'\'' => todo!("yet to implement template strings"),
 			'"' => return self.scan_string(),
-			'#' if self.next_match('{') => self.symbol(HashtagOpenBracket),
+			// '#' if self.next_match('{') => self.symbol(HashtagOpenBracket),
 			'#' => self.scan_comment(),
-			_ => Error::new(format!("Unknow token {}", first_char), self.cursor).into(),
+			_ => ErrorList::new(format!("Unknow token {}", first_char), self.cursor).err(),
 		}
 	}
 
 	pub fn scan_tokens(&mut self) -> LexerResult {
 		let mut tokens = Vec::new();
-		let mut errors = Vec::new();
+		let mut errors = ErrorList::empty();
 
 		loop {
 			match self.next_char() {
@@ -173,7 +173,7 @@ impl Lexer {
 				Some(c) => match self.scan_token(c) {
 					Ok(Some(token)) => tokens.push(token),
 					Ok(None) => continue,
-					Err(err) => errors.push(err),
+					Err(err) => errors.append(err),
 				}
 				None => break,
 			}
@@ -181,11 +181,7 @@ impl Lexer {
 
 		tokens.push(Token::new(EOF, self.cursor));
 
-		if errors.is_empty() {
-			Ok(tokens)
-		} else {
-			Err(errors)
-		}
+		(tokens, errors)
 	}
 
 }

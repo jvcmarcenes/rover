@@ -1,1 +1,8 @@
 
+let x = 9
+
+writeline x
+
+x = "Hello"
+
+writeline x

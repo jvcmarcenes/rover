@@ -1,5 +1,5 @@
 
-use crate::utils::{result::{Error, Result}, source_pos::SourcePos};
+use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos};
 
 use self::Value::*;
 
@@ -16,12 +16,12 @@ pub enum Value {
 impl Value {
 	pub fn to_num(&self, pos: SourcePos) -> Result<f64> {
 		if let Value::Num(n) = self { return Ok(*n) }
-		else { Error::new("Cannot cast value to number".to_owned(), pos).into() }
+		else { ErrorList::new("Cannot cast value to number".to_owned(), pos).err() }
 	}
 
 	pub fn to_bool(&self, pos: SourcePos) -> Result<bool> {
 		if let Value::Bool(b) = self { return Ok(*b) }
-		else { Error::new("Cannot cast value to number".to_owned(), pos).into() }
+		else { ErrorList::new("Cannot cast value to bool".to_owned(), pos).err() }
 	}
 }
 

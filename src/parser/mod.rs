@@ -1,9 +1,10 @@
 
 pub mod expression;
+pub mod statement;
 
 use std::{iter::Peekable, vec::IntoIter};
 
-use crate::{lexer::token::{Token, TokenType}, utils::{result::{Result, Error}, wrap::Wrap}};
+use crate::{lexer::token::{Token, TokenType}, utils::{result::{Result, ErrorList}, wrap::Wrap}};
 
 pub type TokenIter = Peekable<IntoIter<Token>>;
 
@@ -28,38 +29,32 @@ impl Parser {
 		let peek = self.peek();
 		match peek.typ {
 			TokenType::EOF => peek,
-			_ => {
-				self.tokens.next();
-				peek
-			}
+			_ => self.tokens.next().unwrap(),
 		}
 	}
 
 	fn expect(&mut self, expected: TokenType) -> Result<Token> {
 		match self.next() {
 			token if token.typ == expected => token.wrap(),
-			token => Error::new(format!("Expected {}, found {}", expected, token.typ), token.pos).into(),
+			token => ErrorList::new(format!("Expected {}, found {}", expected, token.typ), token.pos).err(),
 		}
 	}
 	
-	fn expect_any(&mut self, expected: &[TokenType]) -> Result<Token> {
-		match self.next() {
-			token if expected.contains(&token.typ) => token.wrap(),
-			token => {
-				let expected_str = expected.iter().map(|typ| typ.to_string()).reduce(|a, b| format!("{}, {}", a, b)).expect("Cannot expect no tokens");
-				Error::new(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).into()
-			}
-		}
-	}
+	// fn expect_any(&mut self, expected: &[TokenType]) -> Result<Token> {
+	// 	match self.next() {
+	// 		token if expected.contains(&token.typ) => token.wrap(),
+	// 		token => {
+	// 			let expected_str = expected.iter().map(|typ| typ.to_string()).reduce(|a, b| format!("{}, {}", a, b)).expect("Cannot expect no tokens");
+	// 			Error::new(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).into()
+	// 		}
+	// 	}
+	// }
 
 	fn expect_eol(&mut self) -> Result<()> {
 		match self.peek() {
-			token if token.typ == TokenType::EOL => {
-				self.next();
-				Ok(())
-			}
+			token if token.typ == TokenType::EOL => { self.next(); Ok(()) }
 			token if token.typ == TokenType::EOF => Ok(()),
-			token => Error::new(format!("Expected new line, found {}", token), token.pos).into()
+			token => ErrorList::new(format!("Expected new line, found {}", token), token.pos).err()
 		}
 	}
 
@@ -93,6 +88,10 @@ impl Parser {
 				Err(_) => { self.next(); },
 			}
 		}
+	}
+
+	fn is_at_end(&mut self) -> bool {
+		self.peek().typ == TokenType::EOF
 	}
 
 }

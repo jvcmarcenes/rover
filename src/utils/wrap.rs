@@ -10,3 +10,7 @@ impl<T> Wrap<Option<T>> for T {
 impl<T, E> Wrap<Result<T, E>> for T {
 	fn wrap(self) -> Result<T, E> { Ok(self) }
 }
+
+impl<T, E> Wrap<Result<Option<T>, E>> for T {
+	fn wrap(self) -> Result<Option<T>, E> { Ok(Some(self)) }
+}

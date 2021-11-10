@@ -15,6 +15,7 @@ pub enum LiteralType {
 pub enum Keyword {
 	Writeline,
 	True, False,
+	Let,
 	Mod,
 }
 
@@ -24,6 +25,7 @@ impl Keyword {
 			"writeline" => Writeline,
 			"true" => True,
 			"false" => False,
+			"let" => Let,
 			"mod" => Mod,
 			_ => return None,
 		};
