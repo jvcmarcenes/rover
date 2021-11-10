@@ -2,6 +2,8 @@
 pub mod value;
 pub mod environment;
 
+use text_io::try_read;
+
 use crate::{ast::{expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{environment::Environment, value::Value};
@@ -103,6 +105,21 @@ impl ExprVisitor<Value> for Interpreter {
 		self.env.get(&data, pos)
 	}
 
+	fn read(&mut self, pos: SourcePos) -> Result<Value> {
+		let in_res: std::result::Result<String, text_io::Error> = try_read!("{}\r\n");
+		match in_res {
+			Ok(str) => Value::Str(str).wrap(),
+			Err(_) => ErrorList::new("Invalid console input".to_owned(), pos).err(),
+		}
+	}
+	
+	fn readnum(&mut self, pos: SourcePos) -> Result<Value> {
+		let in_res: std::result::Result<f64, text_io::Error> = try_read!("{}\r\n");
+		match in_res {
+			Ok(n) => Value::Num(n).wrap(),
+			Err(_) => ErrorList::new("Invalid console input, expected a number".to_owned(), pos).err(),
+		}
+	}
 }
 
 impl StmtVisitor<()> for Interpreter {

@@ -36,6 +36,7 @@ pub enum ExprType {
 	Unary(UnaryData),
 	Grouping(Box<Expression>),
 	Variable(String),
+	Read, ReadNum
 }
 
 impl ExprType {
@@ -64,6 +65,8 @@ impl Expression {
 			Unary(data) => visitor.unary(data, self.pos),
 			Grouping(data) => visitor.grouping(data, self.pos),
 			Variable(name) => visitor.variable(name, self.pos),
+			Read => visitor.read(self.pos),
+			ReadNum => visitor.readnum(self.pos),
 		}
 	}
 }
@@ -74,4 +77,6 @@ pub trait ExprVisitor<T> {
 	fn unary(&mut self, data: UnaryData, pos: SourcePos) -> Result<T>;
 	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<T>;
 	fn variable(&mut self, data: String, pos: SourcePos) -> Result<T>;
+	fn read(&mut self, pos: SourcePos) -> Result<T>;
+	fn readnum(&mut self, pos: SourcePos) -> Result<T>;
 }

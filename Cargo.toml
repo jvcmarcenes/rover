@@ -6,3 +6,4 @@ edition = "2018"
 [dependencies]
 rand = "*"
 ansi_term = "0.12"
+text_io = "0.1.9"

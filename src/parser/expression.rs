@@ -1,5 +1,5 @@
 
-use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, ExprType::{self, *}, Expression, LiteralData, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, ExprType::{self, *}, Expression, LiteralData, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::{self, *}, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -90,6 +90,8 @@ impl Parser {
 		let expr_typ = match token.typ {
 			Keyword(False) => ExprType::Literal(LiteralData::Bool(false)),
 			Keyword(True) => ExprType::Literal(LiteralData::Bool(true)),
+			Keyword(Keyword::Read) => ExprType::Read,
+			Keyword(Keyword::ReadNum) => ExprType::ReadNum,
 			TokenType::Literal(lit) => match lit {
 				LiteralType::Num(n) => ExprType::Literal(LiteralData::Num(n)),
 				LiteralType::Str(s) => ExprType::Literal(LiteralData::Str(s)),
