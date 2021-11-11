@@ -30,7 +30,7 @@ impl Parser {
 		}
 	}
 
-	fn block(&mut self) -> BlockResult {
+	pub(super) fn block(&mut self) -> BlockResult {
 		self.skip_new_lines();
 		let Token { pos, .. } = self.expect(Symbol(OpenBracket))?;
 
@@ -62,29 +62,25 @@ impl Parser {
 
 	pub fn statement(&mut self) -> StmtResult {
 		let peek = self.peek();
-		let res = match peek.typ {
-			Keyword(Writeline) => self.writeline()?,
-			Keyword(Let) => self.declaration()?,
-			Keyword(If) => self.if_stmt()?,
-			Keyword(Loop) => self.loop_stmt()?,
-			Keyword(Break) => self.break_stmt()?,
-			Keyword(Continue) => self.continue_stmt()?,
+		match peek.typ {
+			Keyword(Let) => self.declaration(),
+			Keyword(If) => self.if_stmt(),
+			Keyword(Loop) => self.loop_stmt(),
+			Keyword(Break) => self.break_stmt(),
+			Keyword(Continue) => self.continue_stmt(),
+			Keyword(Return) => self.return_stmt(),
 			_ => {
 				let expr = self.expression()?;
+				let pos = expr.pos;
 				match self.optional_any(&[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals)]) {
-					Some(op) => self.assignment(expr, op)?,
-					None => return ErrorList::new("Expeced statement, found expression".to_owned(), expr.pos).err(),
+					Some(op) => self.assignment(expr, op),
+					None => {
+						self.expect_eol()?;
+						StmtType::Expr(Box::new(expr)).to_stmt(pos).wrap()
+					}
 				}
 			},
-		};
-		res.wrap()
-	}
-
-	fn writeline(&mut self) -> StmtResult {
-		let token = self.next();
-		let expr = self.expression_or_none()?;
-		self.expect_eol()?;
-		StmtType::Writeline(Box::new(expr)).to_stmt(token.pos).wrap()
+		}
 	}
 
 	fn assignment(&mut self, left: Expression, op: Token) -> StmtResult {
@@ -157,6 +153,15 @@ impl Parser {
 			return ErrorList::new("Continue statement outside of loop".to_owned(), pos).err();
 		}
 		StmtType::Continue.to_stmt(pos).wrap()
+	}
+	
+	fn return_stmt(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		if !self.ctx.in_func {
+			return ErrorList::new("Return statement outside of function".to_owned(), pos).err();
+		}
+		let expr = self.expression_or_none()?;
+		StmtType::Return(Box::new(expr)).to_stmt(pos).wrap()
 	}
 
 }

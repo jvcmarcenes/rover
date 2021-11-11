@@ -7,11 +7,13 @@ mod ast;
 mod parser;
 mod interpreter;
 
-use std::process;
+use std::{io::Write, process};
 
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
+
+use crate::ast::statement::StmtType;
 
 fn main() {
 	let mut args = std::env::args().skip(1);
@@ -22,11 +24,7 @@ fn main() {
 
 	match args.next() {
 		Some(path) => run_file(&path),
-		// None => run_repl(),
-		None => {
-			eprintln!("{}: no path provided", ansi_term::Color::Red.paint("cli error"));
-			process::exit(1);
-		}
+		None => run_repl(),
 	}
 }
 
@@ -46,38 +44,44 @@ fn run_file(path: &str) {
 
 	if !errors.is_empty() { process::exit(1); }
 
-	Interpreter::new().interpret(prog).unwrap_or_else(|err| {
+	let mut interpreter = Interpreter::new();
+
+	interpreter.interpret(prog).unwrap_or_else(|err| {
 		err.report(&path, "runtime");
 		process::exit(1);
 	});
 }
 
-// fn run_repl() {
+fn run_repl() {
 
-// 	println!("Mars REPL");
+	println!("Mars REPL");
 
-// 	let mut interpreter = Interpreter::new();
+	let mut interpreter = Interpreter::new();
 
-// 	loop {
-// 		print!("> ");
-// 		std::io::stdout().flush().unwrap();
-// 		let mut input = String::new();
-// 		std::io::stdin().read_line(&mut input).unwrap();
+	loop {
+		print!("> ");
+		std::io::stdout().flush().unwrap();
+		let mut input = String::new();
+		std::io::stdin().read_line(&mut input).unwrap();
 
-// 		if input.starts_with(".exit") { break }
+		if input.starts_with(".exit") { break }
 
-// 		let mut lexer = Lexer::from_text(&input);
-// 		let (tokens, errors) = lexer.scan_tokens();
-// 		if !errors.is_empty() { errors.report_repl(&input, "lexer"); continue; }
-// 		let stmt = match Parser::new(tokens).statement() {
-// 			Ok(stmt) => stmt,
-// 			Err(err) => { err.report_repl(&input, "parser"); continue; }
-// 		};
-// 		match stmt.accept(&mut interpreter) {
-// 			Ok(_) => (),
-// 			Err(err) => err.report_repl(&input, "runtime")
-// 		}
+		let mut lexer = Lexer::from_text(&input);
+		let (tokens, errors) = lexer.scan_tokens();
+		if !errors.is_empty() { errors.report_repl(&input, "lexer"); continue; }
+		let stmt = match Parser::new(tokens).statement() {
+			Ok(stmt) => stmt,
+			Err(err) => { err.report_repl(&input, "parser"); continue; }
+		};
+		let res = match stmt.typ {
+			StmtType::Expr(expr) => expr.accept(&mut interpreter).map(|ok| ok.to_string()),
+			_ => stmt.accept(&mut interpreter).map(|_| "none".to_owned()),
+		};
+		match res {
+			Ok(s) => println!("{}", s),
+			Err(err) => err.report_repl(&input, "runtime")
+		}
 
-// 	}
+	}
 
-// }
+}

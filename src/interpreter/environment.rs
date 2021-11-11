@@ -7,7 +7,7 @@ use super::value::Value;
 
 pub type ValueMap = HashMap<String, Value>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Environment(Vec<ValueMap>);
 
 impl Environment {
@@ -26,18 +26,19 @@ impl Environment {
 
 	pub fn pop(&mut self) {
 		match self.0.as_slice() {
-			[_, ..] => self.0.pop(),
-			[] => panic!("Tried to pop the root environment"),
+			[_, _, ..] => self.0.pop(),
+			[_] => panic!("Tried to pop the root environment"),
+			[] => panic!("Environment should never be empty"),
 		};
 	}
 
-	pub fn define(&mut self, name: String, value: Value) {
-		self.top().insert(name, value);
+	pub fn define(&mut self, name: &str, value: Value) {
+		self.top().insert(name.to_owned(), value);
 	}
 	
 	pub fn get(&self, name: &str, pos: SourcePos) -> Result<Value> {
 		let mut cur = self.0.as_slice();
-		while let [env, rest @ ..] = cur {
+		while let [rest @ .., env] = cur {
 			match env.get(name) {
 				Some(val) => return val.to_owned().wrap(),
 				None => cur = rest,
@@ -48,7 +49,7 @@ impl Environment {
 	
 	pub fn assign(&mut self, name: String, value: Value, pos: SourcePos) -> Result<()> {
 		let mut cur = self.0.as_mut_slice();
-		while let [env, rest @ ..] = cur {
+		while let [rest @ .., env] = cur {
 			if env.contains_key(&name) {
 				env.insert(name, value);
 				return Ok(())

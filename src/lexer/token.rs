@@ -13,20 +13,17 @@ pub enum LiteralType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Keyword {
-	Writeline, Read, ReadNum,
 	True, False, _None,
 	Let,
 	Mod, And, Or,
 	If, Else,
 	Loop, Break, Continue,
+	Function, Return,
 }
 
 impl Keyword {
 	pub fn get(s: &str) -> Option<Keyword> {
 		let keyword = match s {
-			"writeline" => Writeline,
-			"read" => Read,
-			"readnum" => ReadNum,
 			"true" => True,
 			"false" => False,
 			"none" => _None,
@@ -39,6 +36,8 @@ impl Keyword {
 			"loop" => Loop,
 			"break" => Break,
 			"continue" => Continue,
+			"function" => Function,
+			"return" => Return,
 			_ => return None,
 		};
 		Some(keyword)

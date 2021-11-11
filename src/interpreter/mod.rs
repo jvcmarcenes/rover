@@ -1,17 +1,17 @@
 
 pub mod value;
 pub mod environment;
-
-use text_io::try_read;
+pub mod globals;
 
 use crate::{ast::{expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::{Message::*, environment::{Environment, ValueMap}, value::Value};
+use self::{Message::*, environment::{Environment, ValueMap}, globals::globals, value::{Value, function::Function}};
 
-enum Message {
+pub enum Message {
 	None,
 	Break,
 	Continue,
+	Return(Value)
 }
 
 type MessageResult = Result<Message>;
@@ -31,7 +31,9 @@ fn is_truthy(val: &Value) -> bool {
 impl Interpreter {
 
 	pub fn new() -> Self {
-		Self { env: Environment::new() }
+		Self {
+			env: globals()
+		}
 	}
 
 	pub fn interpret(&mut self, statements: Block) -> Result<()> {
@@ -79,10 +81,13 @@ impl ExprVisitor<Value> for Interpreter {
 			}
 			BinaryOperator::Sub => Value::Num(lhs.to_num(l_pos)? - rhs.to_num(r_pos)?),
 			BinaryOperator::Mul => Value::Num(lhs.to_num(l_pos)? * rhs.to_num(r_pos)?),
-			BinaryOperator::Div => if rhs.to_num(r_pos)? == 0.0 {
-				return ErrorList::new("Cannot divide by zero".to_owned(), r_pos).err()
-			} else {
-				Value::Num(lhs.to_num(l_pos)? / rhs.to_num(r_pos)?)
+			BinaryOperator::Div => {
+				let rhs = rhs.to_num(r_pos)?;
+				if rhs == 0.0 {
+					return ErrorList::new("Cannot divide by zero".to_owned(), r_pos).err()
+				} else {
+					Value::Num(lhs.to_num(l_pos)? / rhs)
+				}
 			},
 			BinaryOperator::Rem => Value::Num(lhs.to_num(l_pos)? % rhs.to_num(r_pos)?),
 			BinaryOperator::Lst => Value::Bool(lhs.to_num(l_pos)? < rhs.to_num(r_pos)?),
@@ -120,34 +125,37 @@ impl ExprVisitor<Value> for Interpreter {
 		self.env.get(&data, pos)
 	}
 
-	fn read(&mut self, pos: SourcePos) -> Result<Value> {
-		let in_res: std::result::Result<String, text_io::Error> = try_read!("{}\r\n");
-		match in_res {
-			Ok(str) => Value::Str(str).wrap(),
-			Err(_) => ErrorList::new("Invalid console input".to_owned(), pos).err(),
+	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Value> {
+		let calee_pos = data.calee.pos;
+		let calee = data.calee.accept(self)?;
+		let mut args = Vec::new();
+		for arg in data.args {
+			args.push(arg.accept(self)?);
 		}
+		let function = calee.to_callable(calee_pos)?;
+		if function.arity() != args.len() as u8 {
+			return ErrorList::new(format!("Expected {} arguments, but got {}", function.arity(), args.len()), pos).err();
+		}
+		function.call(calee_pos, self, args)
 	}
 
-	fn readnum(&mut self, pos: SourcePos) -> Result<Value> {
-		let in_res: std::result::Result<f64, text_io::Error> = try_read!("{}\r\n");
-		match in_res {
-			Ok(n) => Value::Num(n).wrap(),
-			Err(_) => ErrorList::new("Invalid console input, expected a number".to_owned(), pos).err(),
-		}
+	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Value> {
+		let func = Function::new(data.params, data.body);
+		Value::Callable(Box::new(func)).wrap()
 	}
+
 }
 
 impl StmtVisitor<Message> for Interpreter {
 
-	fn writeline(&mut self, data: Box<Expression>, _pos: SourcePos) -> MessageResult {
-		let val = data.accept(self)?;
-		println!("{}", val);
+	fn expr(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<Message> {
+		expr.accept(self)?;
 		None.wrap()
 	}
 
 	fn declaration(&mut self, data: DeclarationData, _pos: SourcePos) -> MessageResult {
 		let val = data.expr.accept(self)?;
-		self.env.define(data.name, val);
+		self.env.define(&data.name, val);
 		None.wrap()
 	}
 
@@ -169,7 +177,8 @@ impl StmtVisitor<Message> for Interpreter {
 		loop {
 			match self.execute_block(block.clone(), ValueMap::new())? {
 				None | Continue => continue,
-				Break => return None.wrap()
+				Break => return None.wrap(),
+				msg => return msg.wrap(),
 			}
 		}
 	}
@@ -180,6 +189,11 @@ impl StmtVisitor<Message> for Interpreter {
 
 	fn continue_stmt(&mut self, _pos: SourcePos) -> Result<Message> {
 		Ok(Continue)
+	}
+
+	fn return_stmt(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<Message> {
+		let val = expr.accept(self)?;
+		Return(val).wrap()
 	}
 
 }

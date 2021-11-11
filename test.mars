@@ -1,18 +1,14 @@
 
-let i = 0
-
-loop {
-
-	i += 1
-
-	if i > 40 {
-		break
+let factorial = function (n) {
+	if n <= 1 {
+		return 1
+	} else {
+		return n * factorial(n - 1)
 	}
-
-	if i mod 2 == 0 {
-		continue
-	}
-
-	writeline i
-
 }
+
+write("Enter a number: ")
+
+let n = readnum()
+
+writeline("7! = " + factorial(n))

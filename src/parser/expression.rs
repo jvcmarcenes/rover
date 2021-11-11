@@ -1,5 +1,5 @@
 
-use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, ExprType::{self, *}, Expression, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::{self, *}, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -96,8 +96,31 @@ impl Parser {
 			let expr = self.unary()?;
 			return Unary(UnaryData { op, expr: Box::new(expr) }).to_expr(token.pos).wrap();
 		} else {
-			return self.primary();
+			return self.call();
 		}
+	}
+
+	fn call(&mut self) -> ExprResult {
+		let mut expr = self.primary()?;
+
+		while let Some(token) = self.optional(Symbol(OpenPar)) {
+			let mut args = Vec::new();
+			loop {
+				let peek = self.peek();
+				match peek.typ {
+					Symbol(ClosePar) => { self.next(); break; },
+					_ if args.is_empty() => args.push(self.expression()?),
+					_ => {
+						self.expect(Symbol(Comma))?;
+						self.skip_new_lines();
+						args.push(self.expression()?);
+					}
+				}
+			}
+			expr = ExprType::Call(CallData { calee: Box::new(expr), args }).to_expr(token.pos);
+		}
+
+		expr.wrap()
 	}
 
 	fn primary(&mut self) -> ExprResult {
@@ -106,8 +129,7 @@ impl Parser {
 			Keyword(False) => ExprType::Literal(LiteralData::Bool(false)),
 			Keyword(True) => ExprType::Literal(LiteralData::Bool(true)),
 			Keyword(_None) => ExprType::Literal(LiteralData::None),
-			Keyword(Keyword::Read) => ExprType::Read,
-			Keyword(Keyword::ReadNum) => ExprType::ReadNum,
+			Keyword(Function) => self.lambda()?,
 			TokenType::Literal(lit) => match lit {
 				LiteralType::Num(n) => ExprType::Literal(LiteralData::Num(n)),
 				LiteralType::Str(s) => ExprType::Literal(LiteralData::Str(s)),
@@ -121,6 +143,32 @@ impl Parser {
 			_ => return ErrorList::new(format!("Expected expression, found {}", token), token.pos).err()
 		};
 		expr_typ.to_expr(token.pos).wrap()
+	}
+
+	fn lambda(&mut self) -> Result<ExprType> {
+		self.expect(Symbol(OpenPar))?;
+		let mut params = Vec::new();
+		loop {
+			let peek = self.peek();
+			match peek.typ {
+				Symbol(ClosePar) => { self.next(); break; }
+				Identifier(name) if params.is_empty() => { self.next(); params.push(name) },
+				_ => {
+					self.expect(Symbol(Comma))?;
+					self.skip_new_lines();
+					let next = self.next();
+					if let Identifier(name) = next.typ {
+						params.push(name)
+					} else {
+						return ErrorList::new(format!("Expected identifier, found {}", next), next.pos).err()
+					}
+				}
+			}
+		}
+		let root = if self.ctx.in_func { false } else { self.ctx.in_func = true; true };
+		let body = self.block()?;
+		if root { self.ctx.in_func = false }
+		ExprType::Lambda(LambdaData { params, body }).wrap()
 	}
 
 }

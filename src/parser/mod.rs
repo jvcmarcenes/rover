@@ -11,6 +11,7 @@ pub type TokenIter = Peekable<IntoIter<Token>>;
 #[derive(Debug, Clone, Default)]
 struct ParserContext {
 	in_loop: bool,
+	in_func: bool,
 }
 
 #[derive(Debug, Clone)]
