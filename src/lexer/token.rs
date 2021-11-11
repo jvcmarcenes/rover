@@ -18,6 +18,7 @@ pub enum Keyword {
 	Let,
 	Mod, And, Or,
 	If, Else,
+	Loop, Break, Continue,
 }
 
 impl Keyword {
@@ -35,6 +36,9 @@ impl Keyword {
 			"or" => Or,
 			"if" => If,
 			"else" => Else,
+			"loop" => Loop,
+			"break" => Break,
+			"continue" => Continue,
 			_ => return None,
 		};
 		Some(keyword)

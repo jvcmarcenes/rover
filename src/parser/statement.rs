@@ -1,5 +1,5 @@
 
-use crate::{ast::{expression::{ExprType, Expression, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::*, Symbol::*}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, ExprType, Expression, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::*, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -66,29 +66,40 @@ impl Parser {
 			Keyword(Writeline) => self.writeline()?,
 			Keyword(Let) => self.declaration()?,
 			Keyword(If) => self.if_stmt()?,
+			Keyword(Loop) => self.loop_stmt()?,
+			Keyword(Break) => self.break_stmt()?,
+			Keyword(Continue) => self.continue_stmt()?,
 			_ => {
 				let expr = self.expression()?;
-				match self.optional(Symbol(Equals)) {
-					Some(Token { pos, .. }) => self.assignment(expr, pos)?,
+				match self.optional_any(&[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals)]) {
+					Some(op) => self.assignment(expr, op)?,
 					None => return ErrorList::new("Expeced statement, found expression".to_owned(), expr.pos).err(),
 				}
 			},
 		};
-		self.expect_eol()?;
 		res.wrap()
 	}
 
 	fn writeline(&mut self) -> StmtResult {
 		let token = self.next();
 		let expr = self.expression_or_none()?;
+		self.expect_eol()?;
 		StmtType::Writeline(Box::new(expr)).to_stmt(token.pos).wrap()
 	}
 
-	fn assignment(&mut self, left: Expression, pos: SourcePos) -> StmtResult {
-		let rhs = self.expression()?;
-		match left.typ {
-			ExprType::Variable(name) => StmtType::Assignment(AssignData { name, l_pos: left.pos, expr: Box::new(rhs) }).to_stmt(pos).wrap(),
-			_ => return ErrorList::new("Invalid assignment target".to_owned(), left.pos).err(),
+	fn assignment(&mut self, left: Expression, op: Token) -> StmtResult {
+		if let ExprType::Variable(ref name) = left.typ {
+			let mut rhs = self.expression()?;
+			self.expect_eol()?;
+			match op.typ {
+				Symbol(Equals) => (),
+				Symbol(PlusEquals) => rhs = ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Add, rhs: Box::new(rhs) }).to_expr(op.pos),
+				Symbol(MinusEquals) => rhs = ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Sub, rhs: Box::new(rhs) }).to_expr(op.pos),
+				_ => panic!("This should never be reached"),
+			}
+    	StmtType::Assignment(AssignData { name: name.clone(), l_pos: left.pos, expr: Box::new(rhs) }).to_stmt(op.pos).wrap()
+		} else {
+    	ErrorList::new("Invalid assignment target".to_owned(), left.pos).err()
 		}
 	}
 
@@ -103,6 +114,7 @@ impl Parser {
 			Some(_) => self.expression()?,
 			None => ExprType::Literal(LiteralData::None).to_expr(next.pos),
 		};
+		self.expect_eol()?;
 		StmtType::Declaration(DeclarationData { name, expr: Box::new(expr) }).to_stmt(pos).wrap()
 	}
 
@@ -121,6 +133,30 @@ impl Parser {
 			Block::new()
 		};
 		StmtType::If(IfData { cond: Box::new(cond), then_block, else_block }).to_stmt(pos).wrap()
+	}
+
+	fn loop_stmt(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		let root = if self.ctx.in_loop { false } else { self.ctx.in_loop = true; true };
+		let block = self.block()?;
+		if root { self.ctx.in_loop = false; }
+		StmtType::Loop(block).to_stmt(pos).wrap()
+	}
+
+	fn break_stmt(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		if !self.ctx.in_loop {
+			return ErrorList::new("Break statement outside of loop".to_owned(), pos).err();
+		}
+		StmtType::Break.to_stmt(pos).wrap()
+	}
+
+	fn continue_stmt(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		if !self.ctx.in_loop {
+			return ErrorList::new("Continue statement outside of loop".to_owned(), pos).err();
+		}
+		StmtType::Continue.to_stmt(pos).wrap()
 	}
 
 }

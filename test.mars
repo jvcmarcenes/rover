@@ -1,4 +1,18 @@
 
-while true {
+let i = 0
+
+loop {
+
+	i += 1
+
+	if i > 40 {
+		break
+	}
+
+	if i mod 2 == 0 {
+		continue
+	}
+
+	writeline i
 
 }

@@ -6,7 +6,15 @@ use text_io::try_read;
 
 use crate::{ast::{expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::{environment::Environment, value::Value};
+use self::{Message::*, environment::{Environment, ValueMap}, value::Value};
+
+enum Message {
+	None,
+	Break,
+	Continue,
+}
+
+type MessageResult = Result<Message>;
 
 pub struct Interpreter {
 	env: Environment,
@@ -26,17 +34,24 @@ impl Interpreter {
 		Self { env: Environment::new() }
 	}
 
-	pub fn interpret(&mut self, statements: Vec<Statement>) -> Result<()> {
+	pub fn interpret(&mut self, statements: Block) -> Result<()> {
 		for stmt in statements { stmt.accept(self)?; }
 		Ok(())
 	}
 
-	pub fn execute_block(&mut self, block: Block) -> Result<()> {
-		let prev = self.env.clone();
-		self.env = Environment::with_parent(self.env.clone());
-		for stmt in block { stmt.accept(self)?; }
-		self.env = prev;
-		Ok(())
+	fn execute_block(&mut self, block: Block, map: ValueMap) -> MessageResult {
+		self.env.push(map);
+		for stmt in block {
+			match stmt.accept(self)? {
+				None => continue,
+				msg => {
+					self.env.pop();
+					return msg.wrap();
+				}
+			}
+		}
+		self.env.pop();
+		Ok(None)
 	}
 
 }
@@ -122,33 +137,49 @@ impl ExprVisitor<Value> for Interpreter {
 	}
 }
 
-impl StmtVisitor<()> for Interpreter {
+impl StmtVisitor<Message> for Interpreter {
 
-	fn writeline(&mut self, data: Box<Expression>, _pos: SourcePos) -> Result<()> {
+	fn writeline(&mut self, data: Box<Expression>, _pos: SourcePos) -> MessageResult {
 		let val = data.accept(self)?;
 		println!("{}", val);
-		Ok(())
+		None.wrap()
 	}
 
-	fn declaration(&mut self, data: DeclarationData, _pos: SourcePos) -> Result<()> {
+	fn declaration(&mut self, data: DeclarationData, _pos: SourcePos) -> MessageResult {
 		let val = data.expr.accept(self)?;
 		self.env.define(data.name, val);
-		Ok(())
+		None.wrap()
 	}
 
-	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> Result<()> {
+	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> MessageResult {
 		let val = data.expr.accept(self)?;
 		self.env.assign(data.name, val, pos)?;
-		Ok(())
+		None.wrap()
 	}
 
-	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> Result<()> {
+	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> MessageResult {
 		if is_truthy(&data.cond.accept(self)?) {
-			self.execute_block(data.then_block)?;
+			self.execute_block(data.then_block, ValueMap::new())
 		} else {
-			self.execute_block(data.else_block)?;
+			self.execute_block(data.else_block, ValueMap::new())
 		}
-		Ok(())
+	}
+
+	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> MessageResult {
+		loop {
+			match self.execute_block(block.clone(), ValueMap::new())? {
+				None | Continue => continue,
+				Break => return None.wrap()
+			}
+		}
+	}
+
+	fn break_stmt(&mut self, _pos: SourcePos) -> MessageResult {
+		Ok(Break)
+	}
+
+	fn continue_stmt(&mut self, _pos: SourcePos) -> Result<Message> {
+		Ok(Continue)
 	}
 
 }

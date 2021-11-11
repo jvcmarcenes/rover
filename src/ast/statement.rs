@@ -7,15 +7,21 @@ use self::StmtType::*;
 
 pub type Block = Vec<Statement>;
 
+#[derive(Clone)]
 pub struct DeclarationData { pub name: String, pub expr: Box<Expression> }
+#[derive(Clone)]
 pub struct AssignData { pub name: String, pub l_pos: SourcePos, pub expr: Box<Expression> }
+#[derive(Clone)]
 pub struct IfData { pub cond: Box<Expression>, pub then_block: Block, pub else_block: Block }
 
+#[derive(Clone)]
 pub enum StmtType {
 	Writeline(Box<Expression>),
 	Declaration(DeclarationData),
 	Assignment(AssignData),
 	If(IfData),
+	Loop(Block),
+	Break, Continue,
 }
 
 impl StmtType {
@@ -24,6 +30,7 @@ impl StmtType {
 	}
 }
 
+#[derive(Clone)]
 pub struct Statement {
 	pub typ: StmtType,
 	pub pos: SourcePos,
@@ -41,7 +48,10 @@ impl Statement {
 			Writeline(expr) => visitor.writeline(expr, self.pos),
 			Declaration(data) => visitor.declaration(data, self.pos),
 			Assignment(data) => { let l_pos = data.l_pos; visitor.assignment(data, l_pos) },
-			If(data) => visitor.if_stmt(data, self.pos)
+			If(data) => visitor.if_stmt(data, self.pos),
+			Loop(block) => visitor.loop_stmt(block, self.pos),
+			Break => visitor.break_stmt(self.pos),
+			Continue => visitor.continue_stmt(self.pos),
 		}
 	}
 }
@@ -51,4 +61,7 @@ pub trait StmtVisitor<T> {
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<T>;
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> Result<T>;
 	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<T>;
+	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<T>;
+	fn break_stmt(&mut self, pos: SourcePos) -> Result<T>;
+	fn continue_stmt(&mut self, pos: SourcePos) -> Result<T>;
 }

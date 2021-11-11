@@ -3,14 +3,18 @@ use crate::utils::{result::*, source_pos::*};
 
 use self::ExprType::*;
 
+#[derive(Clone)]
 pub enum BinaryOperator {
 	Add, Sub, Mul, Div, Rem,
 	Equ, Neq, Lst, Lse, Grt, Gre,
 }
 
+#[derive(Clone)]
 pub enum UnaryOperator { Not, Neg }
+#[derive(Clone)]
 pub enum LogicOperator { And, Or }
 
+#[derive(Clone)]
 pub enum LiteralData {
 	Str(String),
 	Num(f64),
@@ -18,10 +22,14 @@ pub enum LiteralData {
 	None,
 }
 
+#[derive(Clone)]
 pub struct BinaryData { pub lhs: Box<Expression>, pub op: BinaryOperator, pub rhs: Box<Expression> }
+#[derive(Clone)]
 pub struct UnaryData { pub op: UnaryOperator, pub expr: Box<Expression> }
+#[derive(Clone)]
 pub struct LogicData { pub lhs: Box<Expression>, pub op: LogicOperator, pub rhs: Box<Expression> }
 
+#[derive(Clone)]
 pub enum ExprType {
 	Literal(LiteralData),
 	Binary(BinaryData),
@@ -38,6 +46,7 @@ impl ExprType {
 	}
 }
 
+#[derive(Clone)]
 pub struct Expression {
 	pub typ: ExprType,
 	pub pos: SourcePos

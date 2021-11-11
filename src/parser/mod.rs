@@ -8,16 +8,23 @@ use crate::{lexer::token::{Token, TokenType::{self, *}, Symbol}, utils::{result:
 
 pub type TokenIter = Peekable<IntoIter<Token>>;
 
+#[derive(Debug, Clone, Default)]
+struct ParserContext {
+	in_loop: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct Parser {
-	tokens: TokenIter
+	tokens: TokenIter,
+	ctx: ParserContext,
 }
 
 impl Parser {
 
 	pub fn new(tokens: Vec<Token>) -> Self {
 		Self {
-			tokens: tokens.into_iter().peekable()
+			tokens: tokens.into_iter().peekable(),
+			ctx: ParserContext::default(),
 		}
 	}
 
@@ -53,7 +60,7 @@ impl Parser {
 	fn expect_eol(&mut self) -> Result<()> {
 		match self.peek() {
 			token if token.typ == EOL => { self.next(); Ok(()) }
-			token if token.typ == EOF => Ok(()),
+			token if token.typ == EOF || token.typ == Symbol(Symbol::CloseBracket) => Ok(()),
 			token => ErrorList::new(format!("Expected new line, found {}", token), token.pos).err()
 		}
 	}
