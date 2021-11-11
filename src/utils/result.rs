@@ -25,7 +25,7 @@ impl Error {
 		);
 
 		let data = std::fs::read_to_string(path).unwrap();
-		let line = data.lines().skip(self.pos.lin as usize - 1).next().unwrap();
+		let line = data.lines().skip(self.pos.lin as usize - 1).next().unwrap().replace("\t", " ");
 
 		let bar_offset = " ".repeat(self.pos.lin.to_string().len());
 
@@ -44,7 +44,7 @@ impl Error {
 			self.msg
 		);
 		eprintln!(" |");
-		eprintln!(" | {}", line.trim_end_matches(|c| c == '\n' || c == '\r'));
+		eprintln!(" | {}", line.trim_end_matches(|c| c == '\n' || c == '\r').replace("\t", " "));
 		eprintln!(" | {}^", " ".repeat(self.pos.col as usize - 1));
 		eprintln!();
 	}
