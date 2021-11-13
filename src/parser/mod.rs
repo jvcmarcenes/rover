@@ -84,9 +84,9 @@ impl Parser {
 		self.peek().typ == expected
 	}
 
-	// fn next_match_any(&mut self, expected: &[TokenType]) -> bool {
-	// 	expected.contains(&self.peek().typ)
-	// }
+	fn next_match_any(&mut self, expected: &[TokenType]) -> bool {
+		expected.contains(&self.peek().typ)
+	}
 
 	fn skip_new_lines(&mut self) {
 		while let EOL = self.peek().typ { self.next(); }

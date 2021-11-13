@@ -32,8 +32,16 @@ impl Environment {
 		};
 	}
 
-	pub fn define(&mut self, name: &str, value: Value) {
+	pub fn definef(&mut self, name: &str, value: Value) {
 		self.top().borrow_mut().insert(name.to_owned(), value);
+	}
+
+	pub fn define(&mut self, name: &str, value: Value, pos: SourcePos) -> Result<()> {
+		if self.0.first().unwrap().borrow().contains_key(name) {
+			return ErrorList::new(format!("Cannot redefine '{}'", name), pos).err()
+		}
+		self.top().borrow_mut().insert(name.to_owned(), value);
+		Ok(())
 	}
 	
 	pub fn get(&self, name: &str, pos: SourcePos) -> Result<Value> {
@@ -47,11 +55,14 @@ impl Environment {
 		ErrorList::new(format!("Undefined variable '{}'", name), pos).err()
 	}
 	
-	pub fn assign(&mut self, name: String, value: Value, pos: SourcePos) -> Result<()> {
+	pub fn assign(&mut self, name: &str, value: Value, pos: SourcePos) -> Result<()> {
+		if self.0.first().unwrap().borrow().contains_key(name) {
+			return ErrorList::new(format!("Cannot assign to '{}'", name), pos).err()
+		}
 		let mut cur = self.0.as_mut_slice();
-		while let [rest @ .., env] = cur {
-			if env.borrow().contains_key(&name) {
-				env.borrow_mut().insert(name, value);
+		while let [_, rest @ .., env] = cur {
+			if env.borrow().contains_key(name) {
+				env.borrow_mut().insert(name.to_owned(), value);
 				return Ok(())
 			}
 			cur = rest;

@@ -2,18 +2,18 @@
 pub mod callable;
 pub mod function;
 
-use crate::utils::{Refr, result::{ErrorList, Result}, source_pos::SourcePos};
+use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos};
 
 use self::{Value::*, callable::Callable};
 
-use std::fmt::Display;
+use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Value {
 	Str(String),
 	Num(f64),
 	Bool(bool),
-	Callable(Refr<dyn Callable>),
+	Callable(Rc<RefCell<dyn Callable>>),
 	None,
 }
 
@@ -28,7 +28,7 @@ impl Value {
 		else { ErrorList::new("Value isn't a bool".to_owned(), pos).err() }
 	}
 
-	pub fn to_callable(self, pos: SourcePos) -> Result<Refr<dyn Callable>> {
+	pub fn to_callable(self, pos: SourcePos) -> Result<Rc<RefCell<dyn Callable>>> {
 		if let Value::Callable(c) = self { return Ok(c) }
 		ErrorList::new("Value isn't callable".to_owned(), pos).err()
 	}

@@ -5,7 +5,7 @@ use text_io::try_read;
 
 use crate::{interpreter::{Interpreter, value::callable::{Callable, NativeCallable}}, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
-use super::{environment::Environment, value::Value};
+use super::{environment::{Environment, ValueMap}, value::Value};
 
 fn clock() -> Value {
 	#[derive(Debug, Clone)] struct Clock;
@@ -115,13 +115,14 @@ fn random() -> Value {
 pub(super) fn globals() -> Environment {
 	let mut env = Environment::new();
 
-	env.define("clock", clock());
-	env.define("write", write());
-	env.define("writeline", writeline());
-	env.define("read", read());
-	env.define("readnum", readnum());
-	env.define("random", random());
-	env.define("pi", Value::Num(3.141592653589793238462643383279502884197139699));
+	env.definef("clock", clock());
+	env.definef("write", write());
+	env.definef("writeline", writeline());
+	env.definef("read", read());
+	env.definef("readnum", readnum());
+	env.definef("random", random());
+	env.definef("pi", Value::Num(3.141592653589793238462643383279502884197139699));
 
+	env.push(ValueMap::new());
 	env
 }

@@ -148,15 +148,15 @@ impl StmtVisitor<Message> for Interpreter {
 		None.wrap()
 	}
 
-	fn declaration(&mut self, data: DeclarationData, _pos: SourcePos) -> MessageResult {
+	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> MessageResult {
 		let val = data.expr.accept(self)?;
-		self.env.define(&data.name, val);
+		self.env.define(&data.name, val, pos)?;
 		None.wrap()
 	}
 
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> MessageResult {
 		let val = data.expr.accept(self)?;
-		self.env.assign(data.name, val, pos)?;
+		self.env.assign(&data.name, val, pos)?;
 		None.wrap()
 	}
 

@@ -45,7 +45,7 @@ impl Parser {
 	pub fn expression_or_none(&mut self) -> ExprResult {
 		let peek = self.peek();
 		match peek.typ {
-			EOL | EOF => ExprType::Literal(LiteralData::None).to_expr(peek.pos).wrap(),
+			EOL | EOF | Symbol(CloseBracket) => ExprType::Literal(LiteralData::None).to_expr(peek.pos).wrap(),
 			_ => self.expression()
 		}
 	}

@@ -1,17 +1,9 @@
 
-let make_counter = function () {
-	let i = 0
-	let count = function () {
-		i += 1
-		writeline(i)
-	}
-	return count
+let countdown = function (n) {
+	if n == 0 { return }
+	writeline(n)
+	countdown(n - 1)
 }
 
-let counter = make_counter()
-counter()
-counter()
-counter()
-counter()
-counter()
-counter()
+writeline(countdown(7))
+
