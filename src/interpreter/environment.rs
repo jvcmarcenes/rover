@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::utils::{result::*, source_pos::SourcePos, wrap::Wrap};
 
@@ -7,21 +7,21 @@ use super::value::Value;
 
 pub type ValueMap = HashMap<String, Value>;
 
-#[derive(Debug)]
-pub struct Environment(Vec<ValueMap>);
+#[derive(Debug, Clone)]
+pub struct Environment(Vec<Rc<RefCell<ValueMap>>>);
 
 impl Environment {
 	
 	pub fn new() -> Self {
-		Self(vec![ValueMap::new()])
+		Self(vec![Rc::new(RefCell::new(HashMap::new()))])
 	}
 
-	pub fn top(&mut self) -> &mut ValueMap {
-		self.0.last_mut().expect("Environment should never be empty")
+	pub fn top(&mut self) -> &Rc<RefCell<ValueMap>> {
+		self.0.last().expect("Environment should never be empty")
 	}
 
 	pub fn push(&mut self, map: ValueMap) {
-		self.0.push(map);
+		self.0.push(Rc::new(RefCell::new(map)));
 	}
 
 	pub fn pop(&mut self) {
@@ -33,13 +33,13 @@ impl Environment {
 	}
 
 	pub fn define(&mut self, name: &str, value: Value) {
-		self.top().insert(name.to_owned(), value);
+		self.top().borrow_mut().insert(name.to_owned(), value);
 	}
 	
 	pub fn get(&self, name: &str, pos: SourcePos) -> Result<Value> {
 		let mut cur = self.0.as_slice();
 		while let [rest @ .., env] = cur {
-			match env.get(name) {
+			match env.borrow().get(name) {
 				Some(val) => return val.to_owned().wrap(),
 				None => cur = rest,
 			}
@@ -50,8 +50,8 @@ impl Environment {
 	pub fn assign(&mut self, name: String, value: Value, pos: SourcePos) -> Result<()> {
 		let mut cur = self.0.as_mut_slice();
 		while let [rest @ .., env] = cur {
-			if env.contains_key(&name) {
-				env.insert(name, value);
+			if env.borrow().contains_key(&name) {
+				env.borrow_mut().insert(name, value);
 				return Ok(())
 			}
 			cur = rest;

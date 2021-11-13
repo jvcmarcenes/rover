@@ -1,5 +1,5 @@
 
-use std::{io::Write, time::{SystemTime, UNIX_EPOCH}};
+use std::{cell::RefCell, io::Write, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
 use text_io::try_read;
 
@@ -13,7 +13,7 @@ fn clock() -> Value {
 	impl Callable for Clock {
     fn arity(&self) -> u8 { 0 }
 
-    fn call(&self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
 			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
 			Value::Num(now).wrap()
     }
@@ -21,7 +21,7 @@ fn clock() -> Value {
 
 	impl NativeCallable for Clock { }
 
-	Value::Callable(Box::new(Clock))
+	Value::Callable(Rc::new(RefCell::new(Clock)))
 }
 
 fn write() -> Value {
@@ -30,7 +30,7 @@ fn write() -> Value {
 	impl Callable for Write {
 		fn arity(&self) -> u8 { 1 }
 
-		fn call(&self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
 			print!("{}", args[0]);
 			let _ = std::io::stdout().flush();
 			Value::None.wrap()
@@ -39,7 +39,7 @@ fn write() -> Value {
 
 	impl NativeCallable for Write { }
 
-	Value::Callable(Box::new(Write))
+	Value::Callable(Rc::new(RefCell::new(Write)))
 }
 
 fn writeline() -> Value {
@@ -48,7 +48,7 @@ fn writeline() -> Value {
 	impl Callable for Writeline {
 		fn arity(&self) -> u8 { 1 }
 
-		fn call(&self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
 			println!("{}", args[0]);
 			Value::None.wrap()
 		}
@@ -56,7 +56,7 @@ fn writeline() -> Value {
 
 	impl NativeCallable for Writeline { }
 
-	Value::Callable(Box::new(Writeline))
+	Value::Callable(Rc::new(RefCell::new(Writeline)))
 }
 
 fn read() -> Value {
@@ -64,7 +64,7 @@ fn read() -> Value {
 
 	impl Callable for Read {
 		fn arity(&self) -> u8 { 0 }
-		fn call(&self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
 			let in_res: std::result::Result<String, text_io::Error> = try_read!("{}\r\n");
 			match in_res {
 				Ok(str) => Value::Str(str).wrap(),
@@ -75,7 +75,7 @@ fn read() -> Value {
 
 	impl NativeCallable for Read { }
 
-	Value::Callable(Box::new(Read))
+	Value::Callable(Rc::new(RefCell::new(Read)))
 }
 
 fn readnum() -> Value {
@@ -83,7 +83,7 @@ fn readnum() -> Value {
 
 	impl Callable for ReadNum {
 		fn arity(&self) -> u8 { 0 }
-		fn call(&self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
 			let in_res: std::result::Result<f64, text_io::Error> = try_read!();
 			match in_res {
 				Ok(n) => Value::Num(n).wrap(),
@@ -94,7 +94,7 @@ fn readnum() -> Value {
 
 	impl NativeCallable for ReadNum { }
 
-	Value::Callable(Box::new(ReadNum))
+	Value::Callable(Rc::new(RefCell::new(ReadNum)))
 }
 
 fn random() -> Value {
@@ -102,14 +102,14 @@ fn random() -> Value {
 
 	impl Callable for Random {
 		fn arity(&self) -> u8 { 0 }
-		fn call(&self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
 			Value::Num(rand::random()).wrap()
 		}
 	}
 
 	impl NativeCallable for Random { }
 
-	Value::Callable(Box::new(Random))
+	Value::Callable(Rc::new(RefCell::new(Random)))
 }
 
 pub(super) fn globals() -> Environment {

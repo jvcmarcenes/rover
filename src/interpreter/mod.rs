@@ -3,6 +3,8 @@ pub mod value;
 pub mod environment;
 pub mod globals;
 
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{ast::{expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{Message::*, environment::{Environment, ValueMap}, globals::globals, value::{Value, function::Function}};
@@ -18,14 +20,6 @@ type MessageResult = Result<Message>;
 
 pub struct Interpreter {
 	env: Environment,
-}
-
-fn is_truthy(val: &Value) -> bool {
-	match val {
-		Value::None => false,
-		Value::Bool(b) => *b,
-		_ => true,
-	}
 }
 
 impl Interpreter {
@@ -105,15 +99,15 @@ impl ExprVisitor<Value> for Interpreter {
 		let val = data.expr.accept(self)?;
 		match data.op {
 			UnaryOperator::Neg => Value::Num(-val.to_num(pos)?).wrap(),
-			UnaryOperator::Not => Value::Bool(!is_truthy(&val)).wrap(),
+			UnaryOperator::Not => Value::Bool(!val.is_truthy()).wrap(),
 		}
 	}
 
 	fn logic(&mut self, data: LogicData, _pos: SourcePos) -> Result<Value> {
-		let left = is_truthy(&data.lhs.accept(self)?);
+		let left = data.lhs.accept(self)?.is_truthy();
 		Value::Bool(match data.op {
-			LogicOperator::And => if left { is_truthy(&data.rhs.accept(self)?) } else { false },
-			LogicOperator::Or => if left { true } else { is_truthy(&data.rhs.accept(self)?) }
+			LogicOperator::And => if left { data.rhs.accept(self)?.is_truthy() } else { false },
+			LogicOperator::Or => if left { true } else { data.rhs.accept(self)?.is_truthy() }
 		}).wrap()
 	}
 
@@ -133,15 +127,16 @@ impl ExprVisitor<Value> for Interpreter {
 			args.push(arg.accept(self)?);
 		}
 		let function = calee.to_callable(calee_pos)?;
-		if function.arity() != args.len() as u8 {
-			return ErrorList::new(format!("Expected {} arguments, but got {}", function.arity(), args.len()), pos).err();
+		if function.borrow().arity() != args.len() as u8 {
+			return ErrorList::new(format!("Expected {} arguments, but got {}", function.borrow().arity(), args.len()), pos).err();
 		}
-		function.call(calee_pos, self, args)
+		let ret = function.borrow_mut().call(calee_pos, self, args);
+		ret
 	}
 
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Value> {
-		let func = Function::new(data.params, data.body);
-		Value::Callable(Box::new(func)).wrap()
+		let func = Function::new(self.env.clone(), data.params, data.body);
+		Value::Callable(Rc::new(RefCell::new(func))).wrap()
 	}
 
 }
@@ -166,7 +161,7 @@ impl StmtVisitor<Message> for Interpreter {
 	}
 
 	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> MessageResult {
-		if is_truthy(&data.cond.accept(self)?) {
+		if data.cond.accept(self)?.is_truthy() {
 			self.execute_block(data.then_block, ValueMap::new())
 		} else {
 			self.execute_block(data.else_block, ValueMap::new())

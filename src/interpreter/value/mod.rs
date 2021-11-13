@@ -2,7 +2,7 @@
 pub mod callable;
 pub mod function;
 
-use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos};
+use crate::utils::{Refr, result::{ErrorList, Result}, source_pos::SourcePos};
 
 use self::{Value::*, callable::Callable};
 
@@ -13,7 +13,7 @@ pub enum Value {
 	Str(String),
 	Num(f64),
 	Bool(bool),
-	Callable(Box<dyn Callable>),
+	Callable(Refr<dyn Callable>),
 	None,
 }
 
@@ -28,9 +28,17 @@ impl Value {
 		else { ErrorList::new("Value isn't a bool".to_owned(), pos).err() }
 	}
 
-	pub fn to_callable(self, pos: SourcePos) -> Result<Box<dyn Callable>> {
+	pub fn to_callable(self, pos: SourcePos) -> Result<Refr<dyn Callable>> {
 		if let Value::Callable(c) = self { return Ok(c) }
 		ErrorList::new("Value isn't callable".to_owned(), pos).err()
+	}
+
+	pub fn is_truthy(&self) -> bool {
+		match *self {
+			Self::None => false,
+			Self::Bool(b) => b,
+			_ => true,
+		}
 	}
 }
 
@@ -40,7 +48,7 @@ impl Display for Value {
 			Str(s) => write!(f, "{}", s),
 			Num(n) => write!(f, "{}", n),
 			Bool(b) => write!(f, "{}", b),
-			Callable(c) => write!(f, "{}", c),
+			Callable(c) => write!(f, "{}", c.borrow()),
 			None => write!(f, ""),
 		}
 	}

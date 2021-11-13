@@ -9,7 +9,7 @@ use super::Value;
 
 pub trait Callable : Debug + DynClone {
 	fn arity(&self) -> u8;
-	fn call(&self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value>;
+	fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value>;
 }
 
 dyn_clone::clone_trait_object!(Callable);

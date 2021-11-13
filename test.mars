@@ -1,14 +1,17 @@
 
-let factorial = function (n) {
-	if n <= 1 {
-		return 1
-	} else {
-		return n * factorial(n - 1)
+let make_counter = function () {
+	let i = 0
+	let count = function () {
+		i += 1
+		writeline(i)
 	}
+	return count
 }
 
-write("Enter a number: ")
-
-let n = readnum()
-
-writeline("7! = " + factorial(n))
+let counter = make_counter()
+counter()
+counter()
+counter()
+counter()
+counter()
+counter()
