@@ -1,9 +1,15 @@
 
-let countdown = function (n) {
-	if n == 0 { return }
-	writeline(n)
-	countdown(n - 1)
+let apply = function(f, a) {
+	let applied = function (b) {
+		return f(a, b)
+	}
+	return applied
 }
 
-writeline(countdown(7))
+let add = function (a, b) {
+	return a + b
+}
 
+let add7 = apply(add, 7)
+
+writeline(add7(9))

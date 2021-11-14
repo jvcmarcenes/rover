@@ -126,12 +126,19 @@ impl ExprVisitor<Value> for Interpreter {
 		for arg in data.args {
 			args.push(arg.accept(self)?);
 		}
-		let function = calee.to_callable(calee_pos)?;
-		if function.borrow().arity() != args.len() as u8 {
-			return ErrorList::new(format!("Expected {} arguments, but got {}", function.borrow().arity(), args.len()), pos).err();
+		// We need a pointer to the callable because we need multiple mutable borrows of a shared reference
+		// We need a shared reference (Rc<RefCell<dyn Callable>>) to be able to handle closures and interior mutability
+		// We need multiple mutable borrows to handle recursive function calls
+		// This should not cause any issues since the function won't drop itself or it's environment!
+		unsafe {
+			let function = calee.to_callable(calee_pos)?.as_ptr();
+			let arity = function.as_ref().unwrap().arity();
+			if arity != args.len() as u8 {
+				return ErrorList::new(format!("Expected {} arguments, but got {}", arity, args.len()), pos).err();
+			}
+			let ret = function.as_mut().unwrap().call(calee_pos, self, args);
+			ret
 		}
-		let ret = function.borrow_mut().call(calee_pos, self, args);
-		ret
 	}
 
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Value> {
