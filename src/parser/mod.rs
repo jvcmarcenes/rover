@@ -93,14 +93,20 @@ impl Parser {
 	}
 
 	fn synchronize_with(&mut self, stop_at: TokenType) {
-		while self.next().typ != stop_at { }
+		loop {
+			match self.next().typ {
+				EOF => break,
+				typ if typ == stop_at => break,
+				_ => continue,
+			}
+		}
 	}
 
 	fn synchronize(&mut self) {
 		loop {
 			match self.next().typ {
-				EOL | EOF => return,
-				Symbol(Symbol::OpenBracket) => { self.synchronize_with(Symbol(Symbol::CloseBracket)); return }
+				EOL | EOF | Symbol(Symbol::CloseBracket) | Symbol(Symbol::ClosePar) => return,
+				// Symbol(Symbol::OpenBracket) => { self.synchronize_with(Symbol(Symbol::CloseBracket)); return }
 				_ => continue,
 			}
 		}

@@ -56,10 +56,15 @@ impl ExprVisitor<Value> for Interpreter {
 
 	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<Value> {
 		let value = match data {
+			LiteralData::None => Value::None,
 			LiteralData::Str(s) => Value::Str(s),
 			LiteralData::Num(n) => Value::Num(n),
 			LiteralData::Bool(b) => Value::Bool(b),
-			LiteralData::None => Value::None,
+			LiteralData::Template(exprs) => {
+				let mut values = Vec::new();
+				for expr in exprs { values.push(expr.accept(self)?) }
+				Value::Str(values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(""))
+			}
 		};
 		value.wrap()
 	}

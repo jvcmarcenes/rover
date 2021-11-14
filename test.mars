@@ -1,15 +1,6 @@
 
-let apply = function(f, a) {
-	let applied = function (b) {
-		return f(a, b)
-	}
-	return applied
-}
+write('Enter a number: ')
 
-let add = function (a, b) {
-	return a + b
-}
+let n = readnum()
 
-let add7 = apply(add, 7)
-
-writeline(add7(9))
+writeline('#{n}^2 = #{n * n}')

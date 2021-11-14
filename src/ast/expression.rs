@@ -18,10 +18,11 @@ pub enum LogicOperator { And, Or }
 
 #[derive(Debug, Clone)]
 pub enum LiteralData {
+	None,
 	Str(String),
 	Num(f64),
 	Bool(bool),
-	None,
+	Template(Vec<Expression>),
 }
 
 #[derive(Debug, Clone)]

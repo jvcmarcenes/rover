@@ -60,6 +60,7 @@ pub enum TokenType {
 	Keyword(Keyword),
 	Symbol(Symbol),
 	Identifier(String),
+	Template(Vec<Token>),
 	EOL, EOF,
 }
 
@@ -73,13 +74,14 @@ impl Display for TokenType {
 			Keyword(keyword) => write!(f, "{:?}", keyword),
 			Symbol(symbol) => write!(f, "{:?}", symbol),
 			Identifier(name) => write!(f, "{}", name),
+			Template(_) => write!(f, "str_template"),
 			EOL => write!(f, "EOL"),
 			EOF => write!(f, "EOF"),
 		}
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
 	pub typ: TokenType,
 	pub pos: SourcePos,

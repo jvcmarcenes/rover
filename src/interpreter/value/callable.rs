@@ -16,14 +16,6 @@ dyn_clone::clone_trait_object!(Callable);
 
 impl Display for dyn Callable {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "<fn>")
-	}
-}
-
-pub trait NativeCallable : Callable { }
-
-impl Display for dyn NativeCallable {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "<native fn>")
+		write!(f, "<function>")
 	}
 }

@@ -140,9 +140,52 @@ impl Parser {
 				Grouping(Box::new(expr))
 			}
 			Identifier(name) => Variable(name),
+			Template(tokens) => self.str_template(tokens)?,
 			_ => return ErrorList::new(format!("Expected expression, found {}", token), token.pos).err()
 		};
 		expr_typ.to_expr(token.pos).wrap()
+	}
+
+	fn str_template(&mut self, tokens: Vec<Token>) -> Result<ExprType> {
+		let mut exprs = Vec::new();
+		let mut errors = ErrorList::empty();
+
+		let mut template_parser = Parser::new(tokens);
+
+		loop {
+			match template_parser.peek().typ {
+				EOF => break,
+				Symbol(HashtagOpenBracket) => {
+					template_parser.next();
+					match template_parser.expression() {
+						Ok(expr) => {
+							exprs.push(expr);
+							if let Err(err) = template_parser.expect(Symbol(CloseBracket)) {
+								errors.append(err);
+								template_parser.synchronize();
+							}
+						}
+						Err(err) => {
+							errors.append(err);
+							template_parser.synchronize_with(Symbol(CloseBracket));
+						}
+					}
+				}
+				_ => match template_parser.expression() {
+					Ok(expr) => exprs.push(expr),
+					Err(err) => {
+						errors.append(err);
+						template_parser.synchronize_with(Symbol(CloseBracket));
+					}
+				} 
+			}
+		}
+
+		if errors.is_empty() {
+			ExprType::Literal(LiteralData::Template(exprs)).wrap()
+		} else {
+			errors.err()
+		}
 	}
 
 	fn lambda(&mut self) -> Result<ExprType> {

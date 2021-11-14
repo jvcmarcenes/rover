@@ -3,7 +3,7 @@ use std::{cell::RefCell, io::Write, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, value::callable::{Callable, NativeCallable}}, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::callable::Callable}, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::{environment::{Environment, ValueMap}, value::Value};
 
@@ -18,8 +18,6 @@ fn clock() -> Value {
 			Value::Num(now).wrap()
     }
 	}
-
-	impl NativeCallable for Clock { }
 
 	Value::Callable(Rc::new(RefCell::new(Clock)))
 }
@@ -37,8 +35,6 @@ fn write() -> Value {
 		}
 	}
 
-	impl NativeCallable for Write { }
-
 	Value::Callable(Rc::new(RefCell::new(Write)))
 }
 
@@ -53,8 +49,6 @@ fn writeline() -> Value {
 			Value::None.wrap()
 		}
 	}
-
-	impl NativeCallable for Writeline { }
 
 	Value::Callable(Rc::new(RefCell::new(Writeline)))
 }
@@ -73,8 +67,6 @@ fn read() -> Value {
 		}
 	}
 
-	impl NativeCallable for Read { }
-
 	Value::Callable(Rc::new(RefCell::new(Read)))
 }
 
@@ -92,8 +84,6 @@ fn readnum() -> Value {
 		}
 	}
 
-	impl NativeCallable for ReadNum { }
-
 	Value::Callable(Rc::new(RefCell::new(ReadNum)))
 }
 
@@ -106,8 +96,6 @@ fn random() -> Value {
 			Value::Num(rand::random()).wrap()
 		}
 	}
-
-	impl NativeCallable for Random { }
 
 	Value::Callable(Rc::new(RefCell::new(Random)))
 }

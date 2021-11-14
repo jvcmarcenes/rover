@@ -125,6 +125,59 @@ impl Lexer {
 		}
 	}
 
+	fn scan_str_template(&mut self) -> TokenResult {
+		let mut tokens = Vec::new();
+		let mut errors = ErrorList::empty();
+
+		let template_pos = self.cursor;
+
+		loop {
+			match self.next_char() {
+				Some('\'') => break,
+				Some('#') if self.next_match('{') => {
+					tokens.push(Token::new(Symbol(HashtagOpenBracket), self.cursor));
+					loop {
+						match self.next_char() {
+							Some('}') => break,
+							Some(c) if c == '\n' => { errors.add("Illegal EOL inside string template".to_owned(), self.cursor); return errors.err() },
+							Some(c) if c.is_whitespace() => continue,
+							Some(c) => match self.scan_token(c) {
+								Ok(Some(token)) => tokens.push(token),
+								Ok(None) => continue,
+								Err(err) => errors.append(err),
+							}
+							None => {
+								errors.add("Unexpected EOF".to_owned(), self.cursor);
+								return errors.err();
+							}
+						}
+					}
+					tokens.push(Token::new(Symbol(CloseBracket), self.cursor))
+				}
+				Some(c) => {
+					let text_start = self.cursor;
+					let mut text = String::from(c);
+					match self.scan_raw_while(&mut text, |c| c != '\'' && c != '#') {
+						Ok(()) => tokens.push(Token::new(Literal(Str(text)), text_start)),
+						Err(err) => errors.append(err),
+					}
+				}
+				None => {
+					errors.add("Unexpected EOF".to_owned(), self.cursor);
+					return errors.err();
+				}
+			}
+		}
+
+		tokens.push(Token::new(EOF, self.cursor));
+
+		if errors.is_empty() {
+			Token::new(Template(tokens), template_pos).wrap()
+		} else {
+			errors.err()
+		}
+	}
+
 	fn scan_token(&mut self, first_char: char) -> TokenResult {
 		match first_char {
 			c if c.is_ascii_alphabetic() => self.scan_identifier_or_keyword(c),
@@ -154,9 +207,8 @@ impl Lexer {
 			'!' => self.symbol(Exclam),
 			'=' if self.next_match('=') => self.symbol(DoubleEquals),
 			'=' => self.symbol(Equals),
-			'\'' => todo!("yet to implement template strings"),
+			'\'' => self.scan_str_template(),
 			'"' => return self.scan_string(),
-			// '#' if self.next_match('{') => self.symbol(HashtagOpenBracket),
 			'#' => self.scan_comment(),
 			_ => ErrorList::new(format!("Unknow token {}", first_char), self.cursor).err(),
 		}
