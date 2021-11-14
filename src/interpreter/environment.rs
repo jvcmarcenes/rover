@@ -1,7 +1,7 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::utils::{result::*, source_pos::SourcePos, wrap::Wrap};
+use crate::{interpreter::globals::globals, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -13,7 +13,7 @@ pub struct Environment(Vec<Rc<RefCell<ValueMap>>>);
 impl Environment {
 	
 	pub fn new() -> Self {
-		Self(vec![Rc::new(RefCell::new(HashMap::new()))])
+		Self(vec![Rc::new(RefCell::new(globals())), Rc::new(RefCell::new(ValueMap::new()))])
 	}
 
 	pub fn top(&mut self) -> &Rc<RefCell<ValueMap>> {
@@ -30,10 +30,6 @@ impl Environment {
 			[_] => panic!("Tried to pop the root environment"),
 			[] => panic!("Environment should never be empty"),
 		};
-	}
-
-	pub fn definef(&mut self, name: &str, value: Value) {
-		self.top().borrow_mut().insert(name.to_owned(), value);
 	}
 
 	pub fn define(&mut self, name: &str, value: Value, pos: SourcePos) -> Result<()> {

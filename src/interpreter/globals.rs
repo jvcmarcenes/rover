@@ -5,7 +5,7 @@ use text_io::try_read;
 
 use crate::{interpreter::{Interpreter, value::callable::Callable}, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
-use super::{environment::{Environment, ValueMap}, value::Value};
+use super::{environment::ValueMap, value::Value};
 
 fn clock() -> Value {
 	#[derive(Debug, Clone)] struct Clock;
@@ -117,18 +117,21 @@ fn size() -> Value {
 	Value::Callable(Rc::new(RefCell::new(Size)))
 }
 
-pub(super) fn globals() -> Environment {
-	let mut env = Environment::new();
+pub(super) fn globals() -> ValueMap {
+	let mut env = ValueMap::new();
 
-	env.definef("clock", clock());
-	env.definef("write", write());
-	env.definef("writeline", writeline());
-	env.definef("read", read());
-	env.definef("readnum", readnum());
-	env.definef("random", random());
-	env.definef("size", size());
-	env.definef("pi", Value::Num(3.141592653589793238462643383279502884197139699));
+	let mut define = |key: &str, value: Value| {
+		env.insert(key.to_owned(), value);
+	};
 
-	env.push(ValueMap::new());
+	define("clock", clock());
+	define("write", write());
+	define("writeline", writeline());
+	define("read", read());
+	define("readnum", readnum());
+	define("random", random());
+	define("size", size());
+	define("pi", Value::Num(3.141592653589793238462643383279502884197139699));
+
 	env
 }

@@ -7,7 +7,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{ast::{expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::{Message::*, environment::{Environment, ValueMap}, globals::globals, value::{Value, function::Function}};
+use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, function::Function}};
 
 pub enum Message {
 	None,
@@ -26,7 +26,7 @@ impl Interpreter {
 
 	pub fn new() -> Self {
 		Self {
-			env: globals()
+			env: Environment::new(),
 		}
 	}
 
