@@ -60,7 +60,7 @@ impl Environment {
 			return ErrorList::new(format!("Cannot assign to '{}'", name), pos).err()
 		}
 		let mut cur = self.0.as_mut_slice();
-		while let [_, rest @ .., env] = cur {
+		while let [rest @ .., env] = cur {
 			if env.borrow().contains_key(name) {
 				env.borrow_mut().insert(name.to_owned(), value);
 				return Ok(())

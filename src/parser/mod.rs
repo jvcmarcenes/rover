@@ -102,6 +102,16 @@ impl Parser {
 		}
 	}
 
+	fn synchronize_with_any(&mut self, stop_at: &[TokenType]) {
+		loop {
+			match self.next().typ {
+				EOF => break,
+				typ if stop_at.contains(&typ) => break,
+				_ => continue,
+			}
+		}
+	}
+
 	fn synchronize(&mut self) {
 		loop {
 			match self.next().typ {

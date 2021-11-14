@@ -1,5 +1,5 @@
 
-use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -96,31 +96,86 @@ impl Parser {
 			let expr = self.unary()?;
 			return Unary(UnaryData { op, expr: Box::new(expr) }).to_expr(token.pos).wrap();
 		} else {
-			return self.call();
+			return self.postfix();
 		}
 	}
 
-	fn call(&mut self) -> ExprResult {
+	fn postfix(&mut self) -> ExprResult {
 		let mut expr = self.primary()?;
 
-		while let Some(token) = self.optional(Symbol(OpenPar)) {
-			let mut args = Vec::new();
-			loop {
-				let peek = self.peek();
-				match peek.typ {
-					Symbol(ClosePar) => { self.next(); break; },
-					_ if args.is_empty() => args.push(self.expression()?),
-					_ => {
-						self.expect(Symbol(Comma))?;
-						self.skip_new_lines();
-						args.push(self.expression()?);
-					}
-				}
+		// while let Some(token) = self.optional(Symbol(OpenPar)) {
+		// 	let mut args = Vec::new();
+		// 	loop {
+		// 		let peek = self.peek();
+		// 		match peek.typ {
+		// 			Symbol(ClosePar) => { self.next(); break; },
+		// 			_ if args.is_empty() => args.push(self.expression()?),
+		// 			_ => {
+		// 				self.expect(Symbol(Comma))?;
+		// 				self.skip_new_lines();
+		// 				args.push(self.expression()?);
+		// 			}
+		// 		}
+		// 	}
+		// 	expr = ExprType::Call(CallData { calee: Box::new(expr), args }).to_expr(token.pos);
+		// }
+
+		loop {
+			match self.peek().typ {
+				Symbol(OpenPar) => expr = self.function_call(expr)?,
+				Symbol(OpenSqr) => expr = self.index(expr)?,
+				_ => break,
 			}
-			expr = ExprType::Call(CallData { calee: Box::new(expr), args }).to_expr(token.pos);
 		}
 
 		expr.wrap()
+	}
+
+	fn expr_list(&mut self, stop: fn(&TokenType) -> bool) -> Result<Vec<Expression>> {
+		let mut exprs = Vec::new();
+		let mut errors = ErrorList::empty();
+		loop {
+			let peek = self.peek();
+			match peek.typ {
+				EOF => {
+					errors.add("Unexpected EOF".to_owned(), peek.pos);
+					return errors.err()
+				}
+				typ if stop(&typ) => break,
+				_ => {
+					if !exprs.is_empty() {
+						if let Err(err) = self.expect(Symbol(Comma)) {
+							errors.append(err);
+							self.synchronize();
+							continue;
+						}
+					}
+					self.skip_new_lines();
+					match self.expression() {
+						Ok(expr) => exprs.push(expr),
+						Err(err) => {
+							errors.append(err);
+							self.synchronize();
+						}
+					}
+				}
+			}
+		}
+		if errors.is_empty() { exprs.wrap() } else { errors.err() }
+	}
+
+	fn function_call(&mut self, calee: Expression) -> ExprResult {
+		let Token { pos, .. } = self.next();
+		let args = self.expr_list(|typ| *typ == Symbol(ClosePar))?;
+		self.expect(Symbol(ClosePar))?;
+		Call(CallData { calee: Box::new(calee), args }).to_expr(pos).wrap()
+	}
+
+	fn index(&mut self, head: Expression) -> ExprResult {
+		let Token { pos, .. } = self.next();
+		let index = self.expression()?;
+		self.expect(Symbol(CloseSqr))?;
+		Index(IndexData { head: Box::new(head), index: Box::new(index) }).to_expr(pos).wrap()
 	}
 
 	fn primary(&mut self) -> ExprResult {
@@ -139,11 +194,18 @@ impl Parser {
 				self.expect(Symbol(ClosePar))?;
 				Grouping(Box::new(expr))
 			}
+			Symbol(OpenSqr) => self.list_literal()?,
 			Identifier(name) => Variable(name),
 			Template(tokens) => self.str_template(tokens)?,
 			_ => return ErrorList::new(format!("Expected expression, found {}", token), token.pos).err()
 		};
 		expr_typ.to_expr(token.pos).wrap()
+	}
+
+	fn list_literal(&mut self) -> Result<ExprType> {
+		let exprs = self.expr_list(|typ| *typ == Symbol(CloseSqr))?;
+		self.expect(Symbol(CloseSqr))?;
+		ExprType::Literal(LiteralData::List(exprs)).wrap()
 	}
 
 	fn str_template(&mut self, tokens: Vec<Token>) -> Result<ExprType> {

@@ -100,6 +100,23 @@ fn random() -> Value {
 	Value::Callable(Rc::new(RefCell::new(Random)))
 }
 
+fn size() -> Value {
+	#[derive(Debug, Clone)] struct Size;
+
+	impl Callable for Size {
+		fn arity(&self) -> u8 { 1 }
+
+    fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
+			match &args[0] {
+				Value::List(list) => Value::Num(list.len() as f64).wrap(),
+				_ => ErrorList::new("Invalid argument type".to_owned(), pos).err()
+			}
+    }
+	}
+
+	Value::Callable(Rc::new(RefCell::new(Size)))
+}
+
 pub(super) fn globals() -> Environment {
 	let mut env = Environment::new();
 
@@ -109,6 +126,7 @@ pub(super) fn globals() -> Environment {
 	env.definef("read", read());
 	env.definef("readnum", readnum());
 	env.definef("random", random());
+	env.definef("size", size());
 	env.definef("pi", Value::Num(3.141592653589793238462643383279502884197139699));
 
 	env.push(ValueMap::new());

@@ -13,6 +13,7 @@ pub enum Value {
 	Str(String),
 	Num(f64),
 	Bool(bool),
+	List(Vec<Value>),
 	Callable(Rc<RefCell<dyn Callable>>),
 	None,
 }
@@ -26,6 +27,11 @@ impl Value {
 	pub fn to_bool(self, pos: SourcePos) -> Result<bool> {
 		if let Value::Bool(b) = self { return Ok(b) }
 		else { ErrorList::new("Value isn't a bool".to_owned(), pos).err() }
+	}
+	
+	pub fn to_list(self, pos: SourcePos) -> Result<Vec<Value>> {
+		if let Value::List(list) = self { return Ok(list) }
+		else { ErrorList::new("Value isn't a list".to_owned(), pos).err() }
 	}
 
 	pub fn to_callable(self, pos: SourcePos) -> Result<Rc<RefCell<dyn Callable>>> {
@@ -48,6 +54,17 @@ impl Display for Value {
 			Str(s) => write!(f, "{}", s),
 			Num(n) => write!(f, "{}", n),
 			Bool(b) => write!(f, "{}", b),
+			List(list) => {
+				write!(f, "[")?;
+				let mut i = 0;
+				loop {
+					if i >= list.len() { break; }
+					write!(f, "{}", list[i])?;
+					if i + 1 < list.len() { write!(f, ", ")?; }
+					i += 1;
+				}
+				write!(f, "]")
+			},
 			Callable(c) => write!(f, "{}", c.borrow()),
 			None => write!(f, ""),
 		}

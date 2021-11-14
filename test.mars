@@ -1,6 +1,12 @@
 
-write('Enter a number: ')
+let list = ['Ana', 'Bob', function () { return list }]
 
-let n = readnum()
+let i = 0
+writeline(size(list))
+loop {
+	if i >= size(list) { break }
+	writeline(list[i])
+	i += 1
+}
 
-writeline('#{n}^2 = #{n * n}')
+writeline(list[2]()[0])

@@ -65,6 +65,11 @@ impl ExprVisitor<Value> for Interpreter {
 				for expr in exprs { values.push(expr.accept(self)?) }
 				Value::Str(values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(""))
 			}
+			LiteralData::List(exprs) => {
+				let mut values = Vec::new();
+				for expr in exprs { values.push(expr.accept(self)?) }
+				Value::List(values)
+			}
 		};
 		value.wrap()
 	}
@@ -124,6 +129,11 @@ impl ExprVisitor<Value> for Interpreter {
 		self.env.get(&data, pos)
 	}
 
+	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Value> {
+		let func = Function::new(self.env.clone(), data.params, data.body);
+		Value::Callable(Rc::new(RefCell::new(func))).wrap()
+	}
+
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Value> {
 		let calee_pos = data.calee.pos;
 		let calee = data.calee.accept(self)?;
@@ -146,9 +156,16 @@ impl ExprVisitor<Value> for Interpreter {
 		}
 	}
 
-	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Value> {
-		let func = Function::new(self.env.clone(), data.params, data.body);
-		Value::Callable(Rc::new(RefCell::new(func))).wrap()
+	fn index(&mut self, data: IndexData, _pos: SourcePos) -> Result<Value> {
+		let (head_pos, index_pos) = (data.head.pos, data.index.pos);
+		let list = data.head.accept(self)?.to_list(head_pos)?;
+		let mut index = data.index.accept(self)?.to_num(index_pos)? as i32;
+		if index < 0 { index += list.len() as i32; }
+		if index < 0 || index >= list.len() as i32 {
+			ErrorList::new("Index out of bounds".to_owned(), index_pos).err()
+		} else {
+			Ok(list[index as usize].clone())
+		}
 	}
 
 }

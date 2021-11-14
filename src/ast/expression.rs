@@ -23,6 +23,7 @@ pub enum LiteralData {
 	Num(f64),
 	Bool(bool),
 	Template(Vec<Expression>),
+	List(Vec<Expression>),
 }
 
 #[derive(Debug, Clone)]
@@ -32,9 +33,11 @@ pub struct UnaryData { pub op: UnaryOperator, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct LogicData { pub lhs: Box<Expression>, pub op: LogicOperator, pub rhs: Box<Expression> }
 #[derive(Debug, Clone)]
+pub struct LambdaData { pub params: Vec<String>, pub body: Block }
+#[derive(Debug, Clone)]
 pub struct CallData { pub calee: Box<Expression>, pub args: Vec<Expression> }
 #[derive(Debug, Clone)]
-pub struct LambdaData { pub params: Vec<String>, pub body: Block }
+pub struct IndexData { pub head: Box<Expression>, pub index: Box<Expression> }
 
 #[derive(Debug, Clone)]
 pub enum ExprType {
@@ -46,6 +49,7 @@ pub enum ExprType {
 	Variable(String),
 	Lambda(LambdaData),
 	Call(CallData),
+	Index(IndexData),
 }
 
 impl ExprType {
@@ -76,7 +80,8 @@ impl Expression {
 			Grouping(data) => visitor.grouping(data, self.pos),
 			Variable(name) => visitor.variable(name, self.pos),
 			Lambda(data) => visitor.lambda(data, self.pos),
-			Call(data) => visitor.call(data, self.pos)
+			Call(data) => visitor.call(data, self.pos),
+			Index(data) => visitor.index(data, self.pos),
 		}
 	}
 }
@@ -90,4 +95,5 @@ pub trait ExprVisitor<T> {
 	fn variable(&mut self, data: String, pos: SourcePos) -> Result<T>;
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<T>;
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<T>;
+	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<T>;
 }
