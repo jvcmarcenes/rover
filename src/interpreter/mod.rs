@@ -136,6 +136,10 @@ impl ExprVisitor<Value> for Interpreter {
 
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Value> {
 		let calee_pos = data.calee.pos;
+		let bound = match data.calee.typ {
+			ExprType::Lambda(_) => false,
+			_ => true,
+		};
 		let calee = data.calee.accept(self)?;
 		let mut args = Vec::new();
 		for arg in data.args {
@@ -145,13 +149,24 @@ impl ExprVisitor<Value> for Interpreter {
 		// We need a shared reference (Rc<RefCell<dyn Callable>>) to be able to handle closures and interior mutability
 		// We need multiple mutable borrows to handle recursive function calls
 		// This should not cause any issues since the function won't drop itself or it's environment!
-		unsafe {
-			let function = calee.to_callable(calee_pos)?.as_ptr();
-			let arity = function.as_ref().unwrap().arity();
+		// HOWEVER, we can only do this if the value is bound in the environment, if the calee is a lambda this would cause a segfault
+		if bound {
+			unsafe {
+				let function = calee.to_callable(calee_pos)?.as_ptr();
+				let arity = function.as_ref().unwrap().arity();
+				if arity != args.len() as u8 {
+					return ErrorList::new(format!("Expected {} arguments, but got {}", arity, args.len()), pos).err();
+				}
+				let ret = function.as_mut().unwrap().call(calee_pos, self, args);
+				ret
+			}
+		} else {
+			let function = calee.to_callable(calee_pos)?;
+			let arity = function.borrow().arity();
 			if arity != args.len() as u8 {
 				return ErrorList::new(format!("Expected {} arguments, but got {}", arity, args.len()), pos).err();
 			}
-			let ret = function.as_mut().unwrap().call(calee_pos, self, args);
+			let ret = function.borrow_mut().call(calee_pos, self, args);
 			ret
 		}
 	}

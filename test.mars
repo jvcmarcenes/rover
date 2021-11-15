@@ -1,12 +1,14 @@
 
-let list = ['Ana', 'Bob', function () { return list }]
+let a = 0
 
-let i = 0
-writeline(size(list))
-loop {
-	if i >= size(list) { break }
-	writeline(list[i])
-	i += 1
-}
+function() {
 
-writeline(list[2]()[0])
+	let show_a = function() {
+		writeline(a)
+	}
+
+	show_a()
+	let a = 1
+	show_a()
+
+}()
