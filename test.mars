@@ -1,12 +1,12 @@
 
-let person = function(name, age) {
-	let i = [name, age, function () { i[1] += 1 }]
-	return function () { return i }
-}
+let math = [
+	function (n) {
+		if n <= 1 {
+			return 1
+		} else {
+			return n * math[0](n - 1)
+		}
+	}
+]
 
-let john = person('John', 23)()
-writeline(john)
-john[2]()
-john[2]()
-john[2]()
-writeline(john)
+writeline(math[0](7))

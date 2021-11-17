@@ -146,7 +146,7 @@ impl ExprVisitor<Value> for Interpreter {
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Value> {
 		let calee_pos = data.calee.pos;
 		let bound = match data.calee.typ {
-			ExprType::Variable(_) => true,
+			ExprType::Variable(_) | ExprType::Index(_) => true,
 			_ => false,
 		};
 		let calee = data.calee.accept(self)?;

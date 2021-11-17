@@ -135,6 +135,7 @@ impl Parser {
 		let mut exprs = Vec::new();
 		let mut errors = ErrorList::empty();
 		loop {
+			self.skip_new_lines();
 			let peek = self.peek();
 			match peek.typ {
 				EOF => {
