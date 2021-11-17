@@ -1,8 +1,12 @@
 
-let list = [0, 1, 2, 3, 4]
+let person = function(name, age) {
+	let i = [name, age, function () { i[1] += 1 }]
+	return function () { return i }
+}
 
-writeline(list)
-
-list[0] += 23
-
-writeline(list)
+let john = person('John', 23)()
+writeline(john)
+john[2]()
+john[2]()
+john[2]()
+writeline(john)
