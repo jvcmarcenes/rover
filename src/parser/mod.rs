@@ -48,15 +48,15 @@ impl Parser {
 		}
 	}
 	
-	// fn expect_any(&mut self, expected: &[TokenType]) -> Result<Token> {
-	// 	match self.next() {
-	// 		token if expected.contains(&token.typ) => token.wrap(),
-	// 		token => {
-	// 			let expected_str = expected.iter().map(|typ| typ.to_string()).reduce(|a, b| format!("{}, {}", a, b)).expect("Cannot expect no tokens");
-	// 			Error::new(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).into()
-	// 		}
-	// 	}
-	// }
+	fn expect_any(&mut self, expected: &[TokenType]) -> Result<Token> {
+		match self.next() {
+			token if expected.contains(&token.typ) => token.wrap(),
+			token => {
+				let expected_str = expected.iter().map(|typ| typ.to_string()).reduce(|a, b| format!("{}, {}", a, b)).expect("Cannot expect no tokens");
+				ErrorList::new(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).err()
+			}
+		}
+	}
 
 	fn expect_eol(&mut self) -> Result<()> {
 		match self.peek() {

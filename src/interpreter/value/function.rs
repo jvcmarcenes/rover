@@ -18,14 +18,14 @@ impl Function {
 }
 
 impl Callable for Function {
-	fn arity(&self) -> u8 {
-		self.params.len() as u8
+	fn arity(&self) -> usize {
+		self.params.len()
 	}
 
-	fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
+	fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
 		let mut map = ValueMap::new();
 
-		for (iden, val) in self.params.iter().zip(args.iter()) {
+		for (iden, (val, _)) in self.params.iter().zip(args.iter()) {
 			map.insert(iden.clone(), val.clone());
 		}
 

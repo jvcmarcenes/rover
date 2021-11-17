@@ -10,7 +10,7 @@ pub type Block = Vec<Statement>;
 #[derive(Debug, Clone)]
 pub struct DeclarationData { pub name: String, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
-pub struct AssignData { pub name: String, pub l_pos: SourcePos, pub expr: Box<Expression> }
+pub struct AssignData { pub head: Box<Expression>, pub l_pos: SourcePos, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct IfData { pub cond: Box<Expression>, pub then_block: Block, pub else_block: Block }
 

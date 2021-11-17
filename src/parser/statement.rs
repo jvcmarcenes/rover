@@ -1,5 +1,5 @@
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, ExprType, Expression, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::*, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, ExprType, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::*, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -69,33 +69,29 @@ impl Parser {
 			Keyword(Break) => self.break_stmt(),
 			Keyword(Continue) => self.continue_stmt(),
 			Keyword(Return) => self.return_stmt(),
-			_ => {
-				let expr = self.expression()?;
-				let pos = expr.pos;
-				match self.optional_any(&[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals)]) {
-					Some(op) => self.assignment(expr, op),
-					None => {
-						self.expect_eol()?;
-						StmtType::Expr(Box::new(expr)).to_stmt(pos).wrap()
-					}
-				}
-			},
+			_ => self.assignment_or_expression(),
 		}
 	}
 
-	fn assignment(&mut self, left: Expression, op: Token) -> StmtResult {
-		if let ExprType::Variable(ref name) = left.typ {
-			let mut rhs = self.expression()?;
-			self.expect_eol()?;
-			match op.typ {
-				Symbol(Equals) => (),
-				Symbol(PlusEquals) => rhs = ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Add, rhs: Box::new(rhs) }).to_expr(op.pos),
-				Symbol(MinusEquals) => rhs = ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Sub, rhs: Box::new(rhs) }).to_expr(op.pos),
-				_ => panic!("This should never be reached"),
+	fn assignment_or_expression(&mut self) -> StmtResult {
+		let left = self.expression()?;
+		let l_pos = left.pos;
+		match left.typ {
+			ExprType::Variable(_) | ExprType::Index(_) => {
+				let op = self.expect_any(&[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals)])?;
+				let right = match op.typ {
+					Symbol(Equals) => self.expression()?,
+					Symbol(PlusEquals) => ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Add, rhs: Box::new(self.expression()?) }).to_expr(op.pos),
+					Symbol(MinusEquals) => ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Sub, rhs: Box::new(self.expression()?) }).to_expr(op.pos),
+					_ => panic!(""),
+				};
+				self.expect_eol()?;
+				StmtType::Assignment(AssignData { head: Box::new(left), l_pos, expr: Box::new(right) }).to_stmt(op.pos).wrap()
+			},
+			_ => {
+				self.expect_eol()?;				
+				StmtType::Expr(Box::new(left)).to_stmt(l_pos).wrap()
 			}
-    	StmtType::Assignment(AssignData { name: name.clone(), l_pos: left.pos, expr: Box::new(rhs) }).to_stmt(op.pos).wrap()
-		} else {
-    	ErrorList::new("Invalid assignment target".to_owned(), left.pos).err()
 		}
 	}
 

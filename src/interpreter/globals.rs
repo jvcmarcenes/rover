@@ -11,9 +11,9 @@ fn clock() -> Value {
 	#[derive(Debug, Clone)] struct Clock;
 
 	impl Callable for Clock {
-    fn arity(&self) -> u8 { 0 }
+    fn arity(&self) -> usize { 0 }
 
-    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
 			Value::Num(now).wrap()
     }
@@ -26,10 +26,10 @@ fn write() -> Value {
 	#[derive(Debug, Clone)] struct Write;
 	
 	impl Callable for Write {
-		fn arity(&self) -> u8 { 1 }
+		fn arity(&self) -> usize { 1 }
 
-		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
-			print!("{}", args[0]);
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			print!("{}", args[0].0);
 			let _ = std::io::stdout().flush();
 			Value::None.wrap()
 		}
@@ -42,10 +42,10 @@ fn writeline() -> Value {
 	#[derive(Debug, Clone)] struct Writeline;
 	
 	impl Callable for Writeline {
-		fn arity(&self) -> u8 { 1 }
+		fn arity(&self) -> usize { 1 }
 
-		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
-			println!("{}", args[0]);
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			println!("{}", args[0].0);
 			Value::None.wrap()
 		}
 	}
@@ -57,8 +57,8 @@ fn read() -> Value {
 	#[derive(Debug, Clone)] struct Read;
 
 	impl Callable for Read {
-		fn arity(&self) -> u8 { 0 }
-		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+		fn arity(&self) -> usize { 0 }
+		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			let in_res: std::result::Result<String, text_io::Error> = try_read!("{}\r\n");
 			match in_res {
 				Ok(str) => Value::Str(str).wrap(),
@@ -74,8 +74,8 @@ fn readnum() -> Value {
 	#[derive(Debug, Clone)] struct ReadNum;
 
 	impl Callable for ReadNum {
-		fn arity(&self) -> u8 { 0 }
-		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+		fn arity(&self) -> usize { 0 }
+		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			let in_res: std::result::Result<f64, text_io::Error> = try_read!();
 			match in_res {
 				Ok(n) => Value::Num(n).wrap(),
@@ -91,8 +91,8 @@ fn random() -> Value {
 	#[derive(Debug, Clone)] struct Random;
 
 	impl Callable for Random {
-		fn arity(&self) -> u8 { 0 }
-		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<Value>) -> Result<Value> {
+		fn arity(&self) -> usize { 0 }
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			Value::Num(rand::random()).wrap()
 		}
 	}
@@ -104,12 +104,14 @@ fn size() -> Value {
 	#[derive(Debug, Clone)] struct Size;
 
 	impl Callable for Size {
-		fn arity(&self) -> u8 { 1 }
+		fn arity(&self) -> usize { 1 }
 
-    fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value> {
-			match &args[0] {
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let arg = &args[0];
+			match &arg.0 {
 				Value::List(list) => Value::Num(list.len() as f64).wrap(),
-				_ => ErrorList::new("Invalid argument type".to_owned(), pos).err()
+				Value::Str(str) => Value::Num(str.len() as f64).wrap(),
+				val => ErrorList::new(format!("Invalid argument type '{}'", val.get_type()), arg.1).err()
 			}
     }
 	}

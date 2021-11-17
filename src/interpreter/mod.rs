@@ -9,6 +9,15 @@ use crate::{ast::{expression::*, statement::*}, utils::{result::{Result, ErrorLi
 
 use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, function::Function}};
 
+fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
+	if n < 0.0 { n += len as f64; }
+	if n < 0.0 || n >= len as f64 { 
+		ErrorList::new("Index out of bounds".to_owned(), pos).err()
+	} else {
+		(n as usize).wrap()
+	}
+}
+
 pub enum Message {
 	None,
 	Break,
@@ -143,7 +152,8 @@ impl ExprVisitor<Value> for Interpreter {
 		let calee = data.calee.accept(self)?;
 		let mut args = Vec::new();
 		for arg in data.args {
-			args.push(arg.accept(self)?);
+			let arg_pos = arg.pos;
+			args.push((arg.accept(self)?, arg_pos));
 		}
 		// We need a pointer to the callable because we need multiple mutable borrows of a shared reference
 		// We need a shared reference (Rc<RefCell<dyn Callable>>) to be able to handle closures and interior mutability
@@ -153,19 +163,13 @@ impl ExprVisitor<Value> for Interpreter {
 		if bound {
 			unsafe {
 				let function = calee.to_callable(calee_pos)?.as_ptr();
-				let arity = function.as_ref().unwrap().arity();
-				if arity != args.len() as u8 {
-					return ErrorList::new(format!("Expected {} arguments, but got {}", arity, args.len()), pos).err();
-				}
+				function.as_ref().unwrap().check_arity(args.len(), pos)?;
 				let ret = function.as_mut().unwrap().call(calee_pos, self, args);
 				ret
 			}
 		} else {
 			let function = calee.to_callable(calee_pos)?;
-			let arity = function.borrow().arity();
-			if arity != args.len() as u8 {
-				return ErrorList::new(format!("Expected {} arguments, but got {}", arity, args.len()), pos).err();
-			}
+			function.borrow().check_arity(args.len(), pos)?;
 			let ret = function.borrow_mut().call(calee_pos, self, args);
 			ret
 		}
@@ -173,14 +177,14 @@ impl ExprVisitor<Value> for Interpreter {
 
 	fn index(&mut self, data: IndexData, _pos: SourcePos) -> Result<Value> {
 		let (head_pos, index_pos) = (data.head.pos, data.index.pos);
-		let list = data.head.accept(self)?.to_list(head_pos)?;
-		let mut index = data.index.accept(self)?.to_num(index_pos)? as i32;
-		if index < 0 { index += list.len() as i32; }
-		if index < 0 || index >= list.len() as i32 {
-			ErrorList::new("Index out of bounds".to_owned(), index_pos).err()
-		} else {
-			Ok(list[index as usize].clone())
-		}
+		let list = match data.head.accept(self)? {
+			Value::List(list) => list,
+			Value::Str(str) => str.chars().map(|c| Value::Str(c.to_string())).collect(),
+			val => return ErrorList::new(format!("Cannot index {}", val.get_type()), head_pos).err()
+		};
+		let index = data.index.accept(self)?.to_num(index_pos)?;
+		let index = get_index(index, list.len(), index_pos)?;
+		Ok(list[index].clone())
 	}
 
 }
@@ -199,9 +203,28 @@ impl StmtVisitor<Message> for Interpreter {
 	}
 
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> MessageResult {
-		let val = data.expr.accept(self)?;
-		self.env.assign(&data.name, val, pos)?;
-		None.wrap()
+		let mut head = data.head;
+		let mut val = data.expr.accept(self)?;
+		loop {
+			match head.typ {
+				ExprType::Variable(name) => {
+					self.env.assign(&name, val, pos)?;
+					return Message::None.wrap();
+				},
+				ExprType::Index(IndexData { head: ihead, index }) => {
+					let h_pos = ihead.pos;
+					head = ihead.clone();
+					let mut list = ihead.accept(self)?.to_list(h_pos)?;
+					let i_pos = index.pos;
+					let index = index.accept(self)?.to_num(i_pos)?;
+					let index = get_index(index, list.len(), i_pos)?;
+					list.remove(index);
+					list.insert(index, val);
+					val = Value::List(list);
+				}
+				_ => return ErrorList::new("Invalid assignment target".to_owned(), head.pos).err()
+			}
+		}
 	}
 
 	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> MessageResult {
