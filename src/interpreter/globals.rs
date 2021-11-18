@@ -70,23 +70,6 @@ fn read() -> Value {
 	Value::Callable(Rc::new(RefCell::new(Read)))
 }
 
-fn readnum() -> Value {
-	#[derive(Debug, Clone)] struct ReadNum;
-
-	impl Callable for ReadNum {
-		fn arity(&self) -> usize { 0 }
-		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let in_res: std::result::Result<f64, text_io::Error> = try_read!();
-			match in_res {
-				Ok(n) => Value::Num(n).wrap(),
-				Err(_) => ErrorList::run("Invalid console input".to_owned(), pos).err(),
-			}
-		}
-	}
-
-	Value::Callable(Rc::new(RefCell::new(ReadNum)))
-}
-
 fn random() -> Value {
 	#[derive(Debug, Clone)] struct Random;
 
@@ -119,6 +102,47 @@ fn size() -> Value {
 	Value::Callable(Rc::new(RefCell::new(Size)))
 }
 
+fn is_num() -> Value {
+	#[derive(Debug, Clone)] struct IsNum;
+
+	impl Callable for IsNum {
+		fn arity(&self) -> usize { 1 }
+
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let arg = &args[0];
+			match &arg.0 {
+				Value::Str(str) => Value::Bool(str.parse::<f64>().is_ok()).wrap(),
+				val => ErrorList::run(format!("Invalid argument type '{}'", val.get_type()), arg.1).err(),
+			}
+		}
+	}
+
+	Value::Callable(Rc::new(RefCell::new(IsNum)))
+}
+
+fn to_num() -> Value {
+	#[derive(Debug, Clone)] struct ToNum;
+
+	impl Callable for ToNum {
+		fn arity(&self) -> usize { 1 }
+
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let arg = &args[0];
+			match &arg.0 {
+				Value::Str(str) => {
+					match str.parse::<f64>() {
+						Ok(n) => Value::Num(n).wrap(),
+						Err(_) => ErrorList::run("Could not convert to number".to_owned(), arg.1).err(),
+					}
+				},
+				val => ErrorList::run(format!("Invalid argument type '{}'", val.get_type()), arg.1).err(),
+			}
+		}
+	}
+
+	Value::Callable(Rc::new(RefCell::new(ToNum)))
+}
+
 pub(super) fn globals() -> ValueMap {
 	let mut env = ValueMap::new();
 
@@ -130,10 +154,11 @@ pub(super) fn globals() -> ValueMap {
 	define("write", write());
 	define("writeline", writeline());
 	define("read", read());
-	define("readnum", readnum());
 	define("random", random());
 	define("size", size());
 	define("pi", Value::Num(3.141592653589793238462643383279502884197139699));
+	define("is_num", is_num());
+	define("to_num", to_num());
 
 	env
 }
