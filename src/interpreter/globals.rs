@@ -1,11 +1,11 @@
 
-use std::{cell::RefCell, io::Write, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
+use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
 use text_io::try_read;
 
 use crate::{interpreter::{Interpreter, value::callable::Callable}, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
-use super::{environment::ValueMap, value::Value};
+use super::value::Value;
 
 fn clock() -> Value {
 	#[derive(Debug, Clone)] struct Clock;
@@ -143,22 +143,94 @@ fn to_num() -> Value {
 	Value::Callable(Rc::new(RefCell::new(ToNum)))
 }
 
-pub(super) fn globals() -> ValueMap {
-	let mut env = ValueMap::new();
+fn exit() -> Value {
+	#[derive(Clone, Debug)] struct Exit;
 
-	let mut define = |key: &str, value: Value| {
-		env.insert(key.to_owned(), value);
-	};
+	impl Callable for Exit {
+		fn arity(&self) -> usize { 0 }
 
-	define("clock", clock());
-	define("write", write());
-	define("writeline", writeline());
-	define("read", read());
-	define("random", random());
-	define("size", size());
-	define("pi", Value::Num(3.141592653589793238462643383279502884197139699));
-	define("is_num", is_num());
-	define("to_num", to_num());
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			process::exit(0)
+    }
+	}
 
-	env
+	Value::Callable(Rc::new(RefCell::new(Exit)))
+}
+
+fn sleep() -> Value {
+	#[derive(Clone, Debug)] struct Exit;
+
+	impl Callable for Exit {
+		fn arity(&self) -> usize { 1 }
+
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (val, pos) = args[0].clone();
+			let d = std::time::Duration::from_secs_f64(val.to_num(pos)?);
+			std::thread::sleep(d);
+			Value::None.wrap()
+    }
+	}
+
+	Value::Callable(Rc::new(RefCell::new(Exit)))
+}
+
+fn new_list() -> Value {
+	#[derive(Clone, Debug)] struct NewList;
+
+	impl Callable for NewList {
+    fn arity(&self) -> usize { 2 }
+
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (len, pos) = args[0].clone();
+			let len = len.to_num(pos)?;
+			if len < 0.0 { return ErrorList::run("list size cannot be negative".to_owned(), pos).err() }
+			let def = args[1].clone().0;
+			let mut vec = Vec::new();
+			for _ in 0..(len as i32) { vec.push(def.clone()) }
+			Value::List(vec).wrap()
+    }
+	}
+
+	Value::Callable(Rc::new(RefCell::new(NewList)))
+}
+
+#[derive(Clone, Debug)]
+pub struct Globals {
+	pub ids: HashMap<String, usize>,
+	pub values: HashMap<usize, Value>,
+}
+
+impl Globals {
+
+	pub fn new() -> Self {
+		let mut globals = Self {
+			ids: HashMap::new(),
+			values: HashMap::new(),
+		};
+
+		let v = vec![
+			("clock", clock()),
+			("write", write()),
+			("writeline", writeline()),
+			("read", read()),
+			("random", random()),
+			("size", size()),
+			("pi", Value::Num(3.141592653589793238462643383279502884197139699)),
+			("is_num", is_num()),
+			("to_num", to_num()),
+			("exit", exit()),
+			("sleep", sleep()),
+			("new_list", new_list()),
+		];
+
+		let mut i = 1;
+		for (key, val) in v {
+			globals.ids.insert(key.to_owned(), i);
+			globals.values.insert(i, val);
+			i += 1;
+		}
+ 
+		globals
+	}
+
 }

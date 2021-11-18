@@ -1,5 +1,5 @@
 
-use crate::{ast::expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -196,7 +196,7 @@ impl Parser {
 				Grouping(Box::new(expr))
 			}
 			Symbol(OpenSqr) => self.list_literal()?,
-			Identifier(name) => Variable(name),
+			Identifier(name) => Variable(Identifier::new(name)),
 			Template(tokens) => self.str_template(tokens)?,
 			_ => return ErrorList::comp(format!("Expected expression, found {}", token), token.pos).err()
 		};
@@ -258,13 +258,13 @@ impl Parser {
 			let peek = self.peek();
 			match peek.typ {
 				Symbol(ClosePar) => { self.next(); break; }
-				Identifier(name) if params.is_empty() => { self.next(); params.push(name) },
+				Identifier(name) if params.is_empty() => { self.next(); params.push(Identifier::new(name)) },
 				_ => {
 					self.expect(Symbol(Comma))?;
 					self.skip_new_lines();
 					let next = self.next();
 					if let Identifier(name) = next.typ {
-						params.push(name)
+						params.push(Identifier::new(name))
 					} else {
 						return ErrorList::comp(format!("Expected identifier, found {}", next), next.pos).err()
 					}

@@ -12,7 +12,7 @@ impl Display for Stage {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", match self {
 			Stage::Compile => "compile",
-			Stage::Run => "run",
+			Stage::Run => "runtime",
 		})
 	}
 }
@@ -78,6 +78,8 @@ impl ErrorList {
 	pub fn add_comp(&mut self, msg: String, pos: SourcePos) { self.0.push(Error::new(msg, pos, Stage::Compile)) }
 	pub fn add_run(&mut self, msg: String, pos: SourcePos) { self.0.push(Error::new(msg, pos, Stage::Run)) }
 	pub fn append(&mut self, mut err: ErrorList) { self.0.append(&mut err.0) }
+	pub fn try_append<T>(&mut self, res: Result<T>) { if let Err(err) = res { self.append(err) } }
 	pub fn report(&self, path: &str) { self.0.iter().for_each(|err| err.report(path)) }
 	pub fn report_repl(&self, path: &str) { self.0.iter().for_each(|err| err.report_repl(path)) }
+	pub fn if_empty<T>(self, ret: T) -> Result<T> { if self.is_empty() { Ok(ret) } else { self.err() } }
 }

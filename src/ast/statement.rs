@@ -1,14 +1,14 @@
 
 use crate::utils::{result::Result, source_pos::SourcePos};
 
-use super::expression::Expression;
+use super::{Identifier, expression::Expression};
 
 use self::StmtType::*;
 
 pub type Block = Vec<Statement>;
 
 #[derive(Debug, Clone)]
-pub struct DeclarationData { pub name: String, pub expr: Box<Expression> }
+pub struct DeclarationData { pub name: Identifier, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct AssignData { pub head: Box<Expression>, pub l_pos: SourcePos, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]

@@ -1,5 +1,5 @@
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, ExprType, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::*, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator, ExprType, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -99,7 +99,7 @@ impl Parser {
 		let Token { pos, .. } = self.next();
 		let next = self.next();
 		let name = match next.typ { 
-			Identifier(name) => name,
+			TokenType::Identifier(name) => Identifier::new(name),
 			typ => return ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(),
 		};
 		let expr = match self.optional(Symbol(Equals)) {
@@ -115,14 +115,10 @@ impl Parser {
 		let cond = self.expression()?;
 		let then_block = self.block()?;
 		self.skip_new_lines();
-		let else_block = if self.optional(Keyword(Else)).is_some() {
-			if self.next_match(Keyword(If)) {
-				Block::from([self.if_stmt()?])
-			} else {
-				self.block()?
-			}
-		} else {
-			Block::new()
+		let else_block = match self.optional(Keyword(Else)) {
+			Some(_) if self.next_match(Keyword(If)) => Block::from([self.if_stmt()?]),
+			Some(_) => self.block()?,
+			None => Block::new(),
 		};
 		StmtType::If(IfData { cond: Box::new(cond), then_block, else_block }).to_stmt(pos).wrap()
 	}

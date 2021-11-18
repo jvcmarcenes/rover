@@ -5,7 +5,7 @@ pub mod globals;
 
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{ast::{expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, function::Function}};
 
@@ -25,37 +25,30 @@ pub enum Message {
 	Return(Value)
 }
 
-type MessageResult = Result<Message>;
-
 pub struct Interpreter {
 	env: Environment,
 }
 
 impl Interpreter {
 
-	pub fn new() -> Self {
+	pub fn new(globals: ValueMap) -> Self {
 		Self {
-			env: Environment::new(),
+			env: Environment::new(globals),
 		}
 	}
 
-	pub fn interpret(&mut self, statements: Block) -> Result<()> {
-		for stmt in statements { stmt.accept(self)?; }
+	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
+		for stmt in statements.clone() { stmt.accept(self)?; }
 		Ok(())
 	}
 
-	fn execute_block(&mut self, block: Block, map: ValueMap) -> MessageResult {
-		self.env.push(map);
+	fn execute_block(&mut self, block: Block) -> Result<Message> {
 		for stmt in block {
 			match stmt.accept(self)? {
 				None => continue,
-				msg => {
-					self.env.pop();
-					return msg.wrap();
-				}
+				msg => return msg.wrap(),
 			}
 		}
-		self.env.pop();
 		Ok(None)
 	}
 
@@ -134,8 +127,8 @@ impl ExprVisitor<Value> for Interpreter {
 		data.accept(self)
 	}
 
-	fn variable(&mut self, data: String, pos: SourcePos) -> Result<Value> {
-		self.env.get(&data, pos)
+	fn variable(&mut self, data: Identifier, _pos: SourcePos) -> Result<Value> {
+		self.env.get(data.get_id()).wrap()
 	}
 
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Value> {
@@ -196,19 +189,19 @@ impl StmtVisitor<Message> for Interpreter {
 		None.wrap()
 	}
 
-	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> MessageResult {
+	fn declaration(&mut self, data: DeclarationData, _pos: SourcePos) -> Result<Message> {
 		let val = data.expr.accept(self)?;
-		self.env.define(&data.name, val, pos)?;
+		self.env.define(data.name.get_id(), val);
 		None.wrap()
 	}
 
-	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> MessageResult {
+	fn assignment(&mut self, data: AssignData, _pos: SourcePos) -> Result<Message> {
 		let mut head = data.head;
 		let mut val = data.expr.accept(self)?;
 		loop {
 			match head.typ {
 				ExprType::Variable(name) => {
-					self.env.assign(&name, val, pos)?;
+					self.env.assign(name.get_id(), val);
 					return Message::None.wrap();
 				},
 				ExprType::Index(IndexData { head: ihead, index }) => {
@@ -227,17 +220,17 @@ impl StmtVisitor<Message> for Interpreter {
 		}
 	}
 
-	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> MessageResult {
+	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> Result<Message> {
 		if data.cond.accept(self)?.is_truthy() {
-			self.execute_block(data.then_block, ValueMap::new())
+			self.execute_block(data.then_block)
 		} else {
-			self.execute_block(data.else_block, ValueMap::new())
+			self.execute_block(data.else_block)
 		}
 	}
 
-	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> MessageResult {
+	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
 		loop {
-			match self.execute_block(block.clone(), ValueMap::new())? {
+			match self.execute_block(block.clone())? {
 				None | Continue => continue,
 				Break => return None.wrap(),
 				msg => return msg.wrap(),
@@ -245,7 +238,7 @@ impl StmtVisitor<Message> for Interpreter {
 		}
 	}
 
-	fn break_stmt(&mut self, _pos: SourcePos) -> MessageResult {
+	fn break_stmt(&mut self, _pos: SourcePos) -> Result<Message> {
 		Ok(Break)
 	}
 

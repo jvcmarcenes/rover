@@ -1,9 +1,14 @@
 
-let a = read()
+let a = 'global'
 
-if is_num(a) {
-	let b = to_num(a)
-	writeline('#{b}² = #{b * b}')
-} else {
-	writeline("The value entered wasn't a number")
-}
+function() {
+
+	let show_a = function() {
+		writeline(a)
+	}
+
+	show_a()
+	let a = 'local'
+	show_a()
+
+}()

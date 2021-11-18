@@ -3,7 +3,7 @@ use crate::utils::{result::*, source_pos::*};
 
 use self::ExprType::*;
 
-use super::statement::Block;
+use super::{Identifier, statement::Block};
 
 #[derive(Debug, Clone)]
 pub enum BinaryOperator {
@@ -33,7 +33,7 @@ pub struct UnaryData { pub op: UnaryOperator, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct LogicData { pub lhs: Box<Expression>, pub op: LogicOperator, pub rhs: Box<Expression> }
 #[derive(Debug, Clone)]
-pub struct LambdaData { pub params: Vec<String>, pub body: Block }
+pub struct LambdaData { pub params: Vec<Identifier>, pub body: Block }
 #[derive(Debug, Clone)]
 pub struct CallData { pub calee: Box<Expression>, pub args: Vec<Expression> }
 #[derive(Debug, Clone)]
@@ -46,7 +46,7 @@ pub enum ExprType {
 	Unary(UnaryData),
 	Logic(LogicData),
 	Grouping(Box<Expression>),
-	Variable(String),
+	Variable(Identifier),
 	Lambda(LambdaData),
 	Call(CallData),
 	Index(IndexData),
@@ -92,7 +92,7 @@ pub trait ExprVisitor<T> {
 	fn unary(&mut self, data: UnaryData, pos: SourcePos) -> Result<T>;
 	fn logic(&mut self, data: LogicData, pos: SourcePos) -> Result<T>;
 	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<T>;
-	fn variable(&mut self, data: String, pos: SourcePos) -> Result<T>;
+	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<T>;
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<T>;
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<T>;
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<T>;
