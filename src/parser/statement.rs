@@ -41,7 +41,7 @@ impl Parser {
 			self.skip_new_lines();
 			match self.peek().typ {
 				Symbol(CloseBracket) => break,
-				EOF => { errors.add("Statement block not closed".to_owned(), pos); break },
+				EOF => { errors.add_comp("Statement block not closed".to_owned(), pos); break },
 				_ => match self.statement() {
 					Ok(stmt) => statements.push(stmt),
 					Err(err) => {
@@ -100,7 +100,7 @@ impl Parser {
 		let next = self.next();
 		let name = match next.typ { 
 			Identifier(name) => name,
-			typ => return ErrorList::new(format!("Expected identifier, found {}", typ), next.pos).err(),
+			typ => return ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(),
 		};
 		let expr = match self.optional(Symbol(Equals)) {
 			Some(_) => self.expression()?,
@@ -138,7 +138,7 @@ impl Parser {
 	fn break_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
 		if !self.ctx.in_loop {
-			return ErrorList::new("Break statement outside of loop".to_owned(), pos).err();
+			return ErrorList::comp("Break statement outside of loop".to_owned(), pos).err();
 		}
 		StmtType::Break.to_stmt(pos).wrap()
 	}
@@ -146,7 +146,7 @@ impl Parser {
 	fn continue_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
 		if !self.ctx.in_loop {
-			return ErrorList::new("Continue statement outside of loop".to_owned(), pos).err();
+			return ErrorList::comp("Continue statement outside of loop".to_owned(), pos).err();
 		}
 		StmtType::Continue.to_stmt(pos).wrap()
 	}
@@ -154,7 +154,7 @@ impl Parser {
 	fn return_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
 		if !self.ctx.in_func {
-			return ErrorList::new("Return statement outside of function".to_owned(), pos).err();
+			return ErrorList::comp("Return statement outside of function".to_owned(), pos).err();
 		}
 		let expr = self.expression_or_none()?;
 		StmtType::Return(Box::new(expr)).to_stmt(pos).wrap()

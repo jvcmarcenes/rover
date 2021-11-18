@@ -21,22 +21,22 @@ pub enum Value {
 impl Value {
 	pub fn to_num(self, pos: SourcePos) -> Result<f64> {
 		if let Value::Num(n) = self { return Ok(n) }
-		else { ErrorList::new("Value isn't a number".to_owned(), pos).err() }
+		else { ErrorList::run("Value isn't a number".to_owned(), pos).err() }
 	}
 
 	pub fn to_bool(self, pos: SourcePos) -> Result<bool> {
 		if let Value::Bool(b) = self { return Ok(b) }
-		else { ErrorList::new("Value isn't a bool".to_owned(), pos).err() }
+		else { ErrorList::run("Value isn't a bool".to_owned(), pos).err() }
 	}
 	
 	pub fn to_list(self, pos: SourcePos) -> Result<Vec<Value>> {
 		if let Value::List(list) = self { return Ok(list) }
-		else { ErrorList::new("Value isn't a list".to_owned(), pos).err() }
+		else { ErrorList::run("Value isn't a list".to_owned(), pos).err() }
 	}
 
 	pub fn to_callable(self, pos: SourcePos) -> Result<Rc<RefCell<dyn Callable>>> {
 		if let Value::Callable(c) = self { return Ok(c) }
-		ErrorList::new("Value isn't callable".to_owned(), pos).err()
+		ErrorList::run("Value isn't a function".to_owned(), pos).err()
 	}
 
 	pub fn is_truthy(&self) -> bool {

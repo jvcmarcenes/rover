@@ -44,7 +44,7 @@ impl Parser {
 	fn expect(&mut self, expected: TokenType) -> Result<Token> {
 		match self.next() {
 			token if token.typ == expected => token.wrap(),
-			token => ErrorList::new(format!("Expected {}, found {}", expected, token.typ), token.pos).err(),
+			token => ErrorList::comp(format!("Expected {}, found {}", expected, token.typ), token.pos).err(),
 		}
 	}
 	
@@ -53,7 +53,7 @@ impl Parser {
 			token if expected.contains(&token.typ) => token.wrap(),
 			token => {
 				let expected_str = expected.iter().map(|typ| typ.to_string()).reduce(|a, b| format!("{}, {}", a, b)).expect("Cannot expect no tokens");
-				ErrorList::new(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).err()
+				ErrorList::comp(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).err()
 			}
 		}
 	}
@@ -62,7 +62,7 @@ impl Parser {
 		match self.peek() {
 			token if token.typ == EOL => { self.next(); Ok(()) }
 			token if token.typ == EOF || token.typ == Symbol(Symbol::CloseBracket) => Ok(()),
-			token => ErrorList::new(format!("Expected new line, found {}", token), token.pos).err()
+			token => ErrorList::comp(format!("Expected new line, found {}", token), token.pos).err()
 		}
 	}
 

@@ -62,7 +62,7 @@ fn read() -> Value {
 			let in_res: std::result::Result<String, text_io::Error> = try_read!("{}\r\n");
 			match in_res {
 				Ok(str) => Value::Str(str).wrap(),
-				Err(_) => ErrorList::new("Invalid console input".to_owned(), pos).err(),
+				Err(_) => ErrorList::run("Invalid console input".to_owned(), pos).err(),
 			}
 		}
 	}
@@ -79,7 +79,7 @@ fn readnum() -> Value {
 			let in_res: std::result::Result<f64, text_io::Error> = try_read!();
 			match in_res {
 				Ok(n) => Value::Num(n).wrap(),
-				Err(_) => ErrorList::new("Invalid console input".to_owned(), pos).err(),
+				Err(_) => ErrorList::run("Invalid console input".to_owned(), pos).err(),
 			}
 		}
 	}
@@ -111,7 +111,7 @@ fn size() -> Value {
 			match &arg.0 {
 				Value::List(list) => Value::Num(list.len() as f64).wrap(),
 				Value::Str(str) => Value::Num(str.len() as f64).wrap(),
-				val => ErrorList::new(format!("Invalid argument type '{}'", val.get_type()), arg.1).err()
+				val => ErrorList::run(format!("Invalid argument type '{}'", val.get_type()), arg.1).err()
 			}
     }
 	}

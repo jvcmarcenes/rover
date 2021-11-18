@@ -12,7 +12,7 @@ use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, func
 fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
 	if n < 0.0 { n += len as f64; }
 	if n < 0.0 || n >= len as f64 { 
-		ErrorList::new("Index out of bounds".to_owned(), pos).err()
+		ErrorList::run("Index out of bounds".to_owned(), pos).err()
 	} else {
 		(n as usize).wrap()
 	}
@@ -97,7 +97,7 @@ impl ExprVisitor<Value> for Interpreter {
 			BinaryOperator::Div => {
 				let rhs = rhs.to_num(r_pos)?;
 				if rhs == 0.0 {
-					return ErrorList::new("Cannot divide by zero".to_owned(), r_pos).err()
+					return ErrorList::run("Cannot divide by zero".to_owned(), r_pos).err()
 				} else {
 					Value::Num(lhs.to_num(l_pos)? / rhs)
 				}
@@ -180,7 +180,7 @@ impl ExprVisitor<Value> for Interpreter {
 		let list = match data.head.accept(self)? {
 			Value::List(list) => list,
 			Value::Str(str) => str.chars().map(|c| Value::Str(c.to_string())).collect(),
-			val => return ErrorList::new(format!("Cannot index {}", val.get_type()), head_pos).err()
+			val => return ErrorList::run(format!("Cannot index {}", val.get_type()), head_pos).err()
 		};
 		let index = data.index.accept(self)?.to_num(index_pos)?;
 		let index = get_index(index, list.len(), index_pos)?;
@@ -217,12 +217,12 @@ impl StmtVisitor<Message> for Interpreter {
 					let mut list = ihead.accept(self)?.to_list(h_pos)?;
 					let i_pos = index.pos;
 					let index = index.accept(self)?.to_num(i_pos)?;
-					let index = get_index(index, list.len(), i_pos)?;
-					list.remove(index);
+					let index = get_index(index, list.len() + 1, i_pos)?;
+					if index < list.len() { list.remove(index); }
 					list.insert(index, val);
 					val = Value::List(list);
 				}
-				_ => return ErrorList::new("Invalid assignment target".to_owned(), head.pos).err()
+				_ => return ErrorList::run("Invalid assignment target".to_owned(), head.pos).err()
 			}
 		}
 	}

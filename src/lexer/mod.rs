@@ -67,7 +67,7 @@ impl Lexer {
 					self.next_char();
 				}
 				Some(_) => return Ok(()),
-				None => return ErrorList::new("Unexpected EOF".to_owned(), self.cursor).err(),
+				None => return ErrorList::comp("Unexpected EOF".to_owned(), self.cursor).err(),
 			}
 		}
 	}
@@ -85,7 +85,7 @@ impl Lexer {
 			match self.next_char() {
 				Some('#') if self.next_match(')') => return Ok(None),
 				Some(_) => continue,
-				None => return ErrorList::new("Block comment left open".to_owned(), pos).err()
+				None => return ErrorList::comp("Block comment left open".to_owned(), pos).err()
 			}
 		}
 	}
@@ -111,7 +111,7 @@ impl Lexer {
 		}
 		match value.parse::<f64>() {
 			Ok(n) => Token::new(Literal(Num(n)), self.cursor).wrap(),
-			Err(_) => ErrorList::new(format!("Invalid number literal '{}'", value), self.cursor).err(),
+			Err(_) => ErrorList::comp(format!("Invalid number literal '{}'", value), self.cursor).err(),
 		}
 	}
 
@@ -139,7 +139,7 @@ impl Lexer {
 					loop {
 						match self.next_char() {
 							Some('}') => break,
-							Some(c) if c == '\n' => { errors.add("Illegal EOL inside string template".to_owned(), self.cursor); return errors.err() },
+							Some(c) if c == '\n' => { errors.add_comp("Illegal EOL inside string template".to_owned(), self.cursor); return errors.err() },
 							Some(c) if c.is_whitespace() => continue,
 							Some(c) => match self.scan_token(c) {
 								Ok(Some(token)) => tokens.push(token),
@@ -147,7 +147,7 @@ impl Lexer {
 								Err(err) => errors.append(err),
 							}
 							None => {
-								errors.add("Unexpected EOF".to_owned(), self.cursor);
+								errors.add_comp("Unexpected EOF".to_owned(), self.cursor);
 								return errors.err();
 							}
 						}
@@ -163,7 +163,7 @@ impl Lexer {
 					}
 				}
 				None => {
-					errors.add("Unexpected EOF".to_owned(), self.cursor);
+					errors.add_comp("Unexpected EOF".to_owned(), self.cursor);
 					return errors.err();
 				}
 			}
@@ -180,7 +180,7 @@ impl Lexer {
 
 	fn scan_token(&mut self, first_char: char) -> TokenResult {
 		match first_char {
-			c if c.is_ascii_alphabetic() => self.scan_identifier_or_keyword(c),
+			c if c.is_ascii_alphabetic() || c == '_' => self.scan_identifier_or_keyword(c),
 			c if c.is_ascii_digit() => self.scan_number(c),
 			'(' if self.next_match('#') => self.scan_block_comment(),
 			'(' => self.symbol(OpenPar),
@@ -210,7 +210,7 @@ impl Lexer {
 			'\'' => self.scan_str_template(),
 			'"' => return self.scan_string(),
 			'#' => self.scan_comment(),
-			_ => ErrorList::new(format!("Unknow token {}", first_char), self.cursor).err(),
+			_ => ErrorList::comp(format!("Unknow token {}", first_char), self.cursor).err(),
 		}
 	}
 

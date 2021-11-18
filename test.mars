@@ -1,12 +1,14 @@
 
-let math = [
-	function (n) {
-		if n <= 1 {
-			return 1
-		} else {
-			return n * math[0](n - 1)
-		}
-	}
-]
+let a = 'global'
 
-writeline(math[0](7))
+function () {
+
+	let show_a = function () {
+		writeline(a)
+	}
+
+	show_a()
+	let a = 'local'
+	show_a()
+
+}()

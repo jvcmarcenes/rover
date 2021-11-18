@@ -34,7 +34,7 @@ impl Environment {
 
 	pub fn define(&mut self, name: &str, value: Value, pos: SourcePos) -> Result<()> {
 		if self.0.first().unwrap().borrow().contains_key(name) {
-			return ErrorList::new(format!("Cannot redefine '{}'", name), pos).err()
+			return ErrorList::run(format!("Cannot redefine '{}'", name), pos).err()
 		}
 		self.top().borrow_mut().insert(name.to_owned(), value);
 		Ok(())
@@ -48,12 +48,12 @@ impl Environment {
 				None => cur = rest,
 			}
 		}
-		ErrorList::new(format!("Undefined variable '{}'", name), pos).err()
+		ErrorList::run(format!("Undefined variable '{}'", name), pos).err()
 	}
 	
 	pub fn assign(&mut self, name: &str, value: Value, pos: SourcePos) -> Result<()> {
 		if self.0.first().unwrap().borrow().contains_key(name) {
-			return ErrorList::new(format!("Cannot assign to '{}'", name), pos).err()
+			return ErrorList::run(format!("Cannot assign to '{}'", name), pos).err()
 		}
 		let mut cur = self.0.as_mut_slice();
 		while let [rest @ .., env] = cur {
@@ -63,7 +63,13 @@ impl Environment {
 			}
 			cur = rest;
 		}
-		ErrorList::new(format!("Undefined variable '{}'", name), pos).err()
+		ErrorList::run(format!("Undefined variable '{}'", name), pos).err()
 	}
 
 }
+
+// impl Clone for Environment {
+// 	fn clone(&self) -> Self {
+// 		Self(self.0.iter().map(|r| Rc::new((**r).clone())).collect())
+// 	}
+// }

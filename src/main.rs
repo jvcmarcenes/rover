@@ -35,10 +35,10 @@ fn run_file(path: &str) {
 	});
 
 	let (tokens, errors) = lexer.scan_tokens();
-	errors.report(&path, "lexer");
+	errors.report(&path);
 	
 	let prog = Parser::new(tokens).program().unwrap_or_else(|errors| {
-		errors.report(&path, "parser");
+		errors.report(&path);
 		process::exit(1);
 	});
 
@@ -47,7 +47,7 @@ fn run_file(path: &str) {
 	let mut interpreter = Interpreter::new();
 
 	interpreter.interpret(prog).unwrap_or_else(|err| {
-		err.report(&path, "runtime");
+		err.report(&path);
 		process::exit(1);
 	});
 }
@@ -68,10 +68,10 @@ fn run_repl() {
 
 		let mut lexer = Lexer::from_text(&input);
 		let (tokens, errors) = lexer.scan_tokens();
-		if !errors.is_empty() { errors.report_repl(&input, "lexer"); continue; }
+		if !errors.is_empty() { errors.report_repl(&input); continue; }
 		let stmt = match Parser::new(tokens).statement() {
 			Ok(stmt) => stmt,
-			Err(err) => { err.report_repl(&input, "parser"); continue; }
+			Err(err) => { err.report_repl(&input); continue; }
 		};
 		let res = match stmt.typ {
 			StmtType::Expr(expr) => expr.accept(&mut interpreter).map(|ok| ok.to_string()),
@@ -79,7 +79,7 @@ fn run_repl() {
 		};
 		match res {
 			Ok(s) => println!("{}", s),
-			Err(err) => err.report_repl(&input, "runtime")
+			Err(err) => err.report_repl(&input)
 		}
 
 	}

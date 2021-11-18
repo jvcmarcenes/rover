@@ -139,7 +139,7 @@ impl Parser {
 			let peek = self.peek();
 			match peek.typ {
 				EOF => {
-					errors.add("Unexpected EOF".to_owned(), peek.pos);
+					errors.add_comp("Unexpected EOF".to_owned(), peek.pos);
 					return errors.err()
 				}
 				typ if stop(&typ) => break,
@@ -198,7 +198,7 @@ impl Parser {
 			Symbol(OpenSqr) => self.list_literal()?,
 			Identifier(name) => Variable(name),
 			Template(tokens) => self.str_template(tokens)?,
-			_ => return ErrorList::new(format!("Expected expression, found {}", token), token.pos).err()
+			_ => return ErrorList::comp(format!("Expected expression, found {}", token), token.pos).err()
 		};
 		expr_typ.to_expr(token.pos).wrap()
 	}
@@ -266,7 +266,7 @@ impl Parser {
 					if let Identifier(name) = next.typ {
 						params.push(name)
 					} else {
-						return ErrorList::new(format!("Expected identifier, found {}", next), next.pos).err()
+						return ErrorList::comp(format!("Expected identifier, found {}", next), next.pos).err()
 					}
 				}
 			}

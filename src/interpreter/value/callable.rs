@@ -11,7 +11,7 @@ pub trait Callable : Debug + DynClone {
 	fn arity(&self) -> usize;
 	fn check_arity(&self, args_in: usize, pos: SourcePos) -> Result<()> {
 		if self.arity() != args_in {
-			return ErrorList::new(format!("Expected {} arguments, but got {}", self.arity(), args_in), pos).err();
+			return ErrorList::run(format!("Expected {} arguments, but got {}", self.arity(), args_in), pos).err();
 		} else {
 			Ok(())
 		}
