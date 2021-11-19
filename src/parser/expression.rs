@@ -271,9 +271,7 @@ impl Parser {
 				}
 			}
 		}
-		let root = if self.ctx.in_func { false } else { self.ctx.in_func = true; true };
 		let body = self.block()?;
-		if root { self.ctx.in_func = false }
 		ExprType::Lambda(LambdaData { params, body }).wrap()
 	}
 

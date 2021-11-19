@@ -8,16 +8,9 @@ use crate::{lexer::token::{Token, TokenType::{self, *}, Symbol}, utils::{result:
 
 pub type TokenIter = Peekable<IntoIter<Token>>;
 
-#[derive(Debug, Clone, Default)]
-struct ParserContext {
-	in_loop: bool,
-	in_func: bool,
-}
-
 #[derive(Debug, Clone)]
 pub struct Parser {
 	tokens: TokenIter,
-	ctx: ParserContext,
 }
 
 impl Parser {
@@ -25,7 +18,6 @@ impl Parser {
 	pub fn new(tokens: Vec<Token>) -> Self {
 		Self {
 			tokens: tokens.into_iter().peekable(),
-			ctx: ParserContext::default(),
 		}
 	}
 

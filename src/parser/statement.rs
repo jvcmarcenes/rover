@@ -125,33 +125,22 @@ impl Parser {
 
 	fn loop_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
-		let root = if self.ctx.in_loop { false } else { self.ctx.in_loop = true; true };
 		let block = self.block()?;
-		if root { self.ctx.in_loop = false; }
 		StmtType::Loop(block).to_stmt(pos).wrap()
 	}
 
 	fn break_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
-		if !self.ctx.in_loop {
-			return ErrorList::comp("Break statement outside of loop".to_owned(), pos).err();
-		}
 		StmtType::Break.to_stmt(pos).wrap()
 	}
 
 	fn continue_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
-		if !self.ctx.in_loop {
-			return ErrorList::comp("Continue statement outside of loop".to_owned(), pos).err();
-		}
 		StmtType::Continue.to_stmt(pos).wrap()
 	}
 	
 	fn return_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
-		if !self.ctx.in_func {
-			return ErrorList::comp("Return statement outside of function".to_owned(), pos).err();
-		}
 		let expr = self.expression_or_none()?;
 		StmtType::Return(Box::new(expr)).to_stmt(pos).wrap()
 	}

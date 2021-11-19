@@ -5,11 +5,25 @@ use crate::{ast::{Identifier, expression::{BinaryData, CallData, ExprType, ExprV
 
 type SymbolTable = HashMap<String, usize>;
 
+fn allowed(cond: bool, msg: &str, pos: SourcePos) -> Result<()> {
+	if cond { Ok(()) }
+	else { ErrorList::comp(msg.to_owned(), pos).err() }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Context {
+	allow_return: bool,
+	allow_break: bool,
+	allow_continue: bool,
+	assignment: bool,
+}
+
+#[derive(Debug)]
 pub struct Resolver {
 	last_id: usize,
 	tables: Vec<SymbolTable>,
 	globals: Globals,
-	is_overriding: bool,
+	ctx: Context,
 }
 
 impl Resolver {
@@ -19,7 +33,7 @@ impl Resolver {
 			last_id: globals.ids.len() + 1,
 			globals: globals.clone(),
 			tables: vec![globals.ids],
-			is_overriding: false,
+			ctx: Context::default(),
 		}
 	}
 
@@ -110,19 +124,18 @@ impl ExprVisitor<()> for Resolver {
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<()> {
 		if self.globals.ids.contains_key(&data.name) {
 			*data.id.borrow_mut() = self.globals.ids.get(&data.name).unwrap().clone();
-			Ok(())
-		} else {
-			match self.get_var(&data.name) {
-				Some(id) => {
-					if self.is_overriding && id < self.globals.ids.len() {
-						ErrorList::comp(format!("Cannot assign to global constant '{}'", data), pos).err()
-					} else {
-						*data.id.borrow_mut() = id;
-						Ok(())
-					}
-				},
-				None => ErrorList::comp(format!("Use of undefined variable '{}'", data), pos).err()
+			return Ok(());
+		}
+		
+		if let Some(id) = self.get_var(&data.name) {
+			if self.ctx.assignment && id < self.globals.ids.len() {
+				ErrorList::comp(format!("Cannot assign to global constant '{}'", data), pos).err()
+			} else {
+				*data.id.borrow_mut() = id;
+				Ok(())
 			}
+		} else {
+			ErrorList::comp(format!("Use of undefined variable '{}'", data), pos).err()
 		}
 	}
 	
@@ -131,7 +144,10 @@ impl ExprVisitor<()> for Resolver {
 		for param in data.params {
 			errors.try_append(self.add(param, pos));
 		}
+		let prev = self.ctx;
+		self.ctx.allow_return = true;
 		errors.try_append(self.resolve(&data.body));
+		self.ctx = prev;
 		errors.if_empty(())
 	}
 	
@@ -173,9 +189,9 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn assignment(&mut self, data: AssignData, _pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
-		self.is_overriding = true;
+		self.ctx.assignment = true;
 		errors.try_append(data.head.accept(self));
-		self.is_overriding = false;
+		self.ctx.assignment = false;
 		errors.try_append(data.expr.accept(self));
 		errors.if_empty(())
 	}
@@ -189,15 +205,27 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
-		self.resolve(&block)
+		let prev = self.ctx;
+		self.ctx.allow_break = true;
+		self.ctx.allow_continue = true;
+		let res = self.resolve(&block);
+		self.ctx = prev;
+		res
 	}
 	
-	fn break_stmt(&mut self, _pos: SourcePos) -> Result<()> { Ok(()) }
+	fn break_stmt(&mut self, pos: SourcePos) -> Result<()> {
+		allowed(self.ctx.allow_break, "Invalid break statement", pos)
+	}
 	
-	fn continue_stmt(&mut self, _pos: SourcePos) -> Result<()> { Ok(()) }
+	fn continue_stmt(&mut self, pos: SourcePos) -> Result<()> {
+		allowed(self.ctx.allow_continue, "Invalid continue statement", pos)
+	}
 	
-	fn return_stmt(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<()> {
-		expr.accept(self)
+	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::empty();
+		errors.try_append(allowed(self.ctx.allow_return, "Invalid return statement", pos));
+		errors.try_append(expr.accept(self));
+		errors.if_empty(())
 	}
 
 }

@@ -1,14 +1,21 @@
 
-let a = 'global'
+let make_fib_gen = function() {
+	let seq = [1, 1]
+	let cur = 0
+	let fib_gen = function() {
+		if cur >= size(seq) {
+			seq[cur] = seq[cur - 1] + seq[cur - 2]
+		}
 
-function() {
-
-	let show_a = function() {
-		writeline(a)
+		cur += 1
+		return seq[cur - 1]
 	}
+	return fib_gen
+}
 
-	show_a()
-	let a = 'local'
-	show_a()
+let fib_gen = make_fib_gen()
 
-}()
+loop {
+	sleep(0.2)
+	writeline(fib_gen())
+}
