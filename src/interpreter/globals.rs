@@ -194,6 +194,20 @@ fn new_list() -> Value {
 	Value::Callable(Rc::new(RefCell::new(NewList)))
 }
 
+fn _typeof() -> Value {
+	#[derive(Clone, Debug)] struct TypeOf;
+
+	impl Callable for TypeOf {
+		fn arity(&self) -> usize { 1 }
+
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			Value::Str(args[0].clone().0.get_type()).wrap()
+    }
+	}
+
+	Value::Callable(Rc::new(RefCell::new(TypeOf)))
+}
+
 #[derive(Clone, Debug)]
 pub struct Globals {
 	pub ids: HashMap<String, usize>,
@@ -221,6 +235,7 @@ impl Globals {
 			("exit", exit()),
 			("sleep", sleep()),
 			("new_list", new_list()),
+			("typeof", _typeof()),
 		];
 
 		let mut i = 1;

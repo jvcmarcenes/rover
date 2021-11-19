@@ -1,21 +1,6 @@
 
-let make_fib_gen = function() {
-	let seq = [1, 1]
-	let cur = 0
-	let fib_gen = function() {
-		if cur >= size(seq) {
-			seq[cur] = seq[cur - 1] + seq[cur - 2]
-		}
-
-		cur += 1
-		return seq[cur - 1]
-	}
-	return fib_gen
-}
-
-let fib_gen = make_fib_gen()
-
-loop {
-	sleep(0.2)
-	writeline(fib_gen())
-}
+writeline(typeof(23))
+writeline(typeof('Hello'))
+writeline(typeof(true))
+writeline(typeof([0, 1, true]))
+writeline(typeof(function () { }))

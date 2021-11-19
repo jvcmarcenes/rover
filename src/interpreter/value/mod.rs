@@ -48,15 +48,14 @@ impl Value {
 	}
 
 	pub fn get_type(&self) -> String {
-		let typ = match self {
+		match self {
 			Str(_) => "string",
 			Num(_) => "number",
 			Bool(_) => "boolean",
 			List(_) => "list",
 			Callable(_) => "function",
 			None => "none",
-		};
-		typ.to_owned()
+		}.to_owned()
 	}
 }
 
