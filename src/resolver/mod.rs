@@ -67,8 +67,9 @@ impl Resolver {
 		if self.globals.ids.contains_key(&iden.get_name()) {
 			return ErrorList::comp(format!("Cannot redefine global constant '{}'", iden), pos).err();
 		}
-
+		
 		*iden.id.borrow_mut() = self.last_id;
+		// eprintln!("DEBUG: {} > {}: {}", self.tables.len(), iden.get_name(), iden.get_id());
 		self.tables.last_mut().unwrap().insert(iden.get_name(), IdentifierData::new(iden.get_id(), constant));
 		self.last_id += 1;
 		Ok(())
@@ -103,16 +104,7 @@ impl ExprVisitor<()> for Resolver {
 		let exprs = match data {
 			LiteralData::List(exprs) => exprs,
 			LiteralData::Template(exprs) => exprs,
-			LiteralData::Object(map) => {
-				let prev = self.ctx;
-				self.ctx.allow_self = true;
-				let exprs = map.into_values().collect::<Vec<_>>();
-				for expr in exprs {
-					errors.try_append(expr.accept(self));
-				}
-				self.ctx = prev;
-				return errors.if_empty(());
-			},
+			LiteralData::Object(map) => map.into_values().collect::<Vec<_>>(),
 			_ => return Ok(()),
 		};
 
@@ -164,13 +156,22 @@ impl ExprVisitor<()> for Resolver {
 	
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
+		self.push_scope();
 		for param in data.params {
 			errors.try_append(self.add(param, false, pos));
 		}
 		let prev = self.ctx;
+		if let Some(pos) = data.self_ref {
+			if self.ctx.self_binding.is_none() {
+				errors.add_comp("Invalid self expression".to_owned(), pos);
+			} else {
+				self.ctx.allow_self = true;
+			}
+		}
 		self.ctx.allow_return = true;
 		errors.try_append(self.resolve(&data.body));
 		self.ctx = prev;
+		self.pop_scope();
 		errors.if_empty(())
 	}
 	
@@ -212,8 +213,8 @@ impl StmtVisitor<()> for Resolver {
 		let mut errors = ErrorList::empty();
 		match data.expr.typ {
 			ExprType::Lambda(_) => {
-					errors.try_append(self.add(data.name, data.constant, pos));
-					errors.try_append(data.expr.accept(self));
+				errors.try_append(self.add(data.name, data.constant, pos));
+				errors.try_append(data.expr.accept(self));
 			},
 			ExprType::Literal(LiteralData::Object(_)) => {
 				let name = data.name.name.clone();

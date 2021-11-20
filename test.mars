@@ -1,2 +1,22 @@
 
-let const a = 9
+let const Point = function (x, y) {
+	let const p = {
+		x,
+		y,
+
+		translate = function (self, x, y) {
+			self.x += x
+			self.y += y
+		},
+
+		to_string = function (self) {
+			return '(#{self.x}, #{self.y})'
+		}
+	}
+	return p
+}
+
+let const p = Point(2, 3)
+writeline(p.to_string())
+p.translate(4, 5)
+writeline(p.to_string())

@@ -41,7 +41,7 @@ pub struct UnaryData { pub op: UnaryOperator, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct LogicData { pub lhs: Box<Expression>, pub op: LogicOperator, pub rhs: Box<Expression> }
 #[derive(Debug, Clone)]
-pub struct LambdaData { pub params: Vec<Identifier>, pub body: Block }
+pub struct LambdaData { pub self_ref: Option<SourcePos>, pub params: Vec<Identifier>, pub body: Block }
 #[derive(Debug, Clone)]
 pub struct CallData { pub calee: Box<Expression>, pub args: Vec<Expression> }
 #[derive(Debug, Clone)]

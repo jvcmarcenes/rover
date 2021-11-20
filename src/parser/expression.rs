@@ -300,11 +300,13 @@ impl Parser {
 	fn lambda(&mut self) -> Result<ExprType> {
 		self.expect(Symbol(OpenPar))?;
 		let mut params = Vec::new();
+		let mut self_ref = None;
 		loop {
 			let peek = self.peek();
 			match peek.typ {
 				Symbol(ClosePar) => { self.next(); break; }
-				Identifier(name) if params.is_empty() => { self.next(); params.push(Identifier::new(name)) },
+				Keyword(_Self) if params.is_empty() => self_ref = Some(self.next().pos),
+				Identifier(name) if params.is_empty() => { self.next(); params.push(Identifier::new(name)); },
 				_ => {
 					self.expect(Symbol(Comma))?;
 					self.skip_new_lines();
@@ -324,7 +326,7 @@ impl Parser {
 		} else {
 			self.block()?
 		};
-		ExprType::Lambda(LambdaData { params, body }).wrap()
+		ExprType::Lambda(LambdaData { self_ref, params, body }).wrap()
 	}
 
 }
