@@ -3,9 +3,10 @@ mod math;
 
 use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
+use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::math::math, value::callable::Callable}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::math::math, value::callable::Callable}, resolver::IdentifierData, utils::{new_rcref, result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -76,13 +77,25 @@ fn random() -> Value {
 	#[derive(Debug, Clone)] struct Random;
 
 	impl Callable for Random {
-		fn arity(&self) -> usize { 0 }
-		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			Value::Num(rand::random()).wrap()
+		fn arity(&self) -> usize { 1 }
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (val, pos) = args[0].clone();
+			let rng = rand::prelude::StdRng::seed_from_u64(val.to_num(pos)? as u64);
+
+			#[derive(Clone, Debug)] struct Rng(StdRng);
+
+			impl Callable for Rng {
+				fn arity(&self) -> usize { 0 }
+				fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
+					Value::Num(rand::Rng::gen(&mut self.0)).wrap()
+				}
+			}
+
+			Value::Callable(new_rcref(Rng(rng))).wrap()
 		}
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Random)))
+	Value::Callable(new_rcref(Random))
 }
 
 fn size() -> Value {
