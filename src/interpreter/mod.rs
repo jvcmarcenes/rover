@@ -3,7 +3,7 @@ pub mod value;
 pub mod environment;
 pub mod globals;
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{ast::{Identifier, expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
@@ -66,11 +66,18 @@ impl ExprVisitor<Value> for Interpreter {
 				let mut values = Vec::new();
 				for expr in exprs { values.push(expr.accept(self)?) }
 				Value::Str(values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(""))
-			}
+			},
 			LiteralData::List(exprs) => {
 				let mut values = Vec::new();
 				for expr in exprs { values.push(expr.accept(self)?) }
 				Value::List(values)
+			},
+			LiteralData::Object(map) => {
+				let mut value_map = HashMap::new();
+				for (key, expr) in map {
+					value_map.insert(key, expr.accept(self)?);
+				}
+				Value::Object(value_map)
 			}
 		};
 		value.wrap()
@@ -180,6 +187,11 @@ impl ExprVisitor<Value> for Interpreter {
 		Ok(list[index].clone())
 	}
 
+	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Value> {
+		let head = data.head.accept(self)?;
+		head.get_field(&data.field, pos)
+	}
+
 }
 
 impl StmtVisitor<Message> for Interpreter {
@@ -214,7 +226,14 @@ impl StmtVisitor<Message> for Interpreter {
 					if index < list.len() { list.remove(index); }
 					list.insert(index, val);
 					val = Value::List(list);
-				}
+				},
+				ExprType::FieldGet(FieldData { head: fhead, field }) => {
+					let h_pos = fhead.pos;
+					head = fhead.clone();
+					let mut map = fhead.accept(self)?.to_obj(h_pos)?;
+					map.insert(field, val);
+					val = Value::Object(map);
+				},
 				_ => return ErrorList::run("Invalid assignment target".to_owned(), head.pos).err()
 			}
 		}

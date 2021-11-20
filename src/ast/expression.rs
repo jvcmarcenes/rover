@@ -1,4 +1,6 @@
 
+use std::collections::HashMap;
+
 use crate::utils::{result::*, source_pos::*};
 
 use self::ExprType::*;
@@ -12,9 +14,14 @@ pub enum BinaryOperator {
 }
 
 #[derive(Debug, Clone)]
-pub enum UnaryOperator { Not, Neg }
+pub enum UnaryOperator {
+	Not, Neg
+}
+
 #[derive(Debug, Clone)]
-pub enum LogicOperator { And, Or }
+pub enum LogicOperator {
+	And, Or
+}
 
 #[derive(Debug, Clone)]
 pub enum LiteralData {
@@ -24,6 +31,7 @@ pub enum LiteralData {
 	Bool(bool),
 	Template(Vec<Expression>),
 	List(Vec<Expression>),
+	Object(HashMap<String, Expression>),
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +46,8 @@ pub struct LambdaData { pub params: Vec<Identifier>, pub body: Block }
 pub struct CallData { pub calee: Box<Expression>, pub args: Vec<Expression> }
 #[derive(Debug, Clone)]
 pub struct IndexData { pub head: Box<Expression>, pub index: Box<Expression> }
+#[derive(Debug, Clone)]
+pub struct FieldData { pub head: Box<Expression>, pub field: String }
 
 #[derive(Debug, Clone)]
 pub enum ExprType {
@@ -50,6 +60,7 @@ pub enum ExprType {
 	Lambda(LambdaData),
 	Call(CallData),
 	Index(IndexData),
+	FieldGet(FieldData)
 }
 
 impl ExprType {
@@ -82,6 +93,7 @@ impl Expression {
 			Lambda(data) => visitor.lambda(data, self.pos),
 			Call(data) => visitor.call(data, self.pos),
 			Index(data) => visitor.index(data, self.pos),
+			FieldGet(data) => visitor.field(data, self.pos),
 		}
 	}
 }
@@ -96,4 +108,5 @@ pub trait ExprVisitor<T> {
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<T>;
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<T>;
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<T>;
+	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<T>;
 }

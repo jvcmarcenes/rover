@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
+use crate::{ast::{Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
 
 type SymbolTable = HashMap<String, usize>;
 
@@ -87,6 +87,7 @@ impl ExprVisitor<()> for Resolver {
 		let exprs = match data {
 			LiteralData::List(exprs) => exprs,
 			LiteralData::Template(exprs) => exprs,
+			LiteralData::Object(map) => map.into_values().collect(),
 			_ => return Ok(()),
 		};
 
@@ -165,6 +166,10 @@ impl ExprVisitor<()> for Resolver {
 		errors.try_append(data.head.accept(self));
 		errors.try_append(data.index.accept(self));
 		errors.if_empty(())
+	}
+
+	fn field(&mut self, data: FieldData, _pos: SourcePos) -> Result<()> {
+		data.head.accept(self)
 	}
 
 }

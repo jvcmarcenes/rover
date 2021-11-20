@@ -2,11 +2,11 @@
 pub mod callable;
 pub mod function;
 
-use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos};
+use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap};
 
 use self::{Value::*, callable::Callable};
 
-use std::{cell::RefCell, fmt::Display, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -15,6 +15,7 @@ pub enum Value {
 	Bool(bool),
 	List(Vec<Value>),
 	Callable(Rc<RefCell<dyn Callable>>),
+	Object(HashMap<String, Value>),
 	None,
 }
 
@@ -38,6 +39,22 @@ impl Value {
 		if let Value::Callable(c) = self { return Ok(c) }
 		ErrorList::run("Value isn't a function".to_owned(), pos).err()
 	}
+	
+	pub fn to_obj(self, pos: SourcePos) -> Result<HashMap<String, Value>> {
+		if let Value::Object(map) = self { return Ok(map) }
+		ErrorList::run("Value isn't an object".to_owned(), pos).err()
+	}
+
+	pub fn get_field(&self, field: &str, pos: SourcePos) -> Result<Value> {
+		match self {
+			Object(map) => match map.get(field) {
+				Some(val) => return val.clone().wrap(),
+				_ => (),
+			}
+			_ => (),
+		}
+		ErrorList::comp(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()
+	}
 
 	pub fn is_truthy(&self) -> bool {
 		match *self {
@@ -54,6 +71,7 @@ impl Value {
 			Bool(_) => "boolean",
 			List(_) => "list",
 			Callable(_) => "function",
+			Object(_) => "object",
 			None => "none",
 		}.to_owned()
 	}
@@ -77,7 +95,8 @@ impl Display for Value {
 				write!(f, "]")
 			},
 			Callable(c) => write!(f, "{}", c.borrow()),
-			None => write!(f, ""),
+			Object(_) => write!(f, "<object>"),
+			None => write!(f, "none"),
 		}
 	}
 }

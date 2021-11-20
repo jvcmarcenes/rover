@@ -1,6 +1,15 @@
 
-writeline(typeof(23))
-writeline(typeof('Hello'))
-writeline(typeof(true))
-writeline(typeof([0, 1, true]))
-writeline(typeof(function () { }))
+let a = 9
+
+let aaa = {
+	a,
+	b = '10',
+	c = { a },
+	d = [
+		1, 2, { name = 'John' }, function() { return 9 }, true, none
+	]
+}
+
+aaa.b = 23
+
+writeline(aaa.b)

@@ -1,5 +1,7 @@
 
-use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use std::collections::HashMap;
+
+use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -102,32 +104,14 @@ impl Parser {
 
 	fn postfix(&mut self) -> ExprResult {
 		let mut expr = self.primary()?;
-
-		// while let Some(token) = self.optional(Symbol(OpenPar)) {
-		// 	let mut args = Vec::new();
-		// 	loop {
-		// 		let peek = self.peek();
-		// 		match peek.typ {
-		// 			Symbol(ClosePar) => { self.next(); break; },
-		// 			_ if args.is_empty() => args.push(self.expression()?),
-		// 			_ => {
-		// 				self.expect(Symbol(Comma))?;
-		// 				self.skip_new_lines();
-		// 				args.push(self.expression()?);
-		// 			}
-		// 		}
-		// 	}
-		// 	expr = ExprType::Call(CallData { calee: Box::new(expr), args }).to_expr(token.pos);
-		// }
-
 		loop {
 			match self.peek().typ {
 				Symbol(OpenPar) => expr = self.function_call(expr)?,
 				Symbol(OpenSqr) => expr = self.index(expr)?,
+				Symbol(Dot) => expr = self.field(expr)?,
 				_ => break,
 			}
 		}
-
 		expr.wrap()
 	}
 
@@ -179,6 +163,16 @@ impl Parser {
 		Index(IndexData { head: Box::new(head), index: Box::new(index) }).to_expr(pos).wrap()
 	}
 
+	fn field(&mut self, head: Expression) -> ExprResult {
+		let Token { pos, .. } = self.next();
+		let next = self.next();
+		let field = match next.typ {
+			Identifier(name) => name,
+			_ => return ErrorList::comp(format!("Expected identifier, found {}", next), next.pos).err()
+		};
+		ExprType::FieldGet(FieldData { head: Box::new(head), field }).to_expr(pos).wrap()
+	}
+
 	fn primary(&mut self) -> ExprResult {
 		let token = self.next();
 		let expr_typ = match token.typ {
@@ -196,6 +190,7 @@ impl Parser {
 				Grouping(Box::new(expr))
 			}
 			Symbol(OpenSqr) => self.list_literal()?,
+			Symbol(OpenBracket) => self.obj_literal()?,
 			Identifier(name) => Variable(Identifier::new(name)),
 			Template(tokens) => self.str_template(tokens)?,
 			_ => return ErrorList::comp(format!("Expected expression, found {}", token), token.pos).err()
@@ -207,6 +202,56 @@ impl Parser {
 		let exprs = self.expr_list(|typ| *typ == Symbol(CloseSqr))?;
 		self.expect(Symbol(CloseSqr))?;
 		ExprType::Literal(LiteralData::List(exprs)).wrap()
+	}
+
+	fn obj_field(&mut self) -> Result<(String, Expression)> {
+		let next = self.next();
+		if let Identifier(name) = next.typ {
+			let expr = if self.optional(Symbol(Equals)).is_some() {
+				self.expression()?
+			} else {
+				ExprType::Variable(Identifier::new(name.clone())).to_expr(next.pos)
+			};
+			(name, expr).wrap()
+		} else {
+			ErrorList::comp(format!("Expected identifier, found {}", next), next.pos).err()
+		}
+	}
+
+	fn obj_literal(&mut self) -> Result<ExprType> {
+		let mut map = HashMap::new();
+		let mut errors = ErrorList::empty();
+		loop {
+			self.skip_new_lines();
+			let peek = self.peek();
+			match peek.typ {
+				EOF => {
+					errors.add_comp("Unexpected EOF".to_owned(), peek.pos);
+					return errors.err()
+				},
+				Symbol(CloseBracket) => {
+					self.next();
+					return errors.if_empty(ExprType::Literal(LiteralData::Object(map)));
+				},
+				_ => {
+					if !map.is_empty() {
+						if let Err(err) = self.expect(Symbol(Comma)) {
+							errors.append(err);
+							self.synchronize();
+							continue;
+						}
+					}
+					self.skip_new_lines();
+					match self.obj_field() {
+						Ok((name, expr)) => { map.insert(name, expr); },
+						Err(err) => {
+							errors.append(err);
+							return errors.err();
+						}
+					}
+				}
+			}
+		}
 	}
 
 	fn str_template(&mut self, tokens: Vec<Token>) -> Result<ExprType> {

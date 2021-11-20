@@ -77,7 +77,7 @@ impl Parser {
 		let left = self.expression()?;
 		let l_pos = left.pos;
 		match left.typ {
-			ExprType::Variable(_) | ExprType::Index(_) => {
+			ExprType::Variable(_) | ExprType::Index(_) | ExprType::FieldGet(_) => {
 				let op = self.expect_any(&[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals)])?;
 				let right = match op.typ {
 					Symbol(Equals) => self.expression()?,
