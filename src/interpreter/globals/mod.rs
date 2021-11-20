@@ -1,9 +1,11 @@
 
+mod math;
+
 use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, value::callable::Callable}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::math::math, value::callable::Callable}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -229,13 +231,13 @@ impl Globals {
 			("read", read()),
 			("random", random()),
 			("size", size()),
-			("pi", Value::Num(3.141592653589793238462643383279502884197139699)),
 			("is_num", is_num()),
 			("to_num", to_num()),
 			("exit", exit()),
 			("sleep", sleep()),
 			("new_list", new_list()),
 			("typeof", _typeof()),
+			("math", math()),
 		];
 
 		let mut i = 1;

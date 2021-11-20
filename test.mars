@@ -11,6 +11,10 @@ let const Point = function (x, y) {
 
 		to_string = function (self) {
 			return '(#{self.x}, #{self.y})'
+		},
+
+		get_magnitude = function (self) {
+			return math.sqrt(math.pow(self.x, 2) + math.pow(self.y, 2))
 		}
 	}
 	return p
@@ -21,6 +25,4 @@ writeline(p.to_string())
 p.translate(4, 5)
 writeline(p.to_string())
 
-p.a += 23
-
-writeline(p.to_string())
+writeline(p.get_magnitude())
