@@ -15,7 +15,7 @@ pub enum Value {
 	Bool(bool),
 	List(Vec<Value>),
 	Callable(Rc<RefCell<dyn Callable>>),
-	Object(HashMap<String, Value>),
+	Object(HashMap<String, Rc<RefCell<Value>>>),
 	None,
 }
 
@@ -40,12 +40,12 @@ impl Value {
 		ErrorList::run("Value isn't a function".to_owned(), pos).err()
 	}
 	
-	pub fn to_obj(self, pos: SourcePos) -> Result<HashMap<String, Value>> {
+	pub fn to_obj(self, pos: SourcePos) -> Result<HashMap<String, Rc<RefCell<Value>>>> {
 		if let Value::Object(map) = self { return Ok(map) }
 		ErrorList::run("Value isn't an object".to_owned(), pos).err()
 	}
 
-	pub fn get_field(&self, field: &str, pos: SourcePos) -> Result<Value> {
+	pub fn get_field(&self, field: &str, pos: SourcePos) -> Result<Rc<RefCell<Value>>> {
 		match self {
 			Object(map) => match map.get(field) {
 				Some(val) => return val.clone().wrap(),
@@ -53,7 +53,7 @@ impl Value {
 			}
 			_ => (),
 		}
-		ErrorList::comp(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()
+		ErrorList::run(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()
 	}
 
 	pub fn is_truthy(&self) -> bool {

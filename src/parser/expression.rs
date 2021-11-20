@@ -321,7 +321,6 @@ impl Parser {
 		}
 		let body = if let Some(Token { pos, .. }) = self.optional(Symbol(EqualsCloseAng)) {
 			let expr = self.expression()?;
-			self.expect_eol()?;
 			Block::from([StmtType::Return(Box::new(expr)).to_stmt(pos)])
 		} else {
 			self.block()?

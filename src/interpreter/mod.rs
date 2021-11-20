@@ -75,7 +75,7 @@ impl ExprVisitor<Value> for Interpreter {
 			LiteralData::Object(map) => {
 				let mut value_map = HashMap::new();
 				for (key, expr) in map {
-					value_map.insert(key, expr.accept(self)?);
+					value_map.insert(key, Rc::new(RefCell::new(expr.accept(self)?)));
 				}
 				Value::Object(value_map)
 			}
@@ -189,7 +189,7 @@ impl ExprVisitor<Value> for Interpreter {
 
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Value> {
 		let head = data.head.accept(self)?;
-		head.get_field(&data.field, pos)
+		head.get_field(&data.field, pos)?.borrow().clone().wrap()
 	}
 
 	fn self_ref(&mut self, data: Rc<RefCell<usize>>, _pos: SourcePos) -> Result<Value> {
@@ -238,9 +238,11 @@ impl StmtVisitor<Message> for Interpreter {
 				ExprType::FieldGet(FieldData { head: fhead, field }) => {
 					let h_pos = fhead.pos;
 					head = fhead.clone();
-					let mut map = fhead.accept(self)?.to_obj(h_pos)?;
-					map.insert(field, val);
+					let map = fhead.accept(self)?.to_obj(h_pos)?;
+					*map.get(&field).unwrap().borrow_mut() = val;
 					val = Value::Object(map);
+					// map.insert(field, Rc::new(RefCell::new(val)));
+					// val = Value::Object(map);
 				},
 				_ => return ErrorList::run("Invalid assignment target".to_owned(), head.pos).err()
 			}
