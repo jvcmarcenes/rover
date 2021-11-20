@@ -19,6 +19,7 @@ pub enum Keyword {
 	If, Else,
 	Loop, Break, Continue,
 	Function, Return,
+	_Self,
 }
 
 impl Keyword {
@@ -38,6 +39,7 @@ impl Keyword {
 			"continue" => Continue,
 			"function" => Function,
 			"return" => Return,
+			"self" => _Self,
 			_ => return None,
 		};
 		Some(keyword)
@@ -51,7 +53,7 @@ pub enum Symbol {
 	Plus, Minus, Star, Slash, Exclam,
 	Equals, PlusEquals, MinusEquals,
 	DoubleEquals, ExclamEquals, OpenAngEquals, CloseAngEquals,
-	HashtagOpenBracket,
+	HashtagOpenBracket, EqualsCloseAng,
 }
 
 #[derive(Debug, Clone, PartialEq)]

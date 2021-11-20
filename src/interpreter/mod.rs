@@ -192,6 +192,10 @@ impl ExprVisitor<Value> for Interpreter {
 		head.get_field(&data.field, pos)
 	}
 
+	fn self_ref(&mut self, data: Rc<RefCell<usize>>, _pos: SourcePos) -> Result<Value> {
+		self.env.get(data.borrow().clone()).wrap()
+	}
+
 }
 
 impl StmtVisitor<Message> for Interpreter {
@@ -212,6 +216,10 @@ impl StmtVisitor<Message> for Interpreter {
 		let mut val = data.expr.accept(self)?;
 		loop {
 			match head.typ {
+				ExprType::SelfRef(name) => {
+					self.env.assign(name.borrow().clone(), val);
+					return Message::None.wrap();
+				},
 				ExprType::Variable(name) => {
 					self.env.assign(name.get_id(), val);
 					return Message::None.wrap();

@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::utils::{result::*, source_pos::*};
 
@@ -60,7 +60,8 @@ pub enum ExprType {
 	Lambda(LambdaData),
 	Call(CallData),
 	Index(IndexData),
-	FieldGet(FieldData)
+	FieldGet(FieldData),
+	SelfRef(Rc<RefCell<usize>>),
 }
 
 impl ExprType {
@@ -94,6 +95,7 @@ impl Expression {
 			Call(data) => visitor.call(data, self.pos),
 			Index(data) => visitor.index(data, self.pos),
 			FieldGet(data) => visitor.field(data, self.pos),
+			SelfRef(data) => visitor.self_ref(data, self.pos),
 		}
 	}
 }
@@ -109,4 +111,5 @@ pub trait ExprVisitor<T> {
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<T>;
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<T>;
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<T>;
+	fn self_ref(&mut self, data: Rc<RefCell<usize>>, pos: SourcePos) -> Result<T>;
 }

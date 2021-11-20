@@ -205,6 +205,7 @@ impl Lexer {
 			'/' => self.symbol(Slash),
 			'!' if self.next_match('=') => self.symbol(ExclamEquals),
 			'!' => self.symbol(Exclam),
+			'=' if self.next_match('>') => self.symbol(EqualsCloseAng),
 			'=' if self.next_match('=') => self.symbol(DoubleEquals),
 			'=' => self.symbol(Equals),
 			'\'' => self.scan_str_template(),

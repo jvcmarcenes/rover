@@ -1,15 +1,32 @@
 
-let a = 9
+let person = function (name, age) {
+	let p = {
+		name,
+		age,
 
-let aaa = {
-	a,
-	b = '10',
-	c = { a },
-	d = [
-		1, 2, { name = 'John' }, function() { return 9 }, true, none
-	]
+		get_older = function () {
+			self.age += 1
+		},
+
+		to_string = function () {
+			return '#{self.name} is #{self.age} yo.'
+		}
+	}
+	return p
 }
 
-aaa.b = 23
+let john = person('John', 23)
+writeline(john.to_string())
+john.get_older()
+john.get_older()
+john.get_older()
+john.get_older()
+writeline(john.to_string())
 
-writeline(aaa.b)
+let jane = person('Jane', 31)
+writeline(jane.to_string())
+jane.get_older()
+jane.get_older()
+jane.get_older()
+jane.get_older()
+writeline(jane.to_string())

@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{ast::{Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
 
@@ -15,6 +15,8 @@ pub struct Context {
 	allow_return: bool,
 	allow_break: bool,
 	allow_continue: bool,
+	allow_self: bool,
+	self_binding: Option<usize>,
 	assignment: bool,
 }
 
@@ -84,14 +86,23 @@ impl Resolver {
 impl ExprVisitor<()> for Resolver {
 
 	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::empty();
+
 		let exprs = match data {
 			LiteralData::List(exprs) => exprs,
 			LiteralData::Template(exprs) => exprs,
-			LiteralData::Object(map) => map.into_values().collect(),
+			LiteralData::Object(map) => {
+				let prev = self.ctx;
+				self.ctx.allow_self = true;
+				let exprs = map.into_values().collect::<Vec<_>>();
+				for expr in exprs {
+					errors.try_append(expr.accept(self));
+				}
+				self.ctx = prev;
+				return errors.if_empty(());
+			},
 			_ => return Ok(()),
 		};
-
-		let mut errors = ErrorList::empty();
 
 		for expr in exprs {
 			errors.try_append(expr.accept(self));
@@ -172,6 +183,12 @@ impl ExprVisitor<()> for Resolver {
 		data.head.accept(self)
 	}
 
+	fn self_ref(&mut self, data: Rc<RefCell<usize>>, pos: SourcePos) -> Result<()> {
+		allowed(self.ctx.allow_self && self.ctx.self_binding.is_some(), "Invalid self expression", pos)?;
+		*data.borrow_mut() = self.ctx.self_binding.unwrap();
+		Ok(())
+	}
+
 }
 
 impl StmtVisitor<()> for Resolver {
@@ -182,12 +199,23 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
-		if let ExprType::Lambda(_) = data.expr.typ {
-			errors.try_append(self.add(data.name, pos));
-			errors.try_append(data.expr.accept(self));
-		} else {
-			errors.try_append(data.expr.accept(self));
-			errors.try_append(self.add(data.name, pos));
+		match data.expr.typ {
+			ExprType::Lambda(_) => {
+					errors.try_append(self.add(data.name, pos));
+					errors.try_append(data.expr.accept(self));
+			},
+			ExprType::Literal(LiteralData::Object(_)) => {
+				let name = data.name.name.clone();
+				errors.try_append(self.add(data.name, pos));
+				let prev = self.ctx;
+				self.ctx.self_binding = self.get_var(&name);
+				errors.try_append(data.expr.accept(self));
+				self.ctx = prev;
+			},
+			_ => {
+				errors.try_append(data.expr.accept(self));
+				errors.try_append(self.add(data.name, pos));
+			}
 		}
 		errors.if_empty(())
 	}

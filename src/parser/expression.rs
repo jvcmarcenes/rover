@@ -1,7 +1,7 @@
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, statement::{Block, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -180,6 +180,7 @@ impl Parser {
 			Keyword(True) => ExprType::Literal(LiteralData::Bool(true)),
 			Keyword(_None) => ExprType::Literal(LiteralData::None),
 			Keyword(Function) => self.lambda()?,
+			Keyword(_Self) => SelfRef(Rc::new(RefCell::new(0))),
 			TokenType::Literal(lit) => match lit {
 				LiteralType::Num(n) => ExprType::Literal(LiteralData::Num(n)),
 				LiteralType::Str(s) => ExprType::Literal(LiteralData::Str(s)),
@@ -316,7 +317,13 @@ impl Parser {
 				}
 			}
 		}
-		let body = self.block()?;
+		let body = if let Some(Token { pos, .. }) = self.optional(Symbol(EqualsCloseAng)) {
+			let expr = self.expression()?;
+			self.expect_eol()?;
+			Block::from([StmtType::Return(Box::new(expr)).to_stmt(pos)])
+		} else {
+			self.block()?
+		};
 		ExprType::Lambda(LambdaData { params, body }).wrap()
 	}
 
