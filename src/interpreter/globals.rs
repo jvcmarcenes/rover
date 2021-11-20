@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time:
 
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, value::callable::Callable}, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::callable::Callable}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -210,7 +210,7 @@ fn _typeof() -> Value {
 
 #[derive(Clone, Debug)]
 pub struct Globals {
-	pub ids: HashMap<String, usize>,
+	pub ids: HashMap<String, IdentifierData>,
 	pub values: HashMap<usize, Value>,
 }
 
@@ -240,7 +240,7 @@ impl Globals {
 
 		let mut i = 1;
 		for (key, val) in v {
-			globals.ids.insert(key.to_owned(), i);
+			globals.ids.insert(key.to_owned(), IdentifierData::new(i, true));
 			globals.values.insert(i, val);
 			i += 1;
 		}

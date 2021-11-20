@@ -14,7 +14,7 @@ pub enum LiteralType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Keyword {
 	True, False, _None,
-	Let,
+	Let, Const,
 	Mod, And, Or,
 	If, Else,
 	Loop, Break, Continue,
@@ -29,6 +29,7 @@ impl Keyword {
 			"false" => False,
 			"none" => _None,
 			"let" => Let,
+			"const" => Const,
 			"mod" => Mod,
 			"and" => And,
 			"or" => Or,

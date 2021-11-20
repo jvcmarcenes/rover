@@ -97,6 +97,7 @@ impl Parser {
 
 	fn declaration(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
+		let constant = self.optional(Keyword(Const)).is_some();
 		let next = self.next();
 		let name = match next.typ { 
 			TokenType::Identifier(name) => Identifier::new(name),
@@ -107,7 +108,7 @@ impl Parser {
 			None => ExprType::Literal(LiteralData::None).to_expr(next.pos),
 		};
 		self.expect_eol()?;
-		StmtType::Declaration(DeclarationData { name, expr: Box::new(expr) }).to_stmt(pos).wrap()
+		StmtType::Declaration(DeclarationData { constant, name, expr: Box::new(expr) }).to_stmt(pos).wrap()
 	}
 
 	fn if_stmt(&mut self) -> StmtResult {

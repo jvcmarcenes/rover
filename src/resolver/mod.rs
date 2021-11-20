@@ -3,7 +3,19 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{ast::{Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
 
-type SymbolTable = HashMap<String, usize>;
+#[derive(Clone, Debug)]
+pub struct IdentifierData {
+	id: usize,
+	constant: bool,
+}
+
+impl IdentifierData {
+	pub fn new(id: usize, constant: bool) -> Self {
+		Self { id, constant }
+	}
+}
+
+type SymbolTable = HashMap<String, IdentifierData>;
 
 fn allowed(cond: bool, msg: &str, pos: SourcePos) -> Result<()> {
 	if cond { Ok(()) }
@@ -51,13 +63,13 @@ impl Resolver {
 		errors.if_empty(())
 	}
 
-	fn add(&mut self, iden: Identifier, pos: SourcePos) -> Result<()> {
+	fn add(&mut self, iden: Identifier, constant: bool, pos: SourcePos) -> Result<()> {
 		if self.globals.ids.contains_key(&iden.get_name()) {
 			return ErrorList::comp(format!("Cannot redefine global constant '{}'", iden), pos).err();
 		}
 
 		*iden.id.borrow_mut() = self.last_id;
-		self.tables.last_mut().unwrap().insert(iden.get_name(), iden.get_id());
+		self.tables.last_mut().unwrap().insert(iden.get_name(), IdentifierData::new(iden.get_id(), constant));
 		self.last_id += 1;
 		Ok(())
 	}
@@ -70,11 +82,11 @@ impl Resolver {
 		self.tables.pop();
 	}
 
-	fn get_var(&self, name: &str) -> Option<usize> {
+	fn get_var(&self, name: &str) -> Option<IdentifierData> {
 		let mut cur = self.tables.as_slice();
 		while let [rest @ .., table] = cur {
 			match table.get(name) {
-				Some(&id) => return Some(id),
+				Some(id) => return Some(id.clone()),
 				None => cur = rest,
 			}
 		}
@@ -134,18 +146,17 @@ impl ExprVisitor<()> for Resolver {
 	}
 	
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<()> {
-		if self.globals.ids.contains_key(&data.name) {
-			*data.id.borrow_mut() = self.globals.ids.get(&data.name).unwrap().clone();
-			return Ok(());
-		}
-		
-		if let Some(id) = self.get_var(&data.name) {
-			if self.ctx.assignment && id < self.globals.ids.len() {
-				ErrorList::comp(format!("Cannot assign to global constant '{}'", data), pos).err()
-			} else {
-				*data.id.borrow_mut() = id;
-				Ok(())
+		if let Some(var) = self.get_var(&data.name) {
+			if self.ctx.assignment {
+				if var.id < self.globals.ids.len() {
+					return ErrorList::comp(format!("Cannot assign to global constant '{}'", data), pos).err();
+				} else if var.constant {
+					return ErrorList::comp(format!("Cannot assign to constant '{}'", data), pos).err();
+				}
 			}
+
+			*data.id.borrow_mut() = var.id;
+			Ok(())
 		} else {
 			ErrorList::comp(format!("Use of undefined variable '{}'", data), pos).err()
 		}
@@ -154,7 +165,7 @@ impl ExprVisitor<()> for Resolver {
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
 		for param in data.params {
-			errors.try_append(self.add(param, pos));
+			errors.try_append(self.add(param, false, pos));
 		}
 		let prev = self.ctx;
 		self.ctx.allow_return = true;
@@ -201,20 +212,20 @@ impl StmtVisitor<()> for Resolver {
 		let mut errors = ErrorList::empty();
 		match data.expr.typ {
 			ExprType::Lambda(_) => {
-					errors.try_append(self.add(data.name, pos));
+					errors.try_append(self.add(data.name, data.constant, pos));
 					errors.try_append(data.expr.accept(self));
 			},
 			ExprType::Literal(LiteralData::Object(_)) => {
 				let name = data.name.name.clone();
-				errors.try_append(self.add(data.name, pos));
+				errors.try_append(self.add(data.name, data.constant, pos));
 				let prev = self.ctx;
-				self.ctx.self_binding = self.get_var(&name);
+				self.ctx.self_binding = self.get_var(&name).map(|var| var.id);
 				errors.try_append(data.expr.accept(self));
 				self.ctx = prev;
 			},
 			_ => {
 				errors.try_append(data.expr.accept(self));
-				errors.try_append(self.add(data.name, pos));
+				errors.try_append(self.add(data.name, data.constant, pos));
 			}
 		}
 		errors.if_empty(())
