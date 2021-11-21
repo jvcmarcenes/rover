@@ -23,19 +23,22 @@ impl Callable for Function {
 	}
 
 	fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-
-		for (iden, (val, _)) in self.params.iter().zip(args.iter()) {
-			interpreter.env.assign(iden.get_id(), val.clone())
-		}
-
+		
 		let prev = interpreter.env.clone();
 		interpreter.env = self.env.clone();
+
+		interpreter.env.push_new();
+
+		for (iden, (val, _)) in self.params.iter().zip(args.iter()) {
+			interpreter.env.define(iden.get_id(), val.clone())
+		}
 
 		let ret = match interpreter.execute_block(self.body.clone())? {
 			Message::Return(val) => val,
 			_ => Value::None
 		};
 
+		interpreter.env.pop();
 		self.env = interpreter.env.clone();
 		interpreter.env = prev;
 

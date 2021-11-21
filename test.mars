@@ -1,4 +1,5 @@
 
+(#)
 let const Point = function (x, y) {
 	let const p = {
 		x,
@@ -26,3 +27,25 @@ p.translate(4, 5)
 writeline(p.to_string())
 
 writeline(p.get_magnitude())
+#)
+
+let make_factorial = function () {
+	let cache = [1, 1]
+	let factorial = function (n) {
+		if n < 0 { return 1 }
+		if n >= size(cache) {
+			cache[n] = n * factorial(n - 1)
+		}
+
+		return cache[n]
+	}
+	return factorial
+}
+
+let factorial = make_factorial()
+
+writeline(factorial(9))
+writeline(factorial(7))
+writeline(factorial(3))
+writeline(factorial(1))
+writeline(factorial(5))

@@ -43,13 +43,18 @@ impl Interpreter {
 	}
 
 	fn execute_block(&mut self, block: Block) -> Result<Message> {
+		self.env.push_new();
 		for stmt in block {
 			match stmt.accept(self)? {
 				None => continue,
-				msg => return msg.wrap(),
+				msg => {
+					self.env.pop();
+					return msg.wrap();
+				}
 			}
 		}
-		Ok(None)
+		self.env.pop();
+		Message::None.wrap()
 	}
 
 }
@@ -146,7 +151,7 @@ impl ExprVisitor<Value> for Interpreter {
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Value> {
 		let calee_pos = data.calee.pos;
 		let bound = match data.calee.typ {
-			ExprType::Variable(_) | ExprType::Index(_) => true,
+			ExprType::Variable(_) | ExprType::Index(_) | ExprType::FieldGet(_) => true,
 			_ => false,
 		};
 		let calee = data.calee.accept(self)?;
