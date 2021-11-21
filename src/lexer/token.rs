@@ -67,6 +67,20 @@ pub enum TokenType {
 	EOL, EOF,
 }
 
+fn format(str: String) -> String {
+	let mut fin = String::new();
+	let mut iter = str.chars().into_iter().peekable();
+	while let Some(c) = iter.next() {
+		if c.is_lowercase() && iter.peek().is_some() && iter.peek().unwrap().is_uppercase() {
+			fin.push(c.to_ascii_uppercase());
+			fin.push('_');
+		} else if c != '_' {
+			fin.push(c.to_ascii_uppercase());
+		}
+	}
+	fin
+}
+
 impl Display for TokenType {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
@@ -74,10 +88,10 @@ impl Display for TokenType {
 				LiteralType::Str(s) => write!(f, "\"{}\"", s),
 				LiteralType::Num(n) => write!(f, "{}", n),
 			},
-			Keyword(keyword) => write!(f, "{:?}", keyword),
-			Symbol(symbol) => write!(f, "{:?}", symbol),
-			Identifier(name) => write!(f, "{}", name),
-			Template(_) => write!(f, "str_template"),
+			Keyword(keyword) => write!(f, "{}", format(format!("{:?}", keyword))),
+			Symbol(symbol) => write!(f, "{}", format(format!("{:?}", symbol))),
+			Identifier(name) => write!(f, "'{}'", name),
+			Template(_) => write!(f, "STRING_TEMPLATE"),
 			EOL => write!(f, "EOL"),
 			EOF => write!(f, "EOF"),
 		}
