@@ -128,14 +128,6 @@ impl Parser {
 				}
 				typ if stop(&typ) => break,
 				_ => {
-					if !exprs.is_empty() {
-						if let Err(err) = self.expect(Symbol(Comma)) {
-							errors.append(err);
-							self.synchronize();
-							continue;
-						}
-					}
-					self.skip_new_lines();
 					match self.expression() {
 						Ok(expr) => exprs.push(expr),
 						Err(err) => {
@@ -143,6 +135,8 @@ impl Parser {
 							self.synchronize();
 						}
 					}
+					if stop(&self.peek().typ) { continue; }
+					self.expect_any(&[Symbol(Comma), EOL])?;
 				}
 			}
 		}
@@ -235,14 +229,6 @@ impl Parser {
 					return errors.if_empty(ExprType::Literal(LiteralData::Object(map)));
 				},
 				_ => {
-					if !map.is_empty() {
-						if let Err(err) = self.expect(Symbol(Comma)) {
-							errors.append(err);
-							self.synchronize();
-							continue;
-						}
-					}
-					self.skip_new_lines();
 					match self.obj_field() {
 						Ok((name, expr)) => { map.insert(name, expr); },
 						Err(err) => {
@@ -250,6 +236,8 @@ impl Parser {
 							return errors.err();
 						}
 					}
+					if self.next_match(Symbol(CloseBracket)) { continue; }
+					self.expect_any(&[Symbol(Comma), EOL])?;
 				}
 			}
 		}
@@ -300,12 +288,10 @@ impl Parser {
 	fn lambda(&mut self) -> Result<ExprType> {
 		self.expect(Symbol(OpenPar))?;
 		let mut params = Vec::new();
-		let mut self_ref = None;
 		loop {
 			let peek = self.peek();
 			match peek.typ {
 				Symbol(ClosePar) => { self.next(); break; }
-				Keyword(_Self) if params.is_empty() => self_ref = Some(self.next().pos),
 				Identifier(name) if params.is_empty() => { self.next(); params.push(Identifier::new(name)); },
 				_ => {
 					self.expect(Symbol(Comma))?;
@@ -325,7 +311,7 @@ impl Parser {
 		} else {
 			self.block()?
 		};
-		ExprType::Lambda(LambdaData { self_ref, params, body }).wrap()
+		ExprType::Lambda(LambdaData { params, body }).wrap()
 	}
 
 }

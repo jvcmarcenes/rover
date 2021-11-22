@@ -27,7 +27,6 @@ pub struct Context {
 	allow_return: bool,
 	allow_break: bool,
 	allow_continue: bool,
-	allow_self: bool,
 	self_binding: Option<usize>,
 	assignment: bool,
 }
@@ -161,13 +160,6 @@ impl ExprVisitor<()> for Resolver {
 			errors.try_append(self.add(param, false, pos));
 		}
 		let prev = self.ctx;
-		if let Some(pos) = data.self_ref {
-			if self.ctx.self_binding.is_none() {
-				errors.add_comp("Invalid self expression".to_owned(), pos);
-			} else {
-				self.ctx.allow_self = true;
-			}
-		}
 		self.ctx.allow_return = true;
 		errors.try_append(self.resolve(&data.body));
 		self.ctx = prev;
@@ -196,7 +188,7 @@ impl ExprVisitor<()> for Resolver {
 	}
 
 	fn self_ref(&mut self, data: Rc<RefCell<usize>>, pos: SourcePos) -> Result<()> {
-		allowed(self.ctx.allow_self && self.ctx.self_binding.is_some(), "Invalid self expression", pos)?;
+		allowed(self.ctx.self_binding.is_some(), "Invalid self expression", pos)?;
 		*data.borrow_mut() = self.ctx.self_binding.unwrap();
 		Ok(())
 	}
