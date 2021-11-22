@@ -5,7 +5,7 @@ pub mod globals;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{ast::{Identifier, expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::*, statement::*}, utils::{new_rcref, result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, function::Function}};
 
@@ -80,7 +80,7 @@ impl ExprVisitor<Value> for Interpreter {
 			LiteralData::Object(map) => {
 				let mut value_map = HashMap::new();
 				for (key, expr) in map {
-					value_map.insert(key, Rc::new(RefCell::new(expr.accept(self)?)));
+					value_map.insert(key, new_rcref(expr.accept(self)?));
 				}
 				Value::Object(value_map)
 			}
@@ -112,8 +112,8 @@ impl ExprVisitor<Value> for Interpreter {
 			BinaryOperator::Lse => Value::Bool(lhs.to_num(l_pos)? <= rhs.to_num(r_pos)?),
 			BinaryOperator::Grt => Value::Bool(lhs.to_num(l_pos)? > rhs.to_num(r_pos)?),
 			BinaryOperator::Gre => Value::Bool(lhs.to_num(l_pos)? >= rhs.to_num(r_pos)?),
-			BinaryOperator::Equ => Value::Bool(lhs.to_num(l_pos)? == rhs.to_num(r_pos)?),
-			BinaryOperator::Neq => Value::Bool(lhs.to_num(l_pos)? != rhs.to_num(r_pos)?),
+			BinaryOperator::Equ => Value::Bool(lhs == rhs),
+			BinaryOperator::Neq => Value::Bool(lhs != rhs),
 		};
 		value.wrap()
 	}
@@ -244,10 +244,12 @@ impl StmtVisitor<Message> for Interpreter {
 					let h_pos = fhead.pos;
 					head = fhead.clone();
 					let map = fhead.accept(self)?.to_obj(h_pos)?;
-					*map.get(&field).unwrap().borrow_mut() = val;
+					if let Some(cur) = map.get(&field) {
+						*cur.borrow_mut() = val;
+					} else {
+						return ErrorList::run(format!("Property {} is undefined for object", field), h_pos).err();
+					}
 					val = Value::Object(map);
-					// map.insert(field, Rc::new(RefCell::new(val)));
-					// val = Value::Object(map);
 				},
 				_ => return ErrorList::run("Invalid assignment target".to_owned(), head.pos).err()
 			}

@@ -100,3 +100,17 @@ impl Display for Value {
 		}
 	}
 }
+
+impl PartialEq for Value {
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Self::Str(l0), Self::Str(r0)) => l0 == r0,
+			(Self::Num(l0), Self::Num(r0)) => l0 == r0,
+			(Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
+			(Self::List(l0), Self::List(r0)) => l0 == r0,
+			(Self::Callable(_), Self::Callable(_)) => false,
+			(Self::Object(l0), Self::Object(r0)) => l0 == r0,
+			_ => false,
+		}
+	}
+}
