@@ -6,7 +6,9 @@ use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wra
 
 use self::{Value::*, callable::Callable};
 
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use super::Interpreter;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -75,30 +77,40 @@ impl Value {
 			None => "none",
 		}.to_owned()
 	}
-}
 
-impl Display for Value {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Str(s) => write!(f, "{}", s),
-			Num(n) => write!(f, "{}", n),
-			Bool(b) => write!(f, "{}", b),
+	pub fn to_string(&self, interpreter: &mut Interpreter, pos: SourcePos) -> Result<String> {
+		match &self {
+			Str(str) => str.clone(),
+			Num(num) => num.to_string(),
+			Bool(bool) => bool.to_string(),
 			List(list) => {
-				write!(f, "[")?;
+				let mut str = String::new();
+				str.push('[');
 				let mut i = 0;
 				loop {
 					if i >= list.len() { break; }
-					write!(f, "{}", list[i])?;
-					if i + 1 < list.len() { write!(f, ", ")?; }
+					str.push_str(&list[i].to_string(interpreter, pos)?);
+					if i + 1 < list.len() { str.push_str(", "); }
 					i += 1;
 				}
-				write!(f, "]")
+				str.push(']');
+				str
 			},
-			Callable(c) => write!(f, "{}", c.borrow()),
-			Object(_) => write!(f, "<object>"),
-			None => write!(f, "none"),
-		}
+			Callable(c) => c.borrow().to_string(),
+			Object(_) => {
+				if let Ok(field) = self.get_field("to_string", pos) {
+					let callable = field.borrow().clone().to_callable(pos)?;
+					callable.borrow_mut().bind(self.clone());
+					let res = callable.borrow_mut().call(pos, interpreter, Vec::new())?;
+					res.to_string(interpreter, pos)?
+				} else {
+					"<object>".to_owned()
+				}
+			},
+			None => "none".to_owned(),
+		}.wrap()
 	}
+
 }
 
 impl PartialEq for Value {

@@ -69,8 +69,10 @@ impl ExprVisitor<Value> for Interpreter {
 			LiteralData::Bool(b) => Value::Bool(b),
 			LiteralData::Template(exprs) => {
 				let mut values = Vec::new();
-				for expr in exprs { values.push(expr.accept(self)?) }
-				Value::Str(values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(""))
+				for expr in exprs { values.push((expr.pos, expr.accept(self)?)); }
+				let mut strs = Vec::new();
+				for (pos, val) in values { strs.push(val.to_string(self, pos)?); }
+				Value::Str(strs.join(""))
 			},
 			LiteralData::List(exprs) => {
 				let mut values = Vec::new();
@@ -94,7 +96,7 @@ impl ExprVisitor<Value> for Interpreter {
 		let rhs = data.rhs.accept(self)?;
 		let value = match data.op {
 			BinaryOperator::Add => match (&lhs, &rhs) {
-				(Value::Str(_), _) | (_, Value::Str(_)) => Value::Str(format!("{}{}", lhs, rhs)),
+				(Value::Str(_), _) | (_, Value::Str(_)) => Value::Str(format!("{}{}", lhs.to_string(self, l_pos)?, rhs.to_string(self, r_pos)?)),
 				_ => Value::Num(lhs.to_num(l_pos)? + rhs.to_num(r_pos)?),
 			}
 			BinaryOperator::Sub => Value::Num(lhs.to_num(l_pos)? - rhs.to_num(r_pos)?),

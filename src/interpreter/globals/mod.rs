@@ -31,8 +31,9 @@ fn write() -> Value {
 	impl Callable for Write {
 		fn arity(&self) -> usize { 1 }
 
-		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			print!("{}", args[0].0);
+		fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (val, pos) = args[0].clone(); 
+			print!("{}", val.to_string(interpreter, pos)?);
 			let _ = std::io::stdout().flush();
 			Value::None.wrap()
 		}
@@ -47,8 +48,9 @@ fn writeline() -> Value {
 	impl Callable for Writeline {
 		fn arity(&self) -> usize { 1 }
 
-		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			println!("{}", args[0].0);
+		fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (val, pos) = args[0].clone(); 
+			println!("{}", val.to_string(interpreter, pos)?);
 			Value::None.wrap()
 		}
 	}

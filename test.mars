@@ -17,8 +17,8 @@ let const Point = function(x, y) => {
 }
 
 let p = Point(2, 3)
-writeline(p.to_string())
+writeline(p)
 p.translate(4, 5)
-writeline(p.to_string())
+writeline(p)
 
 writeline(p.get_magnitude())
