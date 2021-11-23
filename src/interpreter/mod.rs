@@ -3,7 +3,7 @@ pub mod value;
 pub mod environment;
 pub mod globals;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
 use crate::{ast::{Identifier, expression::*, statement::*}, utils::{new_rcref, result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
@@ -27,13 +27,15 @@ pub enum Message {
 
 pub struct Interpreter {
 	env: Environment,
+	pub location: PathBuf,
 }
 
 impl Interpreter {
 
-	pub fn new(globals: ValueMap) -> Self {
+	pub fn new(globals: ValueMap, location: PathBuf) -> Self {
 		Self {
 			env: Environment::new(globals),
+			location,
 		}
 	}
 

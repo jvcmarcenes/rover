@@ -1,24 +1,23 @@
 
-let const Point = function(x, y) => {
-	x, y
+let path = './hello.txt'
+let file
 
-	translate = function(x, y) {
-		self.x += x
-		self.y += y
-	}
-
-	to_string = function() {
-		return '(#{self.x}, #{self.y})'
-	}
-
-	get_magnitude = function() {
-		return math.sqrt(math.pow(self.x, 2) + math.pow(self.y, 2))
-	}
+if fs.exists(path) {
+	file = fs.open(path)
+} else {
+	file = fs.create(path)
 }
 
-let p = Point(2, 3)
-writeline(p)
-p.translate(4, 5)
-writeline(p)
+file.writeline("Hello World!")
 
-writeline(p.get_magnitude())
+let content = file.read()
+
+if size(content) >= 100 { file.wipe() }
+
+writeline(content)
+writeline(size(content))
+writeline(file.path)
+
+let file2 = fs.open(file.path)
+
+writeline(file2.read())

@@ -8,7 +8,7 @@ mod parser;
 mod resolver;
 mod interpreter;
 
-use std::process;
+use std::{path::Path, process};
 
 use interpreter::{Interpreter, globals::Globals};
 use lexer::Lexer;
@@ -52,7 +52,10 @@ fn run_file(path: &str) {
 
 	if !lexer_err.is_empty() { process::exit(1); }
 	
-	let mut interpreter = Interpreter::new(globals.values);
+	let mut pathbuf = Path::new(path).to_path_buf();
+	pathbuf.pop();
+
+	let mut interpreter = Interpreter::new(globals.values, pathbuf);
 
 	interpreter.interpret(&ast).unwrap_or_else(|err| {
 		err.report(&path);

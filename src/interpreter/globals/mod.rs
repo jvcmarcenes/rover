@@ -1,12 +1,13 @@
 
 mod math;
+mod fs;
 
 use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::math::math, value::callable::Callable}, resolver::IdentifierData, utils::{new_rcref, result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::callable::Callable}, resolver::IdentifierData, utils::{new_rcref, result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -253,6 +254,7 @@ impl Globals {
 			("new_list", new_list()),
 			("typeof", _typeof()),
 			("math", math()),
+			("fs", fs()),
 		];
 
 		let mut i = 1;
