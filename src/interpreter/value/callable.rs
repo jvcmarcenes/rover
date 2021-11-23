@@ -14,6 +14,7 @@ pub trait Callable : Debug {
 			Ok(())
 		}
 	}
+	fn bind(&mut self, _binding: Value) { }
 	fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value>;
 }
 

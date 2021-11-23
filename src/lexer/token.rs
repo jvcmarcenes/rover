@@ -71,11 +71,11 @@ fn format(str: String) -> String {
 	let mut fin = String::new();
 	let mut iter = str.chars().into_iter().peekable();
 	while let Some(c) = iter.next() {
+		if c != '_' {
+			fin.push(c.to_ascii_uppercase());
+		}
 		if c.is_lowercase() && iter.peek().is_some() && iter.peek().unwrap().is_uppercase() {
-			fin.push(c.to_ascii_uppercase());
 			fin.push('_');
-		} else if c != '_' {
-			fin.push(c.to_ascii_uppercase());
 		}
 	}
 	fin

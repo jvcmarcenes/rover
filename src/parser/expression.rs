@@ -1,7 +1,7 @@
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
-use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator::{self, *}, CallData, ExprType::{self, *}, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, LogicOperator, UnaryData, UnaryOperator::{self, *}}, statement::{Block, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -174,7 +174,7 @@ impl Parser {
 			Keyword(True) => ExprType::Literal(LiteralData::Bool(true)),
 			Keyword(_None) => ExprType::Literal(LiteralData::None),
 			Keyword(Function) => self.lambda()?,
-			Keyword(_Self) => SelfRef(Rc::new(RefCell::new(0))),
+			Keyword(_Self) => SelfRef,
 			TokenType::Literal(lit) => match lit {
 				LiteralType::Num(n) => ExprType::Literal(LiteralData::Num(n)),
 				LiteralType::Str(s) => ExprType::Literal(LiteralData::Str(s)),

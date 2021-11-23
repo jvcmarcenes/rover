@@ -37,14 +37,14 @@ fn run_file(path: &str) {
 
 	let (tokens, lexer_err) = lexer.scan_tokens();
 	lexer_err.report(&path);
-	
+
 	let ast = Parser::new(tokens).program().unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);
 	});
 
 	let globals = Globals::new();
-
+	
 	Resolver::new(globals.clone()).resolve(&ast).unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);

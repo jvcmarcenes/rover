@@ -7,7 +7,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{ast::{Identifier, expression::*, statement::*}, utils::{new_rcref, result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, function::Function}};
+use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, function::{Function, SELF}}};
 
 fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
 	if n < 0.0 { n += len as f64; }
@@ -194,11 +194,15 @@ impl ExprVisitor<Value> for Interpreter {
 
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Value> {
 		let head = data.head.accept(self)?;
-		head.get_field(&data.field, pos)?.borrow().clone().wrap()
+		let field = head.get_field(&data.field, pos)?;
+		if let Value::Callable(callable) = field.borrow().clone() {
+			callable.borrow_mut().bind(head);
+		};
+		field.clone().borrow().clone().wrap()
 	}
 
-	fn self_ref(&mut self, data: Rc<RefCell<usize>>, _pos: SourcePos) -> Result<Value> {
-		self.env.get(data.borrow().clone()).wrap()
+	fn self_ref(&mut self, _pos: SourcePos) -> Result<Value> {
+		self.env.get(SELF).wrap()
 	}
 
 }
@@ -221,8 +225,8 @@ impl StmtVisitor<Message> for Interpreter {
 		let mut val = data.expr.accept(self)?;
 		loop {
 			match head.typ {
-				ExprType::SelfRef(name) => {
-					self.env.assign(name.borrow().clone(), val);
+				ExprType::SelfRef => {
+					self.env.assign(SELF, val);
 					return Message::None.wrap();
 				},
 				ExprType::Variable(name) => {

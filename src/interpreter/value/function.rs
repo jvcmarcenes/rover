@@ -1,8 +1,9 @@
 
-use crate::{ast::{Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::{Environment}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 use super::{Value, callable::Callable};
 
+pub const SELF: usize = 0;
 
 #[derive(Debug, Clone)]
 pub struct Function {
@@ -20,6 +21,10 @@ impl Function {
 impl Callable for Function {
 	fn arity(&self) -> usize {
 		self.params.len()
+	}
+
+	fn bind(&mut self, binding: Value) {
+		self.env.define(SELF, binding);
 	}
 
 	fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {

@@ -1,50 +1,19 @@
 
-(#)
+let const Point = function(x, y) => {
+	x, y
 
-let const Point = function(x, y, z?) => {
-	x, y, z
-
-	translate = function(x, y, z?) {
+	translate = function(x, y) {
 		self.x += x
 		self.y += y
-		if self.z { self.z += z }
 	}
 
 	to_string = function() {
-		let s = '('
-		s += self.x
-		s += ', #{self.y}'
-		if self.z { s += ', #{self.z}' }
+		return '(#{self.x}, #{self.y})'
 	}
 
 	get_magnitude = function() {
-		let sum = math.pow(self.x, 2)
-		let sum = math.pow(self.y, 2)
-		if self.z { let sum = math.pow(self.z, 2) }
-		return math.sqrt(sum)
+		return math.sqrt(math.pow(self.x, 2) + math.pow(self.y, 2))
 	}
-}
-
-#)
-
-let const Point = function(x, y) {
-	let const p = {
-		x, y
-
-		translate = function(x, y) {
-			self.x += x
-			self.y += y
-		}
-
-		to_string = function() {
-			return '(#{self.x}, #{self.y})'
-		}
-
-		get_magnitude = function() {
-			return math.sqrt(math.pow(self.x, 2) + math.pow(self.y, 2))
-		}
-	}
-	return p
 }
 
 let p = Point(2, 3)

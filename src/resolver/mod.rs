@@ -1,5 +1,5 @@
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use crate::{ast::{Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
 
@@ -22,13 +22,12 @@ fn allowed(cond: bool, msg: &str, pos: SourcePos) -> Result<()> {
 	else { ErrorList::comp(msg.to_owned(), pos).err() }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Context {
-	allow_return: bool,
-	allow_break: bool,
-	allow_continue: bool,
-	self_binding: Option<usize>,
-	assignment: bool,
+	in_function: bool,
+	in_loop: bool,
+	in_obj: bool,
+	overwriting: bool,
 }
 
 #[derive(Debug)]
@@ -52,6 +51,8 @@ impl Resolver {
 
 	pub fn resolve(&mut self, block: &Block) -> Result<()> {
 		let mut errors = ErrorList::empty();
+
+		// dbg!(&block);
 
 		self.push_scope();
 		for stmt in block.clone() {
@@ -103,7 +104,14 @@ impl ExprVisitor<()> for Resolver {
 		let exprs = match data {
 			LiteralData::List(exprs) => exprs,
 			LiteralData::Template(exprs) => exprs,
-			LiteralData::Object(map) => map.into_values().collect::<Vec<_>>(),
+			LiteralData::Object(map) => {
+				let exprs = map.clone().into_values();
+				let prev = self.ctx.clone();
+				self.ctx.in_obj = true;
+				for expr in exprs { errors.try_append(expr.accept(self)); }
+				self.ctx = prev;
+				return errors.if_empty(());
+			}
 			_ => return Ok(()),
 		};
 
@@ -138,7 +146,7 @@ impl ExprVisitor<()> for Resolver {
 	
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<()> {
 		if let Some(var) = self.get_var(&data.name) {
-			if self.ctx.assignment {
+			if self.ctx.overwriting {
 				if var.id < self.globals.ids.len() {
 					return ErrorList::comp(format!("Cannot assign to global constant '{}'", data), pos).err();
 				} else if var.constant {
@@ -159,8 +167,8 @@ impl ExprVisitor<()> for Resolver {
 		for param in data.params {
 			errors.try_append(self.add(param, false, pos));
 		}
-		let prev = self.ctx;
-		self.ctx.allow_return = true;
+		let prev = self.ctx.clone();
+		self.ctx.in_function = true;
 		errors.try_append(self.resolve(&data.body));
 		self.ctx = prev;
 		self.pop_scope();
@@ -179,7 +187,10 @@ impl ExprVisitor<()> for Resolver {
 	fn index(&mut self, data: IndexData, _pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
 		errors.try_append(data.head.accept(self));
+		let prev = self.ctx.clone();
+		self.ctx.overwriting = false;
 		errors.try_append(data.index.accept(self));
+		self.ctx = prev;
 		errors.if_empty(())
 	}
 
@@ -187,10 +198,8 @@ impl ExprVisitor<()> for Resolver {
 		data.head.accept(self)
 	}
 
-	fn self_ref(&mut self, data: Rc<RefCell<usize>>, pos: SourcePos) -> Result<()> {
-		allowed(self.ctx.self_binding.is_some(), "Invalid self expression", pos)?;
-		*data.borrow_mut() = self.ctx.self_binding.unwrap();
-		Ok(())
+	fn self_ref(&mut self, pos: SourcePos) -> Result<()> {
+		allowed(self.ctx.in_obj && self.ctx.in_function, "Invalid self expression", pos)
 	}
 
 }
@@ -203,18 +212,14 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
-		match data.expr.typ {
+		match data.expr.typ.clone() {
 			ExprType::Lambda(_) => {
 				errors.try_append(self.add(data.name, data.constant, pos));
 				errors.try_append(data.expr.accept(self));
 			},
 			ExprType::Literal(LiteralData::Object(_)) => {
-				let name = data.name.name.clone();
 				errors.try_append(self.add(data.name, data.constant, pos));
-				let prev = self.ctx;
-				self.ctx.self_binding = self.get_var(&name).map(|var| var.id);
 				errors.try_append(data.expr.accept(self));
-				self.ctx = prev;
 			},
 			_ => {
 				errors.try_append(data.expr.accept(self));
@@ -226,9 +231,10 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn assignment(&mut self, data: AssignData, _pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
-		self.ctx.assignment = true;
+		let prev = self.ctx.clone();
+		self.ctx.overwriting = true;
 		errors.try_append(data.head.accept(self));
-		self.ctx.assignment = false;
+		self.ctx = prev;
 		errors.try_append(data.expr.accept(self));
 		errors.if_empty(())
 	}
@@ -242,25 +248,24 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
-		let prev = self.ctx;
-		self.ctx.allow_break = true;
-		self.ctx.allow_continue = true;
+		let prev = self.ctx.clone();
+		self.ctx.in_loop = true;
 		let res = self.resolve(&block);
 		self.ctx = prev;
 		res
 	}
 	
 	fn break_stmt(&mut self, pos: SourcePos) -> Result<()> {
-		allowed(self.ctx.allow_break, "Invalid break statement", pos)
+		allowed(self.ctx.in_loop, "Invalid break statement", pos)
 	}
 	
 	fn continue_stmt(&mut self, pos: SourcePos) -> Result<()> {
-		allowed(self.ctx.allow_continue, "Invalid continue statement", pos)
+		allowed(self.ctx.in_loop, "Invalid continue statement", pos)
 	}
 	
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::empty();
-		errors.try_append(allowed(self.ctx.allow_return, "Invalid return statement", pos));
+		errors.try_append(allowed(self.ctx.in_function, "Invalid return statement", pos));
 		errors.try_append(expr.accept(self));
 		errors.if_empty(())
 	}
