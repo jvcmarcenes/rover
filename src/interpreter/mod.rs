@@ -92,7 +92,7 @@ impl ExprVisitor<Value> for Interpreter {
 		value.wrap()
 	}
 
-	fn binary(&mut self, data: BinaryData, _pos: SourcePos) -> Result<Value> {
+	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<Value> {
 		let (l_pos, r_pos) = (data.lhs.pos, data.rhs.pos);
 		let lhs = data.lhs.accept(self)?;
 		let rhs = data.rhs.accept(self)?;
@@ -116,8 +116,8 @@ impl ExprVisitor<Value> for Interpreter {
 			BinaryOperator::Lse => Value::Bool(lhs.to_num(l_pos)? <= rhs.to_num(r_pos)?),
 			BinaryOperator::Grt => Value::Bool(lhs.to_num(l_pos)? > rhs.to_num(r_pos)?),
 			BinaryOperator::Gre => Value::Bool(lhs.to_num(l_pos)? >= rhs.to_num(r_pos)?),
-			BinaryOperator::Equ => Value::Bool(lhs == rhs),
-			BinaryOperator::Neq => Value::Bool(lhs != rhs),
+			BinaryOperator::Equ => Value::Bool(lhs.equals(&rhs, r_pos, self, pos)?),
+			BinaryOperator::Neq => Value::Bool(!lhs.equals(&rhs, r_pos, self, pos)?),
 		};
 		value.wrap()
 	}

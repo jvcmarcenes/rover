@@ -1,23 +1,34 @@
 
-let path = './hello.txt'
-let file
+let Thing = function () => none
 
-if fs.exists(path) {
-	file = fs.open(path)
-} else {
-	file = fs.create(path)
+let const Box = function(val) {
+	let box = {
+		contained = none
+
+		to_string = function() => 'box [#{self.contained}]'
+
+		equals = function(other) => self.contained == other.contained
+	}
+
+	box.contained = Thing(val, box)
+
+	return box
 }
 
-file.writeline("Hello World!")
+Thing = function(val, container) => {
+	val, container
 
-let content = file.read()
+	to_new_box = function() {
+		return Box(self.val)
+	}
 
-if size(content) >= 100 { file.wipe() }
+	to_string = function() => '#{val}'
 
-writeline(content)
-writeline(size(content))
-writeline(file.path)
+	equals = function(other) => self.val == other.val
+}
 
-let file2 = fs.open(file.path)
+let box = Box(9)
 
-writeline(file2.read())
+let new_box = box.contained.to_new_box()
+
+writeline(box == box)

@@ -111,19 +111,32 @@ impl Value {
 		}.wrap()
 	}
 
-}
-
-impl PartialEq for Value {
-	fn eq(&self, other: &Self) -> bool {
+	pub fn equals(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<bool> {
 		match (self, other) {
 			(Str(l), Str(r)) => l == r,
 			(Num(l), Num(r)) => l == r,
 			(Bool(l), Bool(r)) => l == r,
-			(List(l), List(r)) => l == r,
+			(List(l), List(r)) => {
+				if l.len() != r.len() { return false.wrap() } 
+				for (lv, rv) in l.iter().zip(r.iter()) {
+					if !lv.equals(rv, other_pos, interpreter, pos)? { return false.wrap() }
+				}
+				return true.wrap();
+			}
 			(Callable(_), Callable(_)) => false,
-			(Object(l), Object(r)) => l == r,
+			(Object(_), Object(_)) => {
+				if let Ok(field) = self.get_field("equals", pos) {
+					let callable = field.borrow().clone().to_callable(pos)?;
+					callable.borrow_mut().bind(self.clone());
+					let res = callable.borrow_mut().call(pos, interpreter, Vec::from([(other.clone(), other_pos)]))?;
+					res.is_truthy()
+				} else {
+					false
+				}
+			},
 			(None, None) => true,
 			_ => false,
-		}
+		}.wrap()
 	}
+
 }
