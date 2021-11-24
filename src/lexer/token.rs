@@ -52,7 +52,7 @@ pub enum Symbol {
 	OpenPar, ClosePar, OpenSqr, CloseSqr, OpenBracket, CloseBracket, OpenAng, CloseAng,
 	Dot, Comma, Colon,
 	Plus, Minus, Star, Slash, Exclam,
-	Equals, PlusEquals, MinusEquals,
+	Equals, PlusEquals, MinusEquals, StarEquals, SlashEquals,
 	DoubleEquals, ExclamEquals, OpenAngEquals, CloseAngEquals,
 	HashtagOpenBracket, EqualsCloseAng,
 }

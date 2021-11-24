@@ -169,6 +169,7 @@ impl ExprVisitor<Value> for Interpreter {
 		// We need multiple mutable borrows to handle recursive function calls
 		// This should not cause any issues since the function won't drop itself or it's environment!
 		// HOWEVER, we can only do this if the value is bound in the environment, if the calee is a lambda this would cause a segfault
+		// Additionaly, if a function isn't bound, it can't call itself recursively, so we don't need multiple mutable borrows either way
 		if bound {
 			unsafe {
 				let function = calee.to_callable(calee_pos)?.as_ptr();

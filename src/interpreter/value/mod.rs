@@ -22,16 +22,17 @@ pub enum Value {
 }
 
 impl Value {
+
 	pub fn to_num(self, pos: SourcePos) -> Result<f64> {
 		if let Value::Num(n) = self { return Ok(n) }
 		ErrorList::run("Value isn't a number".to_owned(), pos).err()
 	}
-	
+
 	pub fn to_bool(self, pos: SourcePos) -> Result<bool> {
 		if let Value::Bool(b) = self { return Ok(b) }
 		ErrorList::run("Value isn't a bool".to_owned(), pos).err()
 	}
-	
+
 	pub fn to_list(self, pos: SourcePos) -> Result<Vec<Value>> {
 		if let Value::List(list) = self { return Ok(list) }
 		ErrorList::run("Value isn't a list".to_owned(), pos).err()
@@ -41,7 +42,7 @@ impl Value {
 		if let Value::Callable(c) = self { return Ok(c) }
 		ErrorList::run("Value isn't a function".to_owned(), pos).err()
 	}
-	
+
 	pub fn to_obj(self, pos: SourcePos) -> Result<HashMap<String, Rc<RefCell<Value>>>> {
 		if let Value::Object(map) = self { return Ok(map) }
 		ErrorList::run("Value isn't an object".to_owned(), pos).err()
@@ -78,6 +79,17 @@ impl Value {
 		}.to_owned()
 	}
 
+	pub fn method_call(&self, method: &str, interpreter: &mut Interpreter, pos: SourcePos, args: Vec<(Value, SourcePos)>, default: Result<Value>) -> Result<Value> {
+		if let Ok(field) = self.get_field(method, pos) {
+			let callable = field.borrow().clone().to_callable(pos)?;
+			callable.borrow_mut().bind(self.clone());
+			let res = callable.borrow_mut().call(pos, interpreter, args);
+			res
+		} else {
+			default
+		}
+	}
+
 	pub fn to_string(&self, interpreter: &mut Interpreter, pos: SourcePos) -> Result<String> {
 		match &self {
 			Str(str) => str.clone(),
@@ -97,16 +109,7 @@ impl Value {
 				str
 			},
 			Callable(c) => c.borrow().to_string(),
-			Object(_) => {
-				if let Ok(field) = self.get_field("to_string", pos) {
-					let callable = field.borrow().clone().to_callable(pos)?;
-					callable.borrow_mut().bind(self.clone());
-					let res = callable.borrow_mut().call(pos, interpreter, Vec::new())?;
-					res.to_string(interpreter, pos)?
-				} else {
-					"<object>".to_owned()
-				}
-			},
+			Object(_) => self.method_call("to_string", interpreter, pos, Vec::new(), Value::Str("<object>".to_owned()).wrap())?.to_string(interpreter, pos)?,
 			None => "none".to_owned(),
 		}.wrap()
 	}
@@ -124,16 +127,7 @@ impl Value {
 				return true.wrap();
 			}
 			(Callable(_), Callable(_)) => false,
-			(Object(_), Object(_)) => {
-				if let Ok(field) = self.get_field("equals", pos) {
-					let callable = field.borrow().clone().to_callable(pos)?;
-					callable.borrow_mut().bind(self.clone());
-					let res = callable.borrow_mut().call(pos, interpreter, Vec::from([(other.clone(), other_pos)]))?;
-					res.is_truthy()
-				} else {
-					false
-				}
-			},
+			(Object(_), Object(_)) => self.method_call("equals", interpreter, pos, Vec::from([(other.clone(), other_pos)]), Value::Bool(false).wrap())?.is_truthy(),
 			(None, None) => true,
 			_ => false,
 		}.wrap()

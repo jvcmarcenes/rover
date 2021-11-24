@@ -6,6 +6,8 @@ use super::Parser;
 pub type StmtResult = Result<Statement>;
 pub type BlockResult = Result<Block>;
 
+const ASSIGN_OPS: &[TokenType] = &[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals), Symbol(StarEquals), Symbol(SlashEquals)];
+
 impl Parser {
 
 	pub fn program(&mut self) -> BlockResult {
@@ -76,22 +78,32 @@ impl Parser {
 	fn assignment_or_expression(&mut self) -> StmtResult {
 		let left = self.expression()?;
 		let l_pos = left.pos;
-		match left.typ {
-			ExprType::Variable(_) | ExprType::Index(_) | ExprType::FieldGet(_) => {
-				let op = self.expect_any(&[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals)])?;
-				let right = match op.typ {
-					Symbol(Equals) => self.expression()?,
-					Symbol(PlusEquals) => ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Add, rhs: Box::new(self.expression()?) }).to_expr(op.pos),
-					Symbol(MinusEquals) => ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op: BinaryOperator::Sub, rhs: Box::new(self.expression()?) }).to_expr(op.pos),
-					_ => panic!(""),
-				};
-				self.expect_eol()?;
-				StmtType::Assignment(AssignData { head: Box::new(left), l_pos, expr: Box::new(right) }).to_stmt(op.pos).wrap()
-			},
-			_ => {
-				self.expect_eol()?;				
-				StmtType::Expr(Box::new(left)).to_stmt(l_pos).wrap()
+		if let Some(token) = self.optional_any(ASSIGN_OPS) {
+			match left.typ {
+				ExprType::Variable(_) | ExprType::Index(_) | ExprType::FieldGet(_) => {
+					let right = if let Symbol(Equals) = token.typ {
+						self.expression()?
+					} else {
+						let op = match token.typ {
+							Symbol(PlusEquals)  => BinaryOperator::Add,
+							Symbol(MinusEquals) => BinaryOperator::Sub,
+							Symbol(StarEquals)  => BinaryOperator::Mul,
+							Symbol(SlashEquals) => BinaryOperator::Div,
+							_ => panic!("this should never be reached"),
+						};
+						ExprType::Binary(BinaryData { lhs: Box::new(left.clone()), op, rhs: Box::new(self.expression()?) }).to_expr(token.pos)
+					};
+					self.expect_eol()?;
+					StmtType::Assignment(AssignData { head: Box::new(left), l_pos, expr: Box::new(right) }).to_stmt(token.pos).wrap()
+				},
+				_ => {
+					self.synchronize();
+					ErrorList::comp("Invalid assignment target".to_owned(), l_pos).err()
+				}
 			}
+		} else {
+			self.expect_eol()?;				
+			StmtType::Expr(Box::new(left)).to_stmt(l_pos).wrap()
 		}
 	}
 
