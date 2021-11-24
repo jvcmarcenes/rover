@@ -80,10 +80,23 @@ fn random() -> Value {
 	#[derive(Debug, Clone)] struct Random;
 
 	impl Callable for Random {
-		fn arity(&self) -> usize { 1 }
+		
+		fn check_arity(&self, args_in: usize, pos: SourcePos) -> Result<()> {
+			if (0..=1).contains(&args_in) {
+				Ok(())
+			} else {
+				ErrorList::run(format!("Expected 0 or 1 arguments, but got {}", args_in), pos).err()
+			}
+		}
+
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			let rng = rand::prelude::StdRng::seed_from_u64(val.to_num(pos)? as u64);
+
+			let rng = if args.len() == 1 {
+				let (val, pos) = args[0].clone();
+				StdRng::seed_from_u64(val.to_num(pos)? as u64)
+			} else {
+				StdRng::seed_from_u64(rand::random())
+			};
 
 			#[derive(Clone, Debug)] struct Rng(StdRng);
 

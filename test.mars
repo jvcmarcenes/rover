@@ -1,35 +1,9 @@
 
-let const Complex = function(real, imag) => {
-	real, imag
+let rng = random(clock())
 
-	to_string = function () {
-		if self.imag >= 0 {
-			return '(#{self.real} + #{self.imag}i)'
-		} else {
-			return '(#{self.real} - #{-self.imag}i)'
-		}
-	}
-
-	equals = function(other) => self.real == other.real and self.imag == other.imag
-
-	add = function(other) => Complex(self.real + other.real, self.imag + other.imag)
-	sub = function(other) => Complex(self.real - other.real, self.imag - other.imag)
-	mul = function(other) => Complex(self.real * other.real - self.imag * other.imag, self.real * other.imag + self.imag * other.real)
-	div = function(other) {
-		let d = math.pow(other.real, 2) + math.pow(other.imag, 2)
-		let real = (self.real * other.real + self.imag * other.imag) / d
-		let imag = (self.imag * other.real - self.real * other.imag) / d
-		return Complex(real, imag)
-	}
-
-}
-
-let c1 = Complex(2, 3)
-let c2 = Complex(4, -5)
-
-writeline(c1)
-writeline(c2)
-writeline('#{c1} + #{c2} = #{c1 + c2}')
-writeline('#{c1} - #{c2} = #{c1 - c2}')
-writeline('#{c1} * #{c2} = #{c1 * c2}')
-writeline('#{c1} / #{c2} = #{c1 / c2}')
+writeline(rng())
+writeline(rng())
+writeline(rng())
+writeline(rng())
+writeline(rng())
+writeline(rng())

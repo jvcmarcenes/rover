@@ -6,15 +6,18 @@ use crate::{interpreter::Interpreter, utils::{result::*, source_pos::SourcePos}}
 use super::Value;
 
 pub trait Callable : Debug {
-	fn arity(&self) -> usize;
+	fn arity(&self) -> usize { 0 }
+
 	fn check_arity(&self, args_in: usize, pos: SourcePos) -> Result<()> {
-		if self.arity() != args_in {
-			return ErrorList::run(format!("Expected {} arguments, but got {}", self.arity(), args_in), pos).err();
-		} else {
+		if self.arity() == args_in {
 			Ok(())
+		} else {
+			ErrorList::run(format!("Expected {} arguments, but got {}", self.arity(), args_in), pos).err()
 		}
 	}
+
 	fn bind(&mut self, _binding: Value) { }
+	
 	fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value>;
 }
 

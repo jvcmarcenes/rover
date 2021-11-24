@@ -6,11 +6,9 @@ use std::{iter::Peekable, vec::IntoIter};
 
 use crate::{lexer::token::{Token, TokenType::{self, *}, Symbol}, utils::{result::{Result, ErrorList}, wrap::Wrap}};
 
-pub type TokenIter = Peekable<IntoIter<Token>>;
-
 #[derive(Debug, Clone)]
 pub struct Parser {
-	tokens: TokenIter,
+	tokens: Peekable<IntoIter<Token>>,
 }
 
 impl Parser {

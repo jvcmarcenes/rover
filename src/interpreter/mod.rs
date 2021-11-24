@@ -158,6 +158,9 @@ impl ExprVisitor<Value> for Interpreter {
 		// We need a shared reference (Rc<RefCell<dyn Callable>>) to be able to handle closures and interior mutability
 		// We need multiple mutable borrows to handle recursive function calls
 		// This should not cause any issues since the function won't drop itself or it's environment!
+			// Actually... a function can reference the name it is bound too, and therefore can mutate it, causing it to be dropped
+			// A solution that could get rid of the 'unsafe' code (and solve this) could be:
+			// instead of mutating the function reference, we clone it, mutate it's local environemnt, and then assign it to itself after the call is done
 		// HOWEVER, we can only do this if the value is bound in the environment, if the calee is a lambda this would cause a segfault
 		// Additionaly, if a function isn't bound, it can't call itself recursively, so we don't need multiple mutable borrows either way
 		if bound {
