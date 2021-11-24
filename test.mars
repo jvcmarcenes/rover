@@ -1,9 +1,17 @@
 
-let rng = random(clock())
+let rng = random()
 
-writeline(rng())
-writeline(rng())
-writeline(rng())
-writeline(rng())
-writeline(rng())
-writeline(rng())
+let n = rng() * 100 - 50
+n = math.floor(n * 100) / 100
+
+writeline(n)
+
+writeline('sqrt(#{n}) = #{math.sqrt(n)}')
+writeline('floor(#{n}) = #{math.floor(n)}')
+writeline('ceil(#{n}) = #{math.ceil(n)}')
+writeline('round(#{n}) = #{math.round(n)}')
+writeline('abs(#{n}) = #{math.abs(n)}')
+writeline('sign(#{n}) = #{math.sign(n)}')
+writeline('max(#{n}, 23) = #{math.max(n, 23)}')
+writeline('min(#{n}, 42) = #{math.min(n, 42)}')
+writeline('clamp(#{n}, -10, 26) = #{math.clamp(n, -10, 26)}')
