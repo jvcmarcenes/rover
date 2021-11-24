@@ -97,20 +97,10 @@ impl ExprVisitor<Value> for Interpreter {
 		let lhs = data.lhs.accept(self)?;
 		let rhs = data.rhs.accept(self)?;
 		let value = match data.op {
-			BinaryOperator::Add => match (&lhs, &rhs) {
-				(Value::Str(_), _) | (_, Value::Str(_)) => Value::Str(format!("{}{}", lhs.to_string(self, l_pos)?, rhs.to_string(self, r_pos)?)),
-				_ => Value::Num(lhs.to_num(l_pos)? + rhs.to_num(r_pos)?),
-			}
-			BinaryOperator::Sub => Value::Num(lhs.to_num(l_pos)? - rhs.to_num(r_pos)?),
-			BinaryOperator::Mul => Value::Num(lhs.to_num(l_pos)? * rhs.to_num(r_pos)?),
-			BinaryOperator::Div => {
-				let rhs = rhs.to_num(r_pos)?;
-				if rhs == 0.0 {
-					return ErrorList::run("Cannot divide by zero".to_owned(), r_pos).err()
-				} else {
-					Value::Num(lhs.to_num(l_pos)? / rhs)
-				}
-			},
+			BinaryOperator::Add => lhs.add(&rhs, r_pos, self, pos)?,
+			BinaryOperator::Sub => lhs.sub(&rhs, r_pos, self, pos)?,
+			BinaryOperator::Mul => lhs.mul(&rhs, r_pos, self, pos)?,
+			BinaryOperator::Div => lhs.div(&rhs, r_pos, self, pos)?,
 			BinaryOperator::Rem => Value::Num(lhs.to_num(l_pos)? % rhs.to_num(r_pos)?),
 			BinaryOperator::Lst => Value::Bool(lhs.to_num(l_pos)? < rhs.to_num(r_pos)?),
 			BinaryOperator::Lse => Value::Bool(lhs.to_num(l_pos)? <= rhs.to_num(r_pos)?),

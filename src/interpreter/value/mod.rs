@@ -127,9 +127,47 @@ impl Value {
 				return true.wrap();
 			}
 			(Callable(_), Callable(_)) => false,
-			(Object(_), Object(_)) => self.method_call("equals", interpreter, pos, Vec::from([(other.clone(), other_pos)]), Value::Bool(false).wrap())?.is_truthy(),
+			(Object(_), Object(_)) => self.method_call("equals", interpreter, pos, vec![(other.clone(), other_pos)], Value::Bool(false).wrap())?.is_truthy(),
 			(None, None) => true,
 			_ => false,
+		}.wrap()
+	}
+
+	pub fn add(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
+		let err = ErrorList::run(format!("Operation ADD is not defined for {} and {}", self.get_type(), other.get_type()), pos);
+		match (self, other) {
+			(Str(_), _) | (_, Str(_)) => Str(format!("{}{}", self.to_string(interpreter, pos)?, other.to_string(interpreter, pos)?)),
+			(Num(l), Num(r)) => Num(l + r),
+			(Object(_), Object(_)) => self.method_call("add", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,
+			_ => return err.err(),
+		}.wrap()
+	}
+
+	pub fn sub(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
+		let err = ErrorList::run(format!("Operation SUB is not defined for {} and {}", self.get_type(), other.get_type()), pos);
+		match (self, other) {
+			(Num(l), Num(r)) => Num(l - r),
+			(Object(_), Object(_)) => self.method_call("sub", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,
+			_ => return err.err(),
+		}.wrap()
+	}
+
+	pub fn mul(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
+		let err = ErrorList::run(format!("Operation MUL is not defined for {} and {}", self.get_type(), other.get_type()), pos);
+		match (self, other) {
+			(Num(l), Num(r)) => Num(l * r),
+			(Object(_), Object(_)) => self.method_call("mul", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,
+			_ => return err.err(),
+		}.wrap()
+	}
+
+	pub fn div(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
+		let err = ErrorList::run(format!("Operation DIV is not defined for {} and {}", self.get_type(), other.get_type()), pos);
+		match (self, other) {
+			(Num(_), Num(r)) if *r == 0.0 => return ErrorList::run("Cannot divide by zero".to_owned(), other_pos).err(),
+			(Num(l), Num(r)) => Num(l / r),
+			(Object(_), Object(_)) => self.method_call("div", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,
+			_ => return err.err(),
 		}.wrap()
 	}
 
