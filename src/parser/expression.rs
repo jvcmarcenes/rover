@@ -122,13 +122,9 @@ impl Parser {
 					ExprType::DoExpr(vec![
 						StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), expr: expr.wrap() }).to_stmt(pos),
 						StmtType::If(IfData {
-							cond: ExprType::Binary(BinaryData {
-								lhs: ExprType::Call(CallData { 
-									calee: ExprType::Variable(Identifier::new("typeof".to_owned())).to_expr(pos).wrap(),
-									args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos)],
-								}).to_expr(pos).wrap(),
-								op: BinaryOperator::Equ,
-								rhs: ExprType::Literal(LiteralData::Str("error".to_owned())).to_expr(pos).wrap(),
+							cond: ExprType::Call(CallData { 
+								calee: ExprType::Variable(Identifier::new("is_err".to_owned())).to_expr(pos).wrap(),
+								args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos)],
 							}).to_expr(pos).wrap(),
 							then_block: vec![StmtType::Return(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos)],
 							else_block: vec![],

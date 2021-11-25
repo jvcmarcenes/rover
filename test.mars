@@ -1,6 +1,11 @@
 
-let err = error 'hi'
+let foo = function() {
+	return error 'hello'
+}
 
-abort(err)
+let bar = function() {
+	let a = 9 + foo()?
+	return a
+}
 
-writeline('bye')
+writeline(bar())

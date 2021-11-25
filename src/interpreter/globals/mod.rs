@@ -337,6 +337,21 @@ fn paint() -> Value {
 	Value::Object(map)
 }
 
+fn is_err() -> Value {
+	#[derive(Debug)] struct IsErr;
+
+	impl Callable for IsErr {
+		fn arity(&self) -> usize { 1 }
+	
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let v0 = args[0].0.clone();
+			Value::Bool(v0.is_error()).wrap()
+    }
+	}
+
+	Value::Callable(IsErr.wrap())
+}
+
 #[derive(Clone, Debug)]
 pub struct Globals {
 	pub ids: HashMap<String, IdentifierData>,
@@ -369,6 +384,7 @@ impl Globals {
 			("fs", fs()),
 			("char", _char()),
 			("paint", paint()),
+			("is_err", is_err()),
 		];
 
 		let mut i = 1;
