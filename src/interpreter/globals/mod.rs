@@ -197,7 +197,12 @@ fn abort() -> Value {
 
     fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			let (v0, p0) = args[0].clone();
-			eprintln!("{}: {}", ansi_term::Color::Red.paint("error"), v0.to_string(interpreter, p0)?);
+			let str = if let Value::Error(val) = v0 {
+				val.to_string(interpreter, p0)?
+			} else {
+				v0.to_string(interpreter, p0)?
+			};
+			eprintln!("{}: {}", ansi_term::Color::Red.paint("error"), str);
 			process::exit(0)
     }
 	}

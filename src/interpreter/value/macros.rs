@@ -1,14 +1,4 @@
 
-// macro_rules! tr {
-// 	($val:expr) => {
-// 		if let Error(err_val) = $val {
-// 			return Message::Error(*err_val);
-// 		} else {
-// 			$val
-// 		}
-// 	};
-// }
-
 macro_rules! pass_msg {
 	($val:expr) => {{
 		let bind = $val;
