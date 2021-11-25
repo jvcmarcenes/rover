@@ -24,7 +24,7 @@ fn clock() -> Value {
     }
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Clock)))
+	Value::Callable(Clock.wrap())
 }
 
 fn write() -> Value {
@@ -41,7 +41,7 @@ fn write() -> Value {
 		}
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Write)))
+	Value::Callable(Write.wrap())
 }
 
 fn writeline() -> Value {
@@ -57,7 +57,7 @@ fn writeline() -> Value {
 		}
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Writeline)))
+	Value::Callable(Writeline.wrap())
 }
 
 fn read() -> Value {
@@ -74,7 +74,7 @@ fn read() -> Value {
 		}
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Read)))
+	Value::Callable(Read.wrap())
 }
 
 fn random() -> Value {
@@ -131,7 +131,7 @@ fn size() -> Value {
     }
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Size)))
+	Value::Callable(Size.wrap())
 }
 
 fn is_num() -> Value {
@@ -149,7 +149,7 @@ fn is_num() -> Value {
 		}
 	}
 
-	Value::Callable(Rc::new(RefCell::new(IsNum)))
+	Value::Callable(IsNum.wrap())
 }
 
 fn to_num() -> Value {
@@ -172,7 +172,7 @@ fn to_num() -> Value {
 		}
 	}
 
-	Value::Callable(Rc::new(RefCell::new(ToNum)))
+	Value::Callable(ToNum.wrap())
 }
 
 fn exit() -> Value {
@@ -186,13 +186,29 @@ fn exit() -> Value {
     }
 	}
 
+	Value::Callable(Exit.wrap())
+}
+
+fn abort() -> Value {
+	#[derive(Clone, Debug)] struct Exit;
+
+	impl Callable for Exit {
+		fn arity(&self) -> usize { 1 }
+
+    fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			eprintln!("{}: {}", ansi_term::Color::Red.paint("error"), v0.to_string(interpreter, p0)?);
+			process::exit(0)
+    }
+	}
+
 	Value::Callable(Rc::new(RefCell::new(Exit)))
 }
 
 fn sleep() -> Value {
-	#[derive(Clone, Debug)] struct Exit;
+	#[derive(Clone, Debug)] struct Sleep;
 
-	impl Callable for Exit {
+	impl Callable for Sleep {
 		fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
@@ -203,7 +219,7 @@ fn sleep() -> Value {
     }
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Exit)))
+	Value::Callable(Sleep.wrap())
 }
 
 fn range() -> Value {
@@ -221,7 +237,7 @@ fn range() -> Value {
     }
 	}
 
-	Value::Callable(Rc::new(RefCell::new(Range)))
+	Value::Callable(Range.wrap())
 }
 
 fn _typeof() -> Value {
@@ -235,7 +251,7 @@ fn _typeof() -> Value {
     }
 	}
 
-	Value::Callable(Rc::new(RefCell::new(TypeOf)))
+	Value::Callable(TypeOf.wrap())
 }
 
 fn _char() -> Value {
@@ -340,6 +356,7 @@ impl Globals {
 			("is_num", is_num()),
 			("to_num", to_num()),
 			("exit", exit()),
+			("abort", abort()),
 			("sleep", sleep()),
 			("range", range()),
 			("typeof", _typeof()),

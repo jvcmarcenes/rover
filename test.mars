@@ -1,4 +1,15 @@
 
-for i in range(0, 20) {
-	'#{i} * 7 = #{i * 7}' |> writeline
+let foo = function() {
+
+	let a = do {
+		if true {
+			23
+		} else {
+			'aaa'
+		}
+	}
+
+	return a
 }
+
+writeline(foo())

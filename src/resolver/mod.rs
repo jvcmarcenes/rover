@@ -202,6 +202,10 @@ impl ExprVisitor<()> for Resolver {
 		allowed(self.ctx.in_obj && self.ctx.in_function, "Invalid self expression", pos)
 	}
 
+	fn do_expr(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
+		self.resolve(&block)
+	}
+
 }
 
 impl StmtVisitor<()> for Resolver {

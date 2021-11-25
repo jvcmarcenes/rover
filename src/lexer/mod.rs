@@ -211,6 +211,7 @@ impl Lexer {
 			'=' if self.next_match('=') => self.symbol(DoubleEquals),
 			'=' => self.symbol(Equals),
 			'|'  if self.next_match('>') => self.symbol(BarCloseAng),
+			// '?' => self.symbol(Question),
 			'\'' => self.scan_str_template(),
 			'"' => return self.scan_string(),
 			'#' => self.scan_comment(),

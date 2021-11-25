@@ -15,7 +15,7 @@ pub enum BinaryOperator {
 
 #[derive(Debug, Clone)]
 pub enum UnaryOperator {
-	Not, Neg
+	Not, Neg,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +62,7 @@ pub enum ExprType {
 	Index(IndexData),
 	FieldGet(FieldData),
 	SelfRef,
+	DoExpr(Block),
 }
 
 impl ExprType {
@@ -96,6 +97,7 @@ impl Expression {
 			Index(data) => visitor.index(data, self.pos),
 			FieldGet(data) => visitor.field(data, self.pos),
 			SelfRef => visitor.self_ref(self.pos),
+			DoExpr(block) => visitor.do_expr(block, self.pos),
 		}
 	}
 }
@@ -112,4 +114,5 @@ pub trait ExprVisitor<T> {
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<T>;
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<T>;
 	fn self_ref(&mut self, pos: SourcePos) -> Result<T>;
+	fn do_expr(&mut self, block: Block, pos: SourcePos) -> Result<T>;
 }

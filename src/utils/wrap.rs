@@ -24,3 +24,7 @@ impl<T> Wrap<Rc<RefCell<T>>> for T {
 impl<T> Wrap<Box<T>> for T {
 	fn wrap(self) -> Box<T> { Box::new(self) }
 }
+
+impl<T> Wrap<T> for T {
+	fn wrap(self) -> T { self }
+}

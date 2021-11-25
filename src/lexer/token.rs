@@ -21,6 +21,7 @@ pub enum Keyword {
 	For, In,
 	Function, Return,
 	_Self,
+	Do,
 }
 
 impl Keyword {
@@ -44,6 +45,7 @@ impl Keyword {
 			"function" => Function,
 			"return" => Return,
 			"self" => _Self,
+			"do" => Do,
 			_ => return None,
 		};
 		Some(keyword)
@@ -58,6 +60,7 @@ pub enum Symbol {
 	Equals, PlusEquals, MinusEquals, StarEquals, SlashEquals,
 	DoubleEquals, ExclamEquals, OpenAngEquals, CloseAngEquals,
 	HashtagOpenBracket, EqualsCloseAng, BarCloseAng,
+	// Question,
 }
 
 #[derive(Debug, Clone, PartialEq)]

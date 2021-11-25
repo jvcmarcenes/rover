@@ -1,24 +1,27 @@
 
+pub mod macros;
 pub mod callable;
 pub mod function;
 
-use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap};
+use crate::{interpreter::value::macros::pass_msg, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{Value::*, callable::Callable};
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use super::Interpreter;
+use super::{Interpreter, Message};
 
 #[derive(Debug, Clone)]
 pub enum Value {
+	None,
 	Str(String),
 	Num(f64),
 	Bool(bool),
 	List(Vec<Value>),
 	Callable(Rc<RefCell<dyn Callable>>),
 	Object(HashMap<String, Rc<RefCell<Value>>>),
-	None,
+	Messenger(Box<Message>), // Internal type
+	// Error(Box<Value>),
 }
 
 impl Value {
@@ -67,6 +70,10 @@ impl Value {
 		}
 	}
 
+	// pub fn is_error(&self) -> bool {
+	// 	if let Error(_) = self { true } else { false }
+	// }
+
 	pub fn get_type(&self) -> String {
 		match self {
 			Str(_) => "string",
@@ -76,6 +83,8 @@ impl Value {
 			Callable(_) => "function",
 			Object(_) => "object",
 			None => "none",
+			// Error(_) => "error",
+			Messenger(_) => "<messenger> (internal type, should never be accesible to end user)",
 		}.to_owned()
 	}
 
@@ -110,6 +119,8 @@ impl Value {
 			},
 			Callable(c) => c.borrow().to_string(),
 			Object(_) => self.method_call("to_string", interpreter, pos, Vec::new(), Value::Str("<object>".to_owned()).wrap())?.to_string(interpreter, pos)?,
+			// Error(err) => format!("{}: {}", ansi_term::Color::Red.paint("error"), err.to_string(interpreter, pos)?),
+			Messenger(_) => "<messenger>".to_owned(),
 			None => "none".to_owned(),
 		}.wrap()
 	}
@@ -135,7 +146,7 @@ impl Value {
 
 	pub fn add(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
 		let err = ErrorList::run(format!("Operation ADD is not defined for {} and {}", self.get_type(), other.get_type()), pos);
-		match (self, other) {
+		match (pass_msg!(self), pass_msg!(other)) {
 			(Str(_), _) | (_, Str(_)) => Str(format!("{}{}", self.to_string(interpreter, pos)?, other.to_string(interpreter, pos)?)),
 			(Num(l), Num(r)) => Num(l + r),
 			(Object(_), Object(_)) => self.method_call("add", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,
@@ -145,7 +156,7 @@ impl Value {
 
 	pub fn sub(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
 		let err = ErrorList::run(format!("Operation SUB is not defined for {} and {}", self.get_type(), other.get_type()), pos);
-		match (self, other) {
+		match (pass_msg!(self), pass_msg!(other)) {
 			(Num(l), Num(r)) => Num(l - r),
 			(Object(_), Object(_)) => self.method_call("sub", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,
 			_ => return err.err(),
@@ -154,7 +165,7 @@ impl Value {
 
 	pub fn mul(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
 		let err = ErrorList::run(format!("Operation MUL is not defined for {} and {}", self.get_type(), other.get_type()), pos);
-		match (self, other) {
+		match (pass_msg!(self), pass_msg!(other)) {
 			(Num(l), Num(r)) => Num(l * r),
 			(Object(_), Object(_)) => self.method_call("mul", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,
 			_ => return err.err(),
@@ -163,7 +174,7 @@ impl Value {
 
 	pub fn div(&self, other: &Value, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Value> {
 		let err = ErrorList::run(format!("Operation DIV is not defined for {} and {}", self.get_type(), other.get_type()), pos);
-		match (self, other) {
+		match (pass_msg!(self), pass_msg!(other)) {
 			(Num(_), Num(r)) if *r == 0.0 => return ErrorList::run("Cannot divide by zero".to_owned(), other_pos).err(),
 			(Num(l), Num(r)) => Num(l / r),
 			(Object(_), Object(_)) => self.method_call("div", interpreter, pos, vec![(other.clone(), other_pos)], err.err())?,

@@ -117,6 +117,7 @@ impl Parser {
 				Symbol(OpenPar) => self.function_call(expr)?,
 				Symbol(OpenSqr) => self.index(expr)?,
 				Symbol(Dot) => self.field(expr)?,
+				// Symbol(Question) => // handle question mark error propagation by desugaring to a do {} expression,
 				_ => return expr.wrap(),
 			};
 		}
@@ -182,6 +183,7 @@ impl Parser {
 			Keyword(_None) => ExprType::Literal(LiteralData::None),
 			Keyword(Function) => self.lambda()?,
 			Keyword(_Self) => SelfRef,
+			Keyword(Do) => DoExpr(self.block()?),
 			TokenType::Literal(lit) => match lit {
 				LiteralType::Num(n) => ExprType::Literal(LiteralData::Num(n)),
 				LiteralType::Str(s) => ExprType::Literal(LiteralData::Str(s)),
