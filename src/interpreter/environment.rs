@@ -1,7 +1,7 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::utils::new_rcref;
+use crate::utils::wrap::Wrap;
 
 use super::value::Value;
 
@@ -13,11 +13,11 @@ pub struct Environment(Vec<Rc<RefCell<ValueMap>>>);
 impl Environment {
 	
 	pub fn new(globals: ValueMap) -> Self {
-		Self(vec![new_rcref(globals), new_rcref(ValueMap::new())])
+		Self(vec![globals.wrap(), ValueMap::new().wrap()])
 	}
 
 	pub fn push_new(&mut self) {
-		self.0.push(new_rcref(ValueMap::new()))
+		self.0.push(ValueMap::new().wrap())
 	}
 
 	pub fn pop(&mut self) {

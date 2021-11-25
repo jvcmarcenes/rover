@@ -1,7 +1,7 @@
 
-use std::fmt::{Debug, Display};
+use std::{cell::RefCell, fmt::{Debug, Display}, rc::Rc};
 
-use crate::{interpreter::Interpreter, utils::{result::*, source_pos::SourcePos}};
+use crate::{interpreter::Interpreter, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Value;
 
@@ -25,4 +25,8 @@ impl Display for dyn Callable {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "<function>")
 	}
+}
+
+impl <T : Callable + 'static> Wrap<Rc<RefCell<dyn Callable>>> for T {
+	fn wrap(self) -> Rc<RefCell<dyn Callable>> { Rc::new(RefCell::new(self)) }
 }

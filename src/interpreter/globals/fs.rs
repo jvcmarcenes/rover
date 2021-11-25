@@ -1,7 +1,7 @@
 
 use std::{collections::HashMap, fs::OpenOptions, io::Write, path::{Path, PathBuf}};
 
-use crate::{interpreter::{Interpreter, value::{Value, callable::Callable}}, utils::{new_rcref, result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::{Value, callable::Callable}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 fn wipe(path: &PathBuf) -> Value {
 	#[derive(Debug)] struct WipeFile(PathBuf);
@@ -24,7 +24,7 @@ fn wipe(path: &PathBuf) -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(WipeFile(path.clone())))
+	Value::Callable(WipeFile(path.clone()).wrap())
 }
 
 fn writeline(path: &PathBuf) -> Value {
@@ -50,7 +50,7 @@ fn writeline(path: &PathBuf) -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(WriteLineFile(path.clone())))
+	Value::Callable(WriteLineFile(path.clone()).wrap())
 }
 
 fn write(path: &PathBuf) -> Value {
@@ -76,7 +76,7 @@ fn write(path: &PathBuf) -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(WriteFile(path.clone())))
+	Value::Callable(WriteFile(path.clone()).wrap())
 }
 
 fn read(path: &PathBuf) -> Value {
@@ -93,7 +93,7 @@ fn read(path: &PathBuf) -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(ReadFile(path.clone())))
+	Value::Callable(ReadFile(path.clone()).wrap())
 }
 
 fn new_file(path: PathBuf) -> Value {
@@ -111,7 +111,7 @@ fn new_file(path: PathBuf) -> Value {
 	];
 
 	for (key, val) in v {
-		map.insert(key.to_owned(), new_rcref(val));
+		map.insert(key.to_owned(), val.wrap());
 	}
 
 	Value::Object(map)
@@ -136,7 +136,7 @@ pub fn open() -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(Open))
+	Value::Callable(Open.wrap())
 }
 
 pub fn create() -> Value {
@@ -158,7 +158,7 @@ pub fn create() -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(Create))
+	Value::Callable(Create.wrap())
 }
 
 pub fn exists() -> Value {
@@ -176,7 +176,7 @@ pub fn exists() -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(Exists))
+	Value::Callable(Exists.wrap())
 }
 
 pub fn fs() -> Value {
@@ -189,7 +189,7 @@ pub fn fs() -> Value {
 	];
 
 	for (key, val) in v {
-		map.insert(key.to_owned(), new_rcref(val));
+		map.insert(key.to_owned(), val.wrap());
 	}
 
 	Value::Object(map)

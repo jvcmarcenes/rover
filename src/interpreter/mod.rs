@@ -5,7 +5,7 @@ pub mod globals;
 
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
-use crate::{ast::{Identifier, expression::*, statement::*}, utils::{new_rcref, result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::*, statement::*}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{Message::*, environment::{Environment, ValueMap}, value::{Value, function::{Function, SELF}}};
 
@@ -84,7 +84,7 @@ impl ExprVisitor<Value> for Interpreter {
 			LiteralData::Object(map) => {
 				let mut value_map = HashMap::new();
 				for (key, expr) in map {
-					value_map.insert(key, new_rcref(expr.accept(self)?));
+					value_map.insert(key, expr.accept(self)?.wrap());
 				}
 				Value::Object(value_map)
 			}

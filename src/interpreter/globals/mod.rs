@@ -4,10 +4,11 @@ mod fs;
 
 use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
+use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::callable::Callable}, resolver::IdentifierData, utils::{new_rcref, result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::callable::Callable}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -107,11 +108,11 @@ fn random() -> Value {
 				}
 			}
 
-			Value::Callable(new_rcref(Rng(rng))).wrap()
+			Value::Callable(Rng(rng).wrap()).wrap()
 		}
 	}
 
-	Value::Callable(new_rcref(Random))
+	Value::Callable(Random.wrap())
 }
 
 fn size() -> Value {
@@ -239,6 +240,84 @@ fn _typeof() -> Value {
 	Value::Callable(Rc::new(RefCell::new(TypeOf)))
 }
 
+fn _char() -> Value {
+	let mut map = HashMap::new();
+
+	#[derive(Debug)] struct CharFromCode;
+
+	impl Callable for CharFromCode {
+		fn arity(&self) -> usize { 1 }
+
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			match char::from_u32(v0.to_num(p0)? as u32) {
+				Some(c) => Value::Str(String::from(c)).wrap(),
+				None => ErrorList::run("Invalid char code".to_owned(), p0).err(),
+			}
+    }
+	}
+
+	let v = vec![
+		("new_line", Value::Str("\n".to_owned())),
+		("carriage_return", Value::Str("\r".to_owned())),
+		("tab", Value::Str("\t".to_owned())),
+		("null", Value::Str("\0".to_owned())),
+		("from_code", Value::Callable(CharFromCode.wrap())),
+	];
+
+	for (key, val) in v {
+		map.insert(key.to_owned(), val.wrap());
+	}
+
+	Value::Object(map)
+}
+
+fn paint() -> Value {
+	#[derive(Debug)] struct Paint(Color);
+
+	impl Callable for Paint {
+		fn arity(&self) -> usize { 1 }
+
+		fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			Value::Str(self.0.paint(v0.to_string(interpreter, p0)?).to_string()).wrap()
+    }
+	}
+
+	#[derive(Debug)] struct RGBPaint;
+
+	impl Callable for RGBPaint {
+		fn arity(&self) -> usize { 3 }
+
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			let (v1, p1) = args[1].clone();
+			let (v2, p2) = args[2].clone();
+			Value::Callable(Paint(Color::RGB(v0.to_num(p0)? as u8, v1.to_num(p1)? as u8, v2.to_num(p2)? as u8)).wrap()).wrap()
+    }
+	}
+
+	let mut map = HashMap::new();
+
+	let v = vec![
+		("red", Value::Callable(Paint(Color::Red).wrap())),
+		("blue", Value::Callable(Paint(Color::Blue).wrap())),
+		("green", Value::Callable(Paint(Color::Green).wrap())),
+		("yellow", Value::Callable(Paint(Color::Yellow).wrap())),
+		("cyan", Value::Callable(Paint(Color::Cyan).wrap())),
+		("purple", Value::Callable(Paint(Color::Purple).wrap())),
+		("white", Value::Callable(Paint(Color::White).wrap())),
+		("black", Value::Callable(Paint(Color::Black).wrap())),
+		("rgb", Value::Callable(RGBPaint.wrap())),
+	];
+
+	for (key, val) in v {
+		map.insert(key.to_owned(), val.wrap());
+	}
+
+	Value::Object(map)
+}
+
 #[derive(Clone, Debug)]
 pub struct Globals {
 	pub ids: HashMap<String, IdentifierData>,
@@ -268,6 +347,8 @@ impl Globals {
 			("typeof", _typeof()),
 			("math", math()),
 			("fs", fs()),
+			("char", _char()),
+			("paint", paint()),
 		];
 
 		let mut i = 1;

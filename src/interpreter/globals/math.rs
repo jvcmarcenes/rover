@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{interpreter::{Interpreter, value::{Value, callable::Callable}}, utils::{new_rcref, result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::{Value, callable::Callable}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 fn sin() -> Value {
 	#[derive(Clone, Debug)] struct Sin;
@@ -15,7 +15,7 @@ fn sin() -> Value {
     }
 	}
 
-	Value::Callable(new_rcref(Sin))
+	Value::Callable(Sin.wrap())
 }
 
 fn cos() -> Value {
@@ -30,7 +30,7 @@ fn cos() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Cos))
+	Value::Callable(Cos.wrap())
 }
 
 fn tan() -> Value {
@@ -45,7 +45,7 @@ fn tan() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Tan))
+	Value::Callable(Tan.wrap())
 }
 
 fn pow() -> Value {
@@ -61,7 +61,7 @@ fn pow() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Pow))
+	Value::Callable(Pow.wrap())
 }
 
 fn sqrt() -> Value {
@@ -76,7 +76,7 @@ fn sqrt() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Sqrt))
+	Value::Callable(Sqrt.wrap())
 }
 
 fn floor() -> Value {
@@ -91,7 +91,7 @@ fn floor() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Floor))
+	Value::Callable(Floor.wrap())
 }
 
 fn ceil() -> Value {
@@ -106,7 +106,7 @@ fn ceil() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Ceil))
+	Value::Callable(Ceil.wrap())
 }
 
 fn round() -> Value {
@@ -121,7 +121,7 @@ fn round() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Round))
+	Value::Callable(Round.wrap())
 }
 
 fn abs() -> Value {
@@ -136,7 +136,7 @@ fn abs() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Abs))
+	Value::Callable(Abs.wrap())
 }
 
 fn max() -> Value {
@@ -152,7 +152,7 @@ fn max() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Max))
+	Value::Callable(Max.wrap())
 }
 
 fn min() -> Value {
@@ -168,7 +168,7 @@ fn min() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Floor))
+	Value::Callable(Floor.wrap())
 }
 
 fn clamp() -> Value {
@@ -185,7 +185,7 @@ fn clamp() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Clamp))
+	Value::Callable(Clamp.wrap())
 }
 
 fn frac() -> Value {
@@ -200,7 +200,7 @@ fn frac() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Frac))
+	Value::Callable(Frac.wrap())
 }
 
 fn sign() -> Value {
@@ -215,7 +215,7 @@ fn sign() -> Value {
 		}
 	}
 	
-	Value::Callable(new_rcref(Sign))
+	Value::Callable(Sign.wrap())
 }
 
 pub fn math() -> Value {
@@ -241,7 +241,7 @@ pub fn math() -> Value {
 	];
 
 	for (key, val) in v {
-		map.insert(key.to_owned(), new_rcref(val));
+		map.insert(key.to_owned(), val.wrap());
 	}
 
 	Value::Object(map)
