@@ -228,7 +228,7 @@ impl Lexer {
 				Some(c) if c.is_whitespace() => continue,
 				Some(c) => match self.scan_token(c) {
 					Ok(Some(token)) if token.typ == Symbol(BarCloseAng) => {
-						tokens.pop();
+						if let Some(token) = tokens.last() { if token.typ == EOL { tokens.pop(); } }
 						tokens.push(token);
 					},
 					Ok(Some(token)) => tokens.push(token),
