@@ -20,3 +20,7 @@ impl<T, E> Wrap<Result<Option<T>, E>> for T {
 impl<T> Wrap<Rc<RefCell<T>>> for T {
 	fn wrap(self) -> Rc<RefCell<T>> { Rc::new(RefCell::new(self)) }
 }
+
+impl<T> Wrap<Box<T>> for T {
+	fn wrap(self) -> Box<T> { Box::new(self) }
+}

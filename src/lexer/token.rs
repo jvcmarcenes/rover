@@ -18,6 +18,7 @@ pub enum Keyword {
 	Mod, And, Or,
 	If, Else,
 	Loop, Break, Continue,
+	For, In,
 	Function, Return,
 	_Self,
 }
@@ -38,6 +39,8 @@ impl Keyword {
 			"loop" => Loop,
 			"break" => Break,
 			"continue" => Continue,
+			"for" => For,
+			"in" => In,
 			"function" => Function,
 			"return" => Return,
 			"self" => _Self,

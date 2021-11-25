@@ -23,6 +23,7 @@ pub enum StmtType {
 	Loop(Block),
 	Break, Continue,
 	Return(Box<Expression>),
+	Scoped(Block),
 }
 
 impl StmtType {
@@ -54,6 +55,7 @@ impl Statement {
 			Break => visitor.break_stmt(self.pos),
 			Continue => visitor.continue_stmt(self.pos),
 			Return(expr) => visitor.return_stmt(expr, self.pos),
+			Scoped(block) => visitor.scoped_stmt(block, self.pos),
 		}
 	}
 }
@@ -67,4 +69,5 @@ pub trait StmtVisitor<T> {
 	fn break_stmt(&mut self, pos: SourcePos) -> Result<T>;
 	fn continue_stmt(&mut self, pos: SourcePos) -> Result<T>;
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<T>;
+	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<T>;
 }

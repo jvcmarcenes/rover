@@ -270,4 +270,8 @@ impl StmtVisitor<()> for Resolver {
 		errors.if_empty(())
 	}
 
+	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
+		self.resolve(&block)
+	}
+
 }

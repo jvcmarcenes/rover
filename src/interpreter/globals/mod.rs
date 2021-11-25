@@ -206,24 +206,22 @@ fn sleep() -> Value {
 	Value::Callable(Rc::new(RefCell::new(Exit)))
 }
 
-fn new_list() -> Value {
-	#[derive(Clone, Debug)] struct NewList;
+fn range() -> Value {
+	#[derive(Clone, Debug)] struct Range;
 
-	impl Callable for NewList {
+	impl Callable for Range {
     fn arity(&self) -> usize { 2 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (len, pos) = args[0].clone();
-			let len = len.to_num(pos)?;
-			if len < 0.0 { return ErrorList::run("list size cannot be negative".to_owned(), pos).err() }
-			let def = args[1].clone().0;
+			let (v0, p0) = args[0].clone();
+			let (v1, p1) = args[1].clone();
 			let mut vec = Vec::new();
-			for _ in 0..(len as i32) { vec.push(def.clone()) }
+			for i in (v0.to_num(p0)? as i32)..(v1.to_num(p1)? as i32) { vec.push(Value::Num(i as f64)) }
 			Value::List(vec).wrap()
     }
 	}
 
-	Value::Callable(Rc::new(RefCell::new(NewList)))
+	Value::Callable(Rc::new(RefCell::new(Range)))
 }
 
 fn _typeof() -> Value {
@@ -343,7 +341,7 @@ impl Globals {
 			("to_num", to_num()),
 			("exit", exit()),
 			("sleep", sleep()),
-			("new_list", new_list()),
+			("range", range()),
 			("typeof", _typeof()),
 			("math", math()),
 			("fs", fs()),

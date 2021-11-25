@@ -289,4 +289,8 @@ impl StmtVisitor<Message> for Interpreter {
 		Return(val).wrap()
 	}
 
+	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
+		self.execute_block(block)
+	}
+
 }

@@ -1,5 +1,5 @@
 
-use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator, ExprType, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator, CallData, ExprType, IndexData, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -68,6 +68,7 @@ impl Parser {
 			Keyword(Let) => self.declaration(),
 			Keyword(If) => self.if_stmt(),
 			Keyword(Loop) => self.loop_stmt(),
+			Keyword(For) => self.for_stmt(),
 			Keyword(Break) => self.break_stmt(),
 			Keyword(Continue) => self.continue_stmt(),
 			Keyword(Return) => self.return_stmt(),
@@ -140,6 +141,60 @@ impl Parser {
 		let Token { pos, .. } = self.next();
 		let block = self.block()?;
 		StmtType::Loop(block).to_stmt(pos).wrap()
+	}
+
+	fn for_stmt(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		let next = self.next();
+		if let Identifier(name) = next.typ {
+			self.expect(Keyword(In))?;
+			let list = self.expression()?;
+			let body = self.block()?;
+
+			StmtType::Scoped(vec![
+				StmtType::Declaration(DeclarationData { constant: false, name: Identifier::new("$i".to_owned()), expr: ExprType::Literal(LiteralData::Num(-1.0)).to_expr(pos).wrap() }).to_stmt(pos),
+				StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$list".to_owned()), expr: list.wrap() }).to_stmt(pos),
+				StmtType::Declaration(DeclarationData {
+					constant: true, name: Identifier::new("$len".to_owned()),
+					expr: ExprType::Call(CallData {
+						calee: ExprType::Variable(Identifier::new("size".to_owned())).to_expr(pos).wrap(),
+						args: vec![ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos)]
+					}).to_expr(pos).wrap()
+				}).to_stmt(pos),
+				StmtType::Loop(vec![
+					StmtType::Assignment(AssignData {
+						head: ExprType::Variable(Identifier::new("$i".to_owned())).to_expr(pos).wrap(),
+						l_pos: pos,
+						expr: ExprType::Binary(BinaryData {
+							lhs: ExprType::Variable(Identifier::new("$i".to_owned())).to_expr(pos).wrap(),
+							op: BinaryOperator::Add,
+							rhs: ExprType::Literal(LiteralData::Num(1.0)).to_expr(pos).wrap(),
+						}).to_expr(pos).wrap(),
+					}).to_stmt(pos),
+					StmtType::If(IfData { 
+						cond: Box::new(ExprType::Binary(BinaryData {
+							lhs: ExprType::Variable(Identifier::new("$i".to_owned())).to_expr(pos).wrap(),
+							op: BinaryOperator::Gre,
+							rhs: ExprType::Variable(Identifier::new("$len".to_owned())).to_expr(pos).wrap(),
+						}).to_expr(pos)),
+						then_block: vec![StmtType::Break.to_stmt(pos)],
+						else_block: vec![],
+					}).to_stmt(pos),
+					StmtType::Declaration(DeclarationData {
+						constant: false, name: Identifier::new(name),
+						expr: ExprType::Index(IndexData {
+							head: ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos).wrap(),
+							index: ExprType::Variable(Identifier::new("$i".to_owned())).to_expr(pos).wrap(),
+						}).to_expr(pos).wrap(),
+					}).to_stmt(pos),
+					StmtType::Scoped(body).to_stmt(pos),
+				]).to_stmt(pos),
+			]).to_stmt(pos).wrap()
+
+		} else {
+			self.synchronize_with(Symbol(CloseBracket));
+			ErrorList::comp(format!("Expected identifier, found {}", next.typ), next.pos).err()
+		}
 	}
 
 	fn break_stmt(&mut self) -> StmtResult {

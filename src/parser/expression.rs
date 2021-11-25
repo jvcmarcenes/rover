@@ -96,11 +96,11 @@ impl Parser {
 			let expr = self.unary()?;
 			return Unary(UnaryData { op, expr: Box::new(expr) }).to_expr(token.pos).wrap();
 		} else {
-			return self.pipe_postfix();
+			return self.pipe_infix();
 		}
 	}
 
-	fn pipe_postfix(&mut self) -> ExprResult {
+	fn pipe_infix(&mut self) -> ExprResult {
 		let mut expr = self.postfix()?;
 		while let Symbol(BarCloseAng) = self.peek().typ {
 			let Token { pos, .. } = self.next();

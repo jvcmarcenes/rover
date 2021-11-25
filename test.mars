@@ -1,4 +1,4 @@
 
-'Hello World!'
-|> paint.red
-|> writeline
+for i in range(0, 20) {
+	writeline('#{i} * 7 = #{i * 7}')
+}
