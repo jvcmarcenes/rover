@@ -210,6 +210,7 @@ impl Lexer {
 			'=' if self.next_match('>') => self.symbol(EqualsCloseAng),
 			'=' if self.next_match('=') => self.symbol(DoubleEquals),
 			'=' => self.symbol(Equals),
+			'|'  if self.next_match('>') => self.symbol(BarCloseAng),
 			'\'' => self.scan_str_template(),
 			'"' => return self.scan_string(),
 			'#' => self.scan_comment(),
@@ -226,6 +227,10 @@ impl Lexer {
 				Some(c) if c == '\n' => tokens.push(Token::new(EOL, self.cursor)),
 				Some(c) if c.is_whitespace() => continue,
 				Some(c) => match self.scan_token(c) {
+					Ok(Some(token)) if token.typ == Symbol(BarCloseAng) => {
+						tokens.pop();
+						tokens.push(token);
+					},
 					Ok(Some(token)) => tokens.push(token),
 					Ok(None) => continue,
 					Err(err) => errors.append(err),

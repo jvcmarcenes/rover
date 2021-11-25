@@ -20,8 +20,6 @@ fn bin_operation_for_token(token: &Token) -> BinaryOperator {
 		Symbol(CloseAngEquals) => Gre,
 		Symbol(DoubleEquals) => Equ,
 		Symbol(ExclamEquals) => Neq,
-		// Keyword(And) => And
-		// Keyword(Or) => Or
 		_ => panic!("This function should only be called when we know it will match"),
 	}
 }
@@ -98,21 +96,30 @@ impl Parser {
 			let expr = self.unary()?;
 			return Unary(UnaryData { op, expr: Box::new(expr) }).to_expr(token.pos).wrap();
 		} else {
-			return self.postfix();
+			return self.pipe_postfix();
 		}
+	}
+
+	fn pipe_postfix(&mut self) -> ExprResult {
+		let mut expr = self.postfix()?;
+		while let Symbol(BarCloseAng) = self.peek().typ {
+			let Token { pos, .. } = self.next();
+			let calee = self.postfix()?;
+			expr = Call(CallData { calee: Box::new(calee), args: vec![expr] }).to_expr(pos);
+		}
+		expr.wrap()
 	}
 
 	fn postfix(&mut self) -> ExprResult {
 		let mut expr = self.primary()?;
 		loop {
-			match self.peek().typ {
-				Symbol(OpenPar) => expr = self.function_call(expr)?,
-				Symbol(OpenSqr) => expr = self.index(expr)?,
-				Symbol(Dot) => expr = self.field(expr)?,
-				_ => break,
-			}
+			expr = match self.peek().typ {
+				Symbol(OpenPar) => self.function_call(expr)?,
+				Symbol(OpenSqr) => self.index(expr)?,
+				Symbol(Dot) => self.field(expr)?,
+				_ => return expr.wrap(),
+			};
 		}
-		expr.wrap()
 	}
 
 	fn expr_list(&mut self, stop: fn(&TokenType) -> bool) -> Result<Vec<Expression>> {

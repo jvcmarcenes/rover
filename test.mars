@@ -1,4 +1,4 @@
 
-let gold = paint.rgb(113, 128, 18)
-
-writeline(gold(char.from_code(8752)))
+'Hello World!'
+|> paint.red
+|> writeline
