@@ -14,4 +14,4 @@ let foo = function(a, b) {
 writeline(foo(2, 3))
 writeline(foo(4, 0))
 writeline(foo(3, -1))
-writeline(foo(0, 0))
+writeline(foo(0, 0)?)

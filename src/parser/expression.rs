@@ -113,13 +113,12 @@ impl Parser {
 	fn postfix(&mut self) -> ExprResult {
 		let mut expr = self.primary()?;
 		loop {
-			let pos = expr.pos;
 			expr = match self.peek().typ {
 				Symbol(OpenPar) => self.function_call(expr)?,
 				Symbol(OpenSqr) => self.index(expr)?,
 				Symbol(Dot) => self.field(expr)?,
 				Symbol(Question) => {
-					self.next();
+					let Token { pos, .. } =	self.next();
 					ExprType::DoExpr(vec![
 						StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), expr: expr.wrap() }).to_stmt(pos),
 						StmtType::If(IfData {
