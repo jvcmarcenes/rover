@@ -112,6 +112,7 @@ impl ExprVisitor<()> for Resolver {
 				self.ctx = prev;
 				return errors.if_empty(());
 			}
+			LiteralData::Error(val) => return val.accept(self),
 			_ => return Ok(()),
 		};
 

@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -113,11 +113,30 @@ impl Parser {
 	fn postfix(&mut self) -> ExprResult {
 		let mut expr = self.primary()?;
 		loop {
+			let pos = expr.pos;
 			expr = match self.peek().typ {
 				Symbol(OpenPar) => self.function_call(expr)?,
 				Symbol(OpenSqr) => self.index(expr)?,
 				Symbol(Dot) => self.field(expr)?,
-				// Symbol(Question) => // handle question mark error propagation by desugaring to a do {} expression,
+				Symbol(Question) => {
+					self.next();
+					ExprType::DoExpr(vec![
+						StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), expr: expr.wrap() }).to_stmt(pos),
+						StmtType::If(IfData {
+							cond: ExprType::Binary(BinaryData {
+								lhs: ExprType::Call(CallData { 
+									calee: ExprType::Variable(Identifier::new("typeof".to_owned())).to_expr(pos).wrap(),
+									args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos)],
+								}).to_expr(pos).wrap(),
+								op: BinaryOperator::Equ,
+								rhs: ExprType::Literal(LiteralData::Str("error".to_owned())).to_expr(pos).wrap(),
+							}).to_expr(pos).wrap(),
+							then_block: vec![StmtType::Return(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos)],
+							else_block: vec![],
+						}).to_stmt(pos),
+						StmtType::Expr(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos),
+					]).to_expr(pos).wrap()					
+				},
 				_ => return expr.wrap(),
 			};
 		}
@@ -184,6 +203,7 @@ impl Parser {
 			Keyword(Function) => self.lambda()?,
 			Keyword(_Self) => SelfRef,
 			Keyword(Do) => DoExpr(self.block()?),
+			Keyword(Error) => ExprType::Literal(LiteralData::Error(Box::new(self.expression_or_none()?))),
 			TokenType::Literal(lit) => match lit {
 				LiteralType::Num(n) => ExprType::Literal(LiteralData::Num(n)),
 				LiteralType::Str(s) => ExprType::Literal(LiteralData::Str(s)),

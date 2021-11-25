@@ -32,6 +32,7 @@ pub enum LiteralData {
 	Template(Vec<Expression>),
 	List(Vec<Expression>),
 	Object(HashMap<String, Expression>),
+	Error(Box<Expression>),
 }
 
 #[derive(Debug, Clone)]

@@ -21,7 +21,7 @@ pub enum Value {
 	Callable(Rc<RefCell<dyn Callable>>),
 	Object(HashMap<String, Rc<RefCell<Value>>>),
 	Messenger(Box<Message>), // Internal type
-	// Error(Box<Value>),
+	Error(Box<Value>),
 }
 
 impl Value {
@@ -70,9 +70,9 @@ impl Value {
 		}
 	}
 
-	// pub fn is_error(&self) -> bool {
-	// 	if let Error(_) = self { true } else { false }
-	// }
+	pub fn is_error(&self) -> bool {
+		if let Error(_) = self { true } else { false }
+	}
 
 	pub fn get_type(&self) -> String {
 		match self {
@@ -83,7 +83,7 @@ impl Value {
 			Callable(_) => "function",
 			Object(_) => "object",
 			None => "none",
-			// Error(_) => "error",
+			Error(_) => "error",
 			Messenger(_) => "<messenger> (internal type, should never be accesible to end user)",
 		}.to_owned()
 	}
@@ -119,7 +119,7 @@ impl Value {
 			},
 			Callable(c) => c.borrow().to_string(),
 			Object(_) => self.method_call("to_string", interpreter, pos, Vec::new(), Value::Str("<object>".to_owned()).wrap())?.to_string(interpreter, pos)?,
-			// Error(err) => format!("{}: {}", ansi_term::Color::Red.paint("error"), err.to_string(interpreter, pos)?),
+			Error(err) => format!("{}: {}", ansi_term::Color::Red.paint("error"), err.to_string(interpreter, pos)?),
 			Messenger(_) => "<messenger>".to_owned(),
 			None => "none".to_owned(),
 		}.wrap()

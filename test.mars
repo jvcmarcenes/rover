@@ -1,15 +1,17 @@
 
-let foo = function() {
-
-	let a = do {
-		if true {
-			23
-		} else {
-			'aaa'
-		}
+let div = function(a, b) {
+	if b == 0 {
+		return error 'cannot divide by zero'
 	}
 
-	return a
+	return a / b
 }
 
-writeline(foo())
+let foo = function(a, b) {
+	return div(b, a)? + div(a, b)?
+}
+
+writeline(foo(2, 3))
+writeline(foo(4, 0))
+writeline(foo(3, -1))
+writeline(foo(0, 0))

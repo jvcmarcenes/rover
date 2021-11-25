@@ -24,7 +24,6 @@ pub enum Message {
 	Break,
 	Continue,
 	Return(Value),
-	// Error(Value),
 	Eval(Value),
 }
 
@@ -43,13 +42,7 @@ impl Interpreter {
 	}
 
 	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
-		for stmt in statements.clone() {
-			match stmt.accept(self)? {
-				// We should try to catch this in the resolver
-				// Error(_) => return ErrorList::run("Invalid error thrown".to_owned(), pos).err(),
-				_ => (),
-			}
-		}
+		for stmt in statements.clone() { stmt.accept(self)?; }
 		Ok(())
 	}
 
@@ -101,6 +94,7 @@ impl ExprVisitor<Value> for Interpreter {
 				}
 				Value::Object(value_map)
 			}
+			LiteralData::Error(expr) => Value::Error(pass_msg!(expr.accept(self)?).wrap()),
 		};
 		value.wrap()
 	}
