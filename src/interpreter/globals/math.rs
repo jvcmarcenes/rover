@@ -71,8 +71,13 @@ fn sqrt() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.sqrt()).wrap()
+			let (v0, p0) = args[0].clone();
+			let n = v0.to_num(p0)?;
+			if n < 0.0 {
+				Value::Error(Value::Str("sqrt of negative numbers is undefined".to_owned()).wrap())
+			} else {
+				Value::Num(n.sqrt())
+			}.wrap()
 		}
 	}
 	

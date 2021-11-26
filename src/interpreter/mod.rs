@@ -290,7 +290,7 @@ impl StmtVisitor<Message> for Interpreter {
 	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
 		loop {
 			match self.execute_block(block.clone())? {
-				Message::None | Message::Continue => continue,
+				Message::None | Message::Continue | Message::Eval(_) => continue,
 				Message::Break => return Message::None.wrap(),
 				msg => return msg.wrap(),
 			}

@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Parser;
 
@@ -38,6 +38,21 @@ fn lg_operator_for_token(token: &Token) -> LogicOperator {
 		Keyword(Or) => LogicOperator::Or,
 		_ => panic!("This function should only be called when we know it will match"),
 	}
+}
+
+fn err_handler(expr: Expression, handler: Block, pos: SourcePos) -> Expression {
+	ExprType::DoExpr(vec![
+		StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), expr: expr.wrap() }).to_stmt(pos),
+		StmtType::If(IfData {
+			cond: ExprType::Call(CallData { 
+				calee: ExprType::Variable(Identifier::new("is_err".to_owned())).to_expr(pos).wrap(),
+				args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos)],
+			}).to_expr(pos).wrap(),
+			then_block: handler,
+			else_block: vec![],
+		}).to_stmt(pos),
+		StmtType::Expr(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos),
+	]).to_expr(pos)
 }
 
 impl Parser {
@@ -118,20 +133,16 @@ impl Parser {
 				Symbol(OpenSqr) => self.index(expr)?,
 				Symbol(Dot) => self.field(expr)?,
 				Symbol(Question) => {
-					let Token { pos, .. } =	self.next();
-					ExprType::DoExpr(vec![
-						StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), expr: expr.wrap() }).to_stmt(pos),
-						StmtType::If(IfData {
-							cond: ExprType::Call(CallData { 
-								calee: ExprType::Variable(Identifier::new("is_err".to_owned())).to_expr(pos).wrap(),
-								args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos)],
-							}).to_expr(pos).wrap(),
-							then_block: vec![StmtType::Return(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos)],
-							else_block: vec![],
-						}).to_stmt(pos),
-						StmtType::Expr(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos),
-					]).to_expr(pos).wrap()					
-				},
+					let Token { pos, .. } = self.next();
+					err_handler(expr, vec![StmtType::Return(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos)], pos)
+				}
+				Symbol(Exclam) => {
+					let Token { pos, .. } = self.next();
+					err_handler(expr, vec![StmtType::Expr(ExprType::Call(CallData {
+						calee: ExprType::Variable(Identifier::new("abort".to_owned())).to_expr(pos).wrap(),
+						args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()],
+					}).to_expr(pos).wrap()).to_stmt(pos)], pos)
+				}
 				_ => return expr.wrap(),
 			};
 		}
