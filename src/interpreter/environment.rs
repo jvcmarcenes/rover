@@ -5,7 +5,7 @@ use crate::utils::wrap::Wrap;
 
 use super::value::Value;
 
-pub type ValueMap = HashMap<usize, Value>;
+pub type ValueMap = HashMap<usize, Box<dyn Value>>;
 
 #[derive(Debug, Clone)]
 pub struct Environment(Vec<Rc<RefCell<ValueMap>>>);
@@ -24,11 +24,11 @@ impl Environment {
 		self.0.pop();
 	}
 
-	pub fn define(&mut self, key: usize, value: Value) {
+	pub fn define(&mut self, key: usize, value: Box<dyn Value>) {
 		self.0.last_mut().unwrap().borrow_mut().insert(key, value);
 	}
 	
-	pub fn get(&self, key: usize) -> Value {
+	pub fn get(&self, key: usize) -> Box<dyn Value> {
 		let mut cur = self.0.as_slice();
 		while let [rest @ .., top] = cur {
 			if top.borrow().contains_key(&key) {
@@ -39,7 +39,7 @@ impl Environment {
 		panic!("use of unresolved variable");
 	}
 	
-	pub fn assign(&mut self, key: usize, value: Value) {
+	pub fn assign(&mut self, key: usize, value: Box<dyn Value>) {
 		let mut cur = self.0.as_mut_slice();
 		while let [rest @ .., top] = cur {
 			if top.borrow().contains_key(&key) {

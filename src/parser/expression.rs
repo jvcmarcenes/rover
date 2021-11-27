@@ -141,7 +141,7 @@ impl Parser {
 					let Token { pos, .. } = self.next();
 					err_handler(expr, vec![StmtType::Expr(ExprType::Call(CallData {
 						calee: ExprType::Variable(Identifier::new("abort".to_owned())).to_expr(pos).wrap(),
-						args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()],
+						args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos)],
 					}).to_expr(pos).wrap()).to_stmt(pos)], pos)
 				}
 				_ => return expr.wrap(),

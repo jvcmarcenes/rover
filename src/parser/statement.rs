@@ -111,7 +111,7 @@ impl Parser {
 		};
 		errors.try_append(self.expect_eol());
 		errors.if_empty(
-			StmtType::Declaration(DeclarationData { constant, name, expr: Box::new(expr) }).to_stmt(pos).wrap()
+			StmtType::Declaration(DeclarationData { constant, name, expr: Box::new(expr) }).to_stmt(pos)
 		)
 	}
 

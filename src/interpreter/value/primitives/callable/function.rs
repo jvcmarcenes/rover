@@ -1,7 +1,7 @@
 
-use crate::{ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment, value::{Value, primitives::none::ValNone}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
-use super::{Value, callable::Callable};
+use super::Callable;
 
 pub const SELF: usize = 0;
 
@@ -22,33 +22,33 @@ impl Callable for Function {
 	fn arity(&self) -> usize {
 		self.params.len()
 	}
-
-	fn bind(&mut self, binding: Value) {
+	
+	fn bind(&mut self, binding: Box<dyn Value>) {
 		self.env.define(SELF, binding);
 	}
-
-	fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+	
+	fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
 		
 		let prev = interpreter.env.clone();
 		interpreter.env = self.env.clone();
-
+		
 		interpreter.env.push_new();
-
+		
 		for (iden, (val, _)) in self.params.iter().zip(args.iter()) {
 			interpreter.env.define(iden.get_id(), val.clone())
 		}
-
+		
 		let ret = match interpreter.execute_block(self.body.clone())? {
 			Message::Return(val) => val,
-			_ => Value::None
+			_ => ValNone.wrap()
 		};
-
+		
 		interpreter.env.pop();
 		
 		// self.env = interpreter.env.clone();
 		interpreter.env = prev;
-
+		
 		ret.wrap()
-
+		
 	}
 }

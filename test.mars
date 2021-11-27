@@ -1,2 +1,30 @@
 
+let Complex = function(real, imag) => {
 
+	real, imag
+
+	add = function(other) => Complex(self.real + other.real, self.imag + other.imag)
+
+	to_string = function() {
+		if self.imag < 0.0 {
+			return '(#{self.real} - #{-self.imag}i)'
+		} else {
+			return '(#{self.real} + #{self.imag}i)'
+		}
+	}
+
+	equals = function(other) => self.real == other.real and self.imag == other.imag
+
+	conjugate = function() {
+		self.imag = -self.imag
+	}
+
+}
+
+let c1 = Complex(2, 3)
+c1.conjugate()
+let c2 = Complex(3, 4)
+
+let c3 = c1 + c2
+
+writeline('#{c1} + #{c2} = #{c3}')

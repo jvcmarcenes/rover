@@ -182,6 +182,7 @@ impl ExprVisitor<()> for Resolver {
 			errors.try_append(self.add(param, false, pos));
 		}
 		with_ctx!(self, errors.try_append(self.resolve(&data.body)), in_function: true);
+		self.pop_scope();
 		errors.if_empty(())
 	}
 	
@@ -224,7 +225,7 @@ impl StmtVisitor<()> for Resolver {
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		match data.expr.typ.clone() {
-			ExprType::Lambda(_) => {
+			ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_)) => {
 				errors.try_append(self.add(data.name, data.constant, pos));
 				errors.try_append(data.expr.accept(self));
 			},
