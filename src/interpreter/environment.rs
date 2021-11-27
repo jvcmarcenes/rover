@@ -36,7 +36,7 @@ impl Environment {
 			}
 			cur = rest;
 		}
-		panic!("resolver should catch this");
+		panic!("use of unresolved variable");
 	}
 	
 	pub fn assign(&mut self, key: usize, value: Value) {
@@ -48,7 +48,7 @@ impl Environment {
 			}
 			cur = rest;
 		}
-		panic!("resolver should catch this");
+		panic!("use of unresolved variable");
 	}
 
 }

@@ -8,7 +8,7 @@ use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::callable::Callable}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::{callable::Callable, macros::cast}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -34,8 +34,8 @@ fn write() -> Value {
 		fn arity(&self) -> usize { 1 }
 
 		fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone(); 
-			print!("{}", val.to_string(interpreter, pos)?);
+			let (v0, p0) = args[0].clone(); 
+			print!("{}", v0.to_string(interpreter, p0)?);
 			let _ = std::io::stdout().flush();
 			Value::None.wrap()
 		}
@@ -51,8 +51,8 @@ fn writeline() -> Value {
 		fn arity(&self) -> usize { 1 }
 
 		fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone(); 
-			println!("{}", val.to_string(interpreter, pos)?);
+			let (v0, p0) = args[0].clone(); 
+			println!("{}", v0.to_string(interpreter, p0)?);
 			Value::None.wrap()
 		}
 	}
@@ -60,17 +60,33 @@ fn writeline() -> Value {
 	Value::Callable(Writeline.wrap())
 }
 
+fn debug() -> Value {
+	#[derive(Debug, Clone)] struct Debug;
+	
+	impl Callable for Debug {
+		fn arity(&self) -> usize { 1 }
+
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let v0 = args[0].0.clone(); 
+			println!("{:?}", v0);
+			Value::None.wrap()
+		}
+	}
+
+	Value::Callable(Debug.wrap())
+}
+
 fn read() -> Value {
 	#[derive(Debug, Clone)] struct Read;
 
 	impl Callable for Read {
 		fn arity(&self) -> usize { 0 }
-		fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			let in_res: std::result::Result<String, text_io::Error> = try_read!("{}\r\n");
 			match in_res {
-				Ok(str) => Value::Str(str).wrap(),
-				Err(_) => ErrorList::run("Invalid console input".to_owned(), pos).err(),
-			}
+				Ok(str) => Value::Str(str),
+				Err(_) => Value::Error(Value::Str("Invalid console input".to_owned()).wrap()),
+			}.wrap()
 		}
 	}
 
@@ -93,8 +109,8 @@ fn random() -> Value {
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
 
 			let rng = if args.len() == 1 {
-				let (val, pos) = args[0].clone();
-				StdRng::seed_from_u64(val.to_num(pos)? as u64)
+				let n0 = cast!(num args[0].0);
+				StdRng::seed_from_u64(n0 as u64)
 			} else {
 				StdRng::seed_from_u64(rand::random())
 			};
@@ -122,12 +138,12 @@ fn size() -> Value {
 		fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let arg = &args[0];
-			match &arg.0 {
-				Value::List(list) => Value::Num(list.len() as f64).wrap(),
-				Value::Str(str) => Value::Num(str.len() as f64).wrap(),
-				val => ErrorList::run(format!("Invalid argument type '{}'", val.get_type()), arg.1).err()
-			}
+			let v0 = args[0].0.clone();
+			match v0 {
+				Value::List(list) => Value::Num(list.len() as f64),
+				Value::Str(str) => Value::Num(str.len() as f64),
+				_ => Value::Error(Value::Str(format!("Invalid argument type '{}'", v0.get_type())).wrap())
+			}.wrap()
     }
 	}
 
@@ -141,11 +157,11 @@ fn is_num() -> Value {
 		fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let arg = &args[0];
-			match &arg.0 {
-				Value::Str(str) => Value::Bool(str.parse::<f64>().is_ok()).wrap(),
-				val => ErrorList::run(format!("Invalid argument type '{}'", val.get_type()), arg.1).err(),
-			}
+			let v0 = args[0].0.clone();
+			match v0 {
+				Value::Str(str) => Value::Bool(str.parse::<f64>().is_ok()),
+				_ => Value::Error(Value::Str(format!("Invalid argument type '{}'", v0.get_type())).wrap()),
+			}.wrap()
 		}
 	}
 
@@ -159,16 +175,15 @@ fn to_num() -> Value {
 		fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let arg = &args[0];
-			match &arg.0 {
-				Value::Str(str) => {
-					match str.parse::<f64>() {
-						Ok(n) => Value::Num(n).wrap(),
-						Err(_) => ErrorList::run("Could not convert to number".to_owned(), arg.1).err(),
-					}
-				},
-				val => ErrorList::run(format!("Invalid argument type '{}'", val.get_type()), arg.1).err(),
-			}
+			let v0 = args[0].0.clone();
+			if let Value::Str(str) = v0 {
+				match str.parse::<f64>() {
+					Ok(n) => Value::Num(n),
+					Err(_) => Value::Error(Value::Str("Could't convert to number".to_owned()).wrap()),
+				}
+			} else {
+    		Value::Error(Value::Str(format!("Invalid argument type '{}'", v0.get_type())).wrap())
+			}.wrap()
 		}
 	}
 
@@ -202,7 +217,7 @@ fn abort() -> Value {
 			} else {
 				v0.to_string(interpreter, p0)?
 			};
-			eprintln!("{}: {}", ansi_term::Color::Red.paint("error"), str);
+			eprintln!("{}: {}", Color::Red.paint("error"), str);
 			process::exit(0)
     }
 	}
@@ -217,8 +232,8 @@ fn sleep() -> Value {
 		fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			let d = std::time::Duration::from_secs_f64(val.to_num(pos)?);
+			let n0 = cast!(num args[0].0);
+			let d = std::time::Duration::from_secs_f64(n0);
 			std::thread::sleep(d);
 			Value::None.wrap()
     }
@@ -234,10 +249,10 @@ fn range() -> Value {
     fn arity(&self) -> usize { 2 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			let (v1, p1) = args[1].clone();
+			let n0 = cast!(num args[0].0);
+			let n1 = cast!(num args[1].0);
 			let mut vec = Vec::new();
-			for i in (v0.to_num(p0)? as i32)..(v1.to_num(p1)? as i32) { vec.push(Value::Num(i as f64)) }
+			for i in (n0 as i32)..(n1 as i32) { vec.push(Value::Num(i as f64)) }
 			Value::List(vec).wrap()
     }
 	}
@@ -268,10 +283,10 @@ fn _char() -> Value {
 		fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			match char::from_u32(v0.to_num(p0)? as u32) {
+			let n0 = cast!(num args[0].0);
+			match char::from_u32(n0 as u32) {
 				Some(c) => Value::Str(String::from(c)).wrap(),
-				None => ErrorList::run("Invalid char code".to_owned(), p0).err(),
+				None => Value::Error(Value::Str("Invalid char code".to_owned()).wrap()).wrap(),
 			}
     }
 	}
@@ -309,10 +324,10 @@ fn paint() -> Value {
 		fn arity(&self) -> usize { 3 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			let (v1, p1) = args[1].clone();
-			let (v2, p2) = args[2].clone();
-			Value::Callable(Paint(Color::RGB(v0.to_num(p0)? as u8, v1.to_num(p1)? as u8, v2.to_num(p2)? as u8)).wrap()).wrap()
+			let n0 = cast!(num args[0].0);
+			let n1 = cast!(num args[1].0);
+			let n2 = cast!(num args[2].0);
+			Value::Callable(Paint(Color::RGB(n0 as u8, n1 as u8, n2 as u8)).wrap()).wrap()
     }
 	}
 
@@ -367,24 +382,36 @@ impl Globals {
 		};
 
 		let v = vec![
-			("clock", clock()),
+			// io
 			("write", write()),
 			("writeline", writeline()),
+			("debug", debug()),
 			("read", read()),
-			("random", random()),
+			
+			// to be moved to attributes
 			("size", size()),
 			("is_num", is_num()),
 			("to_num", to_num()),
+			
+			// system / process		
 			("exit", exit()),
 			("abort", abort()),
+			
+			// thread		
 			("sleep", sleep()),
+			
+			// other
+			("clock", clock()),
 			("range", range()),
+			("is_err", is_err()),
 			("typeof", _typeof()),
-			("math", math()),
-			("fs", fs()),
+			("random", random()),
 			("char", _char()),
 			("paint", paint()),
-			("is_err", is_err()),
+			
+			// std lib	
+			("math", math()),
+			("fs", fs()),
 		];
 
 		let mut i = 1;

@@ -1,7 +1,7 @@
 
 use std::fmt::Display;
 
-use crate::utils::source_pos::SourcePos;
+use crate::utils::{source_pos::SourcePos, wrap::Wrap};
 
 use self::{Keyword::*, TokenType::*};
 
@@ -13,7 +13,7 @@ pub enum LiteralType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Keyword {
-	True, False, _None,
+	True, False, _None, Error,
 	Let, Const,
 	Mod, And, Or,
 	If, Else,
@@ -22,12 +22,11 @@ pub enum Keyword {
 	Function, Return,
 	_Self,
 	Do,
-	Error,
 }
 
 impl Keyword {
 	pub fn get(s: &str) -> Option<Keyword> {
-		let keyword = match s {
+		match s {
 			"true" => True,
 			"false" => False,
 			"none" => _None,
@@ -49,8 +48,7 @@ impl Keyword {
 			"do" => Do,
 			"error" => Error,
 			_ => return None,
-		};
-		Some(keyword)
+		}.wrap()
 	}
 }
 

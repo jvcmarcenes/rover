@@ -5,7 +5,7 @@ pub mod globals;
 
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
-use crate::{ast::{Identifier, expression::*, statement::*}, interpreter::value::macros::{pass_msg, unwrap_msg}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::macros::{pass_msg, unwrap_msg}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{environment::{Environment, ValueMap}, value::{Value, function::{Function, SELF}}};
 
@@ -29,15 +29,15 @@ pub enum Message {
 
 pub struct Interpreter {
 	env: Environment,
-	pub location: PathBuf,
+	pub root_path: PathBuf,
 }
 
 impl Interpreter {
 
-	pub fn new(globals: ValueMap, location: PathBuf) -> Self {
+	pub fn new(globals: ValueMap, root_path: PathBuf) -> Self {
 		Self {
 			env: Environment::new(globals),
-			location,
+			root_path,
 		}
 	}
 
@@ -123,6 +123,7 @@ impl ExprVisitor<Value> for Interpreter {
 		let pos = data.expr.pos;
 		let val = pass_msg!(data.expr.accept(self)?);
 		match data.op {
+			UnaryOperator::Pos => Value::Num(val.to_num(pos)?).wrap(),
 			UnaryOperator::Neg => Value::Num(-val.to_num(pos)?).wrap(),
 			UnaryOperator::Not => Value::Bool(!val.is_truthy()).wrap(),
 		}
@@ -214,11 +215,7 @@ impl ExprVisitor<Value> for Interpreter {
 		match self.execute_block(block)? {
 			Message::None => Value::None,
 			Message::Eval(val) => pass_msg!(val),
-			// Message::Error(_) => todo!(),
 			msg => Value::Messenger(Box::new(msg))
-			// should break and continue bubble from do expressions?
-			// Message::Break => todo()!
-			// Message::Continue => todo()!
 		}.wrap()
 	}
 

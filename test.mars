@@ -1,22 +1,2 @@
 
-let rng = random()
 
-let foo = function() {
-
-	if rng() < 0.5 {
-		return error 'oops'
-	} else {
-		return function() => 23
-	}
-
-}
-
-let bar = function() {
-
-	let n = foo()?()
-
-	return n * n
-
-}
-
-writeline(bar()!)

@@ -1,5 +1,5 @@
 
-use crate::{ast::{Identifier, expression::{BinaryData, BinaryOperator, CallData, ExprType, IndexData, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result}, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, BinaryOperator, CallData, ExprType, IndexData, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -12,16 +12,10 @@ impl Parser {
 
 	pub fn program(&mut self) -> BlockResult {
 		let mut statements = Block::new();
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		loop {
 			self.skip_new_lines();
-			if self.is_at_end() { 
-				return if errors.is_empty() {
-					statements.wrap()
-				} else {
-					errors.err()
-				}
-			}
+			if self.is_at_end() { return errors.if_empty(statements); }
 			match self.statement() {
 				Ok(stmt) => statements.push(stmt),
 				Err(err) => {
@@ -37,13 +31,13 @@ impl Parser {
 		let Token { pos, .. } = self.expect(Symbol(OpenBracket))?;
 
 		let mut statements = Block::new();
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 
 		loop {
 			self.skip_new_lines();
 			match self.peek().typ {
 				Symbol(CloseBracket) => break,
-				EOF => { errors.add_comp("Statement block not closed".to_owned(), pos); break },
+				EOF => append!(ret comp "Statement block not closed".to_owned(), pos; to errors),
 				_ => match self.statement() {
 					Ok(stmt) => statements.push(stmt),
 					Err(err) => {
@@ -54,17 +48,11 @@ impl Parser {
 			}
 		}
 		self.next();
-
-		if errors.is_empty() {
-			Ok(statements)
-		} else {
-			Err(errors)
-		}
+		errors.if_empty(statements)
 	}
 
 	pub fn statement(&mut self) -> StmtResult {
-		let peek = self.peek();
-		match peek.typ {
+		match self.peek().typ {
 			Keyword(Let) => self.declaration(),
 			Keyword(If) => self.if_stmt(),
 			Keyword(Loop) => self.loop_stmt(),
@@ -110,31 +98,36 @@ impl Parser {
 
 	fn declaration(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
+		let mut errors = ErrorList::new();
 		let constant = self.optional(Keyword(Const)).is_some();
 		let next = self.next();
 		let name = match next.typ { 
 			TokenType::Identifier(name) => Identifier::new(name),
-			typ => return ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(),
+			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
 		};
 		let expr = match self.optional(Symbol(Equals)) {
-			Some(_) => self.expression()?,
+			Some(_) => append!(self.expression(); to errors),
 			None => ExprType::Literal(LiteralData::None).to_expr(next.pos),
 		};
-		self.expect_eol()?;
-		StmtType::Declaration(DeclarationData { constant, name, expr: Box::new(expr) }).to_stmt(pos).wrap()
+		errors.try_append(self.expect_eol());
+		errors.if_empty(
+			StmtType::Declaration(DeclarationData { constant, name, expr: Box::new(expr) }).to_stmt(pos).wrap()
+		)
 	}
 
 	fn if_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
-		let cond = self.expression()?;
-		let then_block = self.block()?;
+		let mut errors = ErrorList::new();
+		let cond = append!(self.expression(); to errors; with self.synchronize_until(Symbol(OpenBracket)); or none);
+		let then_block = append!(self.block(); to errors; dummy vec![]);
 		self.skip_new_lines();
 		let else_block = match self.optional(Keyword(Else)) {
-			Some(_) if self.next_match(Keyword(If)) => Block::from([self.if_stmt()?]),
-			Some(_) => self.block()?,
+			Some(_) if self.next_match(Keyword(If)) => Block::from([append!(self.if_stmt(); to errors)]),
+			Some(_) => append!(self.block(); to errors),
 			None => Block::new(),
 		};
-		StmtType::If(IfData { cond: Box::new(cond), then_block, else_block }).to_stmt(pos).wrap()
+		throw!(errors);
+		StmtType::If(IfData { cond: Box::new(cond.unwrap()), then_block, else_block }).to_stmt(pos).wrap()
 	}
 
 	fn loop_stmt(&mut self) -> StmtResult {
@@ -145,11 +138,16 @@ impl Parser {
 
 	fn for_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
+		let mut errors = ErrorList::new();
+
 		let next = self.next();
 		if let Identifier(name) = next.typ {
-			self.expect(Keyword(In))?;
-			let list = self.expression()?;
-			let body = self.block()?;
+			errors.try_append(self.expect(Keyword(In)));
+			let list = append!(self.expression(); to errors; with {
+				self.synchronize_until(Symbol(OpenBracket));
+				append!(self.block(); to errors);
+			});
+			let body = append!(self.block(); to errors);
 
 			StmtType::Scoped(vec![
 				StmtType::Declaration(DeclarationData { constant: false, name: Identifier::new("$i".to_owned()), expr: ExprType::Literal(LiteralData::Num(-1.0)).to_expr(pos).wrap() }).to_stmt(pos),

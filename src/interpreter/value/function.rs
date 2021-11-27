@@ -1,5 +1,5 @@
 
-use crate::{ast::{Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 use super::{Value, callable::Callable};
 
@@ -44,7 +44,8 @@ impl Callable for Function {
 		};
 
 		interpreter.env.pop();
-		self.env = interpreter.env.clone();
+		
+		// self.env = interpreter.env.clone();
 		interpreter.env = prev;
 
 		ret.wrap()

@@ -1,7 +1,7 @@
 
 use crate::utils::{result::Result, source_pos::SourcePos};
 
-use super::{Identifier, expression::Expression};
+use super::{identifier::Identifier, expression::Expression};
 
 use self::StmtType::*;
 

@@ -1,7 +1,7 @@
 
 use std::{collections::HashMap, fs::OpenOptions, io::Write, path::{Path, PathBuf}};
 
-use crate::{interpreter::{Interpreter, value::{Value, callable::Callable}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::{Value, callable::Callable}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 fn wipe(path: &PathBuf) -> Value {
 	#[derive(Debug)] struct WipeFile(PathBuf);
@@ -9,18 +9,18 @@ fn wipe(path: &PathBuf) -> Value {
 	impl Callable for WipeFile {
     fn arity(&self) -> usize { 0 }
 
-    fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			match OpenOptions::new().write(true).open(&self.0) {
 				Ok(file) => {
 					println!("wiping");
 					if let Err(err) = file.set_len(0) {
-						ErrorList::run(err.to_string(), pos).err()
+						Value::Error(Value::Str(err.to_string()).wrap())
 					} else {
-						Value::None.wrap()
+						Value::None
 					}
 				},
-				Err(err) => ErrorList::run(err.to_string(), pos).err()
-			}
+				Err(err) => Value::Error(Value::Str(err.to_string()).wrap())
+			}.wrap()
     }
 	}
 
@@ -33,20 +33,20 @@ fn writeline(path: &PathBuf) -> Value {
 	impl Callable for WriteLineFile {
     fn arity(&self) -> usize { 1 }
 
-    fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, vpos) = args[0].clone();
-			let text = val.to_string(interpreter, vpos)?;
+    fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			let text = v0.to_string(interpreter, p0)?;
 			match OpenOptions::new().write(true).open(&self.0) {
 				Ok(mut file) => {
 					let original = std::fs::read_to_string(&self.0).unwrap();
 					if let Err(err) = writeln!(file, "{}{}", original, text) {
-						ErrorList::run(err.to_string(), pos).err()
+						Value::Error(Value::Str(err.to_string()).wrap())
 					} else {
-						Value::None.wrap()
+						Value::None
 					}
 				},
-				Err(err) => ErrorList::run(err.to_string(), pos).err()
-			}
+				Err(err) => Value::Error(Value::Str(err.to_string()).wrap()),
+			}.wrap()
     }
 	}
 
@@ -59,20 +59,20 @@ fn write(path: &PathBuf) -> Value {
 	impl Callable for WriteFile {
     fn arity(&self) -> usize { 1 }
 
-    fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, vpos) = args[0].clone();
-			let text = val.to_string(interpreter, vpos)?;
+    fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			let text = v0.to_string(interpreter, p0)?;
 			match OpenOptions::new().write(true).open(&self.0) {
 				Ok(mut file) => {
 					let original = std::fs::read_to_string(&self.0).unwrap();
 					if let Err(err) = write!(file, "{}{}", original, text) {
-						ErrorList::run(err.to_string(), pos).err()
+						Value::Error(Value::Str(err.to_string()).wrap())
 					} else {
-						Value::None.wrap()
+						Value::None
 					}
 				},
-				Err(err) => ErrorList::run(err.to_string(), pos).err()
-			}
+				Err(err) => Value::Error(Value::Str(err.to_string()).wrap())
+			}.wrap()
     }
 	}
 
@@ -85,11 +85,11 @@ fn read(path: &PathBuf) -> Value {
 	impl Callable for ReadFile {
     fn arity(&self) -> usize { 0 }
 
-    fn call(&mut self, pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
+    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Value, SourcePos)>) -> Result<Value> {
 			match std::fs::read_to_string(&self.0) {
-				Ok(str) => Value::Str(str).wrap(),
-				Err(err) => ErrorList::run(format!("{}", err), pos).err(),
-			}
+				Ok(str) => Value::Str(str),
+				Err(err) => Value::Error(Value::Str(err.to_string()).wrap()),
+			}.wrap()
     }
 	}
 
@@ -123,16 +123,18 @@ pub fn open() -> Value {
 	impl Callable for Open {
     fn arity(&self) -> usize { 1 }
 
-    fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, vpos) = args[0].clone();
-			let path_str = val.to_string(interpreter, vpos)?;
-			let mut path = interpreter.location.clone();
+    fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			let path_str = v0.to_string(interpreter, p0)?;
+
+			let mut path = interpreter.root_path.clone();
 			path.push(path_str);
+
 			if Path::exists(&path) {
-				new_file(path.to_path_buf()).wrap()
+				new_file(path.to_path_buf())
 			} else {
-				ErrorList::run("File not found".to_owned(), pos).err()
-			}
+				Value::Error(Value::Str("File not found".to_owned()).wrap())
+			}.wrap()
     }
 	}
 
@@ -145,16 +147,18 @@ pub fn create() -> Value {
 	impl Callable for Create {
     fn arity(&self) -> usize { 1 }
 
-    fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, vpos) = args[0].clone();
-			let path_str = val.to_string(interpreter, vpos)?;
-			let mut path = interpreter.location.clone();
+    fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let (v0, p0) = args[0].clone();
+			let path_str = v0.to_string(interpreter, p0)?;
+
+			let mut path = interpreter.root_path.clone();
 			path.push(path_str);
+
 			if let Err(err) = std::fs::File::create(&path) {
-				ErrorList::run(err.to_string(), pos).err()
+				Value::Error(Value::Str(err.to_string()).wrap())
 			} else {
-				new_file(path.to_path_buf()).wrap()
-			}
+				new_file(path.to_path_buf())
+			}.wrap()
     }
 	}
 
@@ -168,9 +172,9 @@ pub fn exists() -> Value {
     fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			let path_str = val.to_string(interpreter, pos)?;
-			let mut path = interpreter.location.clone();
+			let (v0, p0) = args[0].clone();
+			let path_str = v0.to_string(interpreter, p0)?;
+			let mut path = interpreter.root_path.clone();
 			path.push(path_str);
 			Value::Bool(path.exists()).wrap()
     }

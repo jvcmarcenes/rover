@@ -1,7 +1,23 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
+
+macro_rules! with_ctx {
+	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
+		let prev = $self.ctx.clone();
+		$self.ctx.$ctx = $val;
+		let res = $block;
+		$self.ctx = prev;
+		res
+	}};
+	($self:ident, $block:expr, $head:ident: $val_head:expr, $($tail:ident: $val_tail:expr),*) => {{
+		let prev = $self.ctx.clone();
+		$self.ctx.$head = $val_ead;
+		with_ctx!($block, $($tail: $val_tail),*)
+		$self.ctx = prev;
+	}};
+}
 
 #[derive(Clone, Debug)]
 pub struct IdentifierData {
@@ -50,7 +66,7 @@ impl Resolver {
 	}
 
 	pub fn resolve(&mut self, block: &Block) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 
 		// dbg!(&block);
 
@@ -99,17 +115,14 @@ impl Resolver {
 impl ExprVisitor<()> for Resolver {
 
 	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 
 		let exprs = match data {
 			LiteralData::List(exprs) => exprs,
 			LiteralData::Template(exprs) => exprs,
 			LiteralData::Object(map) => {
 				let exprs = map.clone().into_values();
-				let prev = self.ctx.clone();
-				self.ctx.in_obj = true;
-				for expr in exprs { errors.try_append(expr.accept(self)); }
-				self.ctx = prev;
+				with_ctx!(self, for expr in exprs { errors.try_append(expr.accept(self)); }, in_obj: true);
 				return errors.if_empty(());
 			}
 			LiteralData::Error(val) => return val.accept(self),
@@ -124,7 +137,7 @@ impl ExprVisitor<()> for Resolver {
 	}
 	
 	fn binary(&mut self, data: BinaryData, _pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		errors.try_append(data.lhs.accept(self));
 		errors.try_append(data.rhs.accept(self));
 		errors.if_empty(())
@@ -135,7 +148,7 @@ impl ExprVisitor<()> for Resolver {
 	}
 	
 	fn logic(&mut self, data: LogicData, _pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		errors.try_append(data.lhs.accept(self));
 		errors.try_append(data.rhs.accept(self));
 		errors.if_empty(())
@@ -163,21 +176,17 @@ impl ExprVisitor<()> for Resolver {
 	}
 	
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		self.push_scope();
 		for param in data.params {
 			errors.try_append(self.add(param, false, pos));
 		}
-		let prev = self.ctx.clone();
-		self.ctx.in_function = true;
-		errors.try_append(self.resolve(&data.body));
-		self.ctx = prev;
-		self.pop_scope();
+		with_ctx!(self, errors.try_append(self.resolve(&data.body)), in_function: true);
 		errors.if_empty(())
 	}
 	
 	fn call(&mut self, data: CallData, _pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		errors.try_append(data.calee.accept(self));
 		for arg in data.args {
 			errors.try_append(arg.accept(self));
@@ -186,12 +195,9 @@ impl ExprVisitor<()> for Resolver {
 	}
 	
 	fn index(&mut self, data: IndexData, _pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		errors.try_append(data.head.accept(self));
-		let prev = self.ctx.clone();
-		self.ctx.overwriting = false;
-		errors.try_append(data.index.accept(self));
-		self.ctx = prev;
+		with_ctx!(self, errors.try_append(data.index.accept(self)), overwriting: false);
 		errors.if_empty(())
 	}
 
@@ -216,13 +222,9 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		match data.expr.typ.clone() {
 			ExprType::Lambda(_) => {
-				errors.try_append(self.add(data.name, data.constant, pos));
-				errors.try_append(data.expr.accept(self));
-			},
-			ExprType::Literal(LiteralData::Object(_)) => {
 				errors.try_append(self.add(data.name, data.constant, pos));
 				errors.try_append(data.expr.accept(self));
 			},
@@ -235,17 +237,14 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn assignment(&mut self, data: AssignData, _pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
-		let prev = self.ctx.clone();
-		self.ctx.overwriting = true;
-		errors.try_append(data.head.accept(self));
-		self.ctx = prev;
+		let mut errors = ErrorList::new();
+		with_ctx!(self, errors.try_append(data.head.accept(self)), overwriting: true);
 		errors.try_append(data.expr.accept(self));
 		errors.if_empty(())
 	}
 	
 	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		errors.try_append(data.cond.accept(self));
 		errors.try_append(self.resolve(&data.then_block));
 		errors.try_append(self.resolve(&data.else_block));
@@ -253,11 +252,7 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
-		let prev = self.ctx.clone();
-		self.ctx.in_loop = true;
-		let res = self.resolve(&block);
-		self.ctx = prev;
-		res
+		with_ctx!(self, self.resolve(&block), in_loop: true)
 	}
 	
 	fn break_stmt(&mut self, pos: SourcePos) -> Result<()> {
@@ -269,7 +264,7 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		errors.try_append(allowed(self.ctx.in_function, "Invalid return statement", pos));
 		errors.try_append(expr.accept(self));
 		errors.if_empty(())

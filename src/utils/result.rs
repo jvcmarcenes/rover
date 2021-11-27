@@ -1,7 +1,78 @@
 
 use std::fmt::{Debug, Display};
 
-use super::{source_pos::SourcePos};
+use super::source_pos::SourcePos;
+
+macro_rules! append {
+	(ret comp $str:expr, $pos:expr; to $errors:expr) => {{
+		$errors.add_comp($str, $pos);
+		return $errors.err()
+	}};
+	(ret run $str:expr, $pos:expr; to $errors:expr) => {
+		$errors.add_run($str, $pos);
+		return $errors.err()
+	};
+	(comp $str:expr, $pos:expr; to $errors:expr; dummy $or:expr) => {
+		$errors.add_comp($str, $pos);
+		$dummy
+	};
+	($expr:expr; to $errors:expr) => {
+		match $expr {
+			Ok(expr) => expr,
+			Err(err) => {
+				$errors.append(err);
+				return $errors.err();
+			}
+		}
+	};
+	($expr:expr; to $errors:expr; dummy $or:expr) => {
+		match $expr {
+			Ok(expr) => expr,
+			Err(err) => {
+				$errors.append(err);
+				$or
+			}
+		}
+	};
+	($expr:expr; to $errors:expr; or none) => {
+		match $expr {
+			Ok(expr) => Some(expr),
+			Err(err) => {
+				$errors.append(err);
+				None
+			}
+		}
+	};
+	($expr:expr; to $errors:expr; with $sync:stmt; or none) => {
+		match $expr {
+			Ok(expr) => Some(expr),
+			Err(err) => {
+				$errors.append(err);
+				$sync
+				None
+			}
+		}
+	};
+	($expr:expr; to $errors:expr; with $sync:stmt) => {
+		match $expr {
+			Ok(expr) => expr,
+			Err(err) => {
+				$errors.append(err);
+				$sync
+				return $errors.err();
+			}
+		}
+	};
+}
+
+macro_rules! throw {
+	($errors:expr) => {
+		if !$errors.is_empty() { return $errors.err() }
+	};
+}
+
+pub(crate) use append;
+pub(crate) use throw;
 
 pub type Result<T> = std::result::Result<T, ErrorList>;
 
@@ -68,8 +139,8 @@ impl Error {
 pub struct ErrorList(Vec<Error>);
 
 impl ErrorList {
-	pub fn empty() -> Self { Self(Vec::new()) }
-	pub fn new(msg: String, pos: SourcePos, stage: Stage) -> Self { Self(vec![Error::new(msg, pos, stage)]) }
+	pub fn new() -> Self { Self(Vec::new()) }
+	pub fn from(msg: String, pos: SourcePos, stage: Stage) -> Self { Self(vec![Error::new(msg, pos, stage)]) }
 	pub fn comp(msg: String, pos: SourcePos) -> Self { Self(vec![Error::new(msg, pos, Stage::Compile)]) }
 	pub fn run(msg: String, pos: SourcePos) -> Self { Self(vec![Error::new(msg, pos, Stage::Run)]) }
 	pub fn err<T>(self) -> Result<T> { Err(self) }
@@ -82,4 +153,19 @@ impl ErrorList {
 	pub fn report(&self, path: &str) { self.0.iter().for_each(|err| err.report(path)) }
 	pub fn report_repl(&self, path: &str) { self.0.iter().for_each(|err| err.report_repl(path)) }
 	pub fn if_empty<T>(self, ret: T) -> Result<T> { if self.is_empty() { Ok(ret) } else { self.err() } }
+}
+
+impl Display for ErrorList {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self.0.as_slice() {
+			[] => write!(f, "none"),
+			[err] => write!(f, "{}", err.msg),
+			_ => {
+				for err in &self.0 {
+					write!(f, "\n{}", err.msg)?;
+				}
+				write!(f, "\n")
+			}
+		}
+	}
 }

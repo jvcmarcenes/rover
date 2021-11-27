@@ -37,11 +37,32 @@ impl Parser {
 			token => ErrorList::comp(format!("Expected {}, found {}", expected, token.typ), token.pos).err(),
 		}
 	}
-	
+
+	fn expect_or_sync(&mut self, expected: TokenType) -> Result<Token> {
+		match self.next() {
+			token if token.typ == expected => token.wrap(),
+			token => {
+				self.synchronize();
+				ErrorList::comp(format!("Expected {}, found {}", expected, token.typ), token.pos).err()
+			}
+		}
+	}
+
 	fn expect_any(&mut self, expected: &[TokenType]) -> Result<Token> {
 		match self.next() {
 			token if expected.contains(&token.typ) => token.wrap(),
 			token => {
+				let expected_str = expected.iter().map(|typ| typ.to_string()).reduce(|a, b| format!("{}, {}", a, b)).expect("Cannot expect no tokens");
+				ErrorList::comp(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).err()
+			}
+		}
+	}
+
+	fn expect_any_or_sync(&mut self, expected: &[TokenType]) -> Result<Token> {
+		match self.next() {
+			token if expected.contains(&token.typ) => token.wrap(),
+			token => {
+				self.synchronize();
 				let expected_str = expected.iter().map(|typ| typ.to_string()).reduce(|a, b| format!("{}, {}", a, b)).expect("Cannot expect no tokens");
 				ErrorList::comp(format!("Expected any of ({}), found {}", expected_str, token.typ), token.pos).err()
 			}
@@ -92,12 +113,43 @@ impl Parser {
 		}
 	}
 
+	fn synchronize_until(&mut self, stop_at: TokenType) {
+		loop {
+			match self.peek().typ {
+				EOF => break,
+				typ if typ == stop_at => break,
+				_ => { self.next(); },
+			}
+		}
+	}
+
 	fn synchronize_with_any(&mut self, stop_at: &[TokenType]) {
 		loop {
 			match self.next().typ {
 				EOF => break,
 				typ if stop_at.contains(&typ) => break,
 				_ => continue,
+			}
+		}
+	}
+
+	fn synchronize_until_any(&mut self, stop_at: &[TokenType]) {
+		loop {
+			match self.peek().typ {
+				EOF => break,
+				typ if stop_at.contains(&typ) => break,
+				_ => { self.next(); },
+			}
+		}
+	}
+
+	fn synchronize_complex(&mut self, stop_at_and_consume: &[TokenType], stop_at: &[TokenType]) {
+		loop {
+			match self.peek().typ {
+				EOF => break,
+				typ if stop_at_and_consume.contains(&typ) => { self.next(); break },
+				typ if stop_at.contains(&typ) => break,
+				_ => { self.next(); },
 			}
 		}
 	}

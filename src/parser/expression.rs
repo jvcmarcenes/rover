@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Parser;
 
@@ -27,6 +27,7 @@ fn bin_operation_for_token(token: &Token) -> BinaryOperator {
 fn un_operator_for_token(token: &Token) -> UnaryOperator {
 	match token.typ {
 		Symbol(Exclam) => Not,
+		Symbol(Plus) => Pos,
 		Symbol(Minus) => Neg,
 		_ => panic!("This function should only be called when we know it will match"),
 	}
@@ -106,7 +107,7 @@ impl Parser {
 	}
 
 	fn unary(&mut self) -> ExprResult {
-		if let Some(token) = self.optional_any(&[Symbol(Exclam), Symbol(Minus)]) {
+		if let Some(token) = self.optional_any(&[Symbol(Exclam), Symbol(Minus), Symbol(Plus)]) {
 			let op = un_operator_for_token(&token);
 			let expr = self.unary()?;
 			return Unary(UnaryData { op, expr: Box::new(expr) }).to_expr(token.pos).wrap();
@@ -148,37 +149,34 @@ impl Parser {
 		}
 	}
 
-	fn expr_list(&mut self, stop: fn(&TokenType) -> bool) -> Result<Vec<Expression>> {
+	fn expr_list(&mut self, stop: TokenType) -> Result<Vec<Expression>> {
 		let mut exprs = Vec::new();
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		loop {
 			self.skip_new_lines();
 			let peek = self.peek();
 			match peek.typ {
-				EOF => {
-					errors.add_comp("Unexpected EOF".to_owned(), peek.pos);
-					return errors.err()
-				}
-				typ if stop(&typ) => break,
+				EOF => append!(ret comp "Unexpected EOF".to_owned(), peek.pos; to errors),
+				typ if typ == stop => break,
 				_ => {
 					match self.expression() {
 						Ok(expr) => exprs.push(expr),
-						Err(err) => {
-							errors.append(err);
-							self.synchronize();
-						}
+						Err(err) => errors.append(err),
 					}
-					if stop(&self.peek().typ) { continue; }
-					self.expect_any(&[Symbol(Comma), EOL])?;
+					if self.peek().typ == stop { continue; }
+					if let Err(err) = self.expect_any(&[Symbol(Comma), EOL]) {
+						errors.append(err);
+						self.synchronize_complex(&[Symbol(Comma)], &[stop.clone()]);
+					}
 				}
 			}
 		}
-		if errors.is_empty() { exprs.wrap() } else { errors.err() }
+		errors.if_empty(exprs)
 	}
 
 	fn function_call(&mut self, calee: Expression) -> ExprResult {
 		let Token { pos, .. } = self.next();
-		let args = self.expr_list(|typ| *typ == Symbol(ClosePar))?;
+		let args = self.expr_list(Symbol(ClosePar))?;
 		self.expect(Symbol(ClosePar))?;
 		Call(CallData { calee: Box::new(calee), args }).to_expr(pos).wrap()
 	}
@@ -202,7 +200,7 @@ impl Parser {
 
 	fn primary(&mut self) -> ExprResult {
 		let token = self.next();
-		let expr_typ = match token.typ {
+		match token.typ {
 			Keyword(False) => ExprType::Literal(LiteralData::Bool(false)),
 			Keyword(True) => ExprType::Literal(LiteralData::Bool(true)),
 			Keyword(_None) => ExprType::Literal(LiteralData::None),
@@ -224,14 +222,14 @@ impl Parser {
 			Identifier(name) => Variable(Identifier::new(name)),
 			Template(tokens) => self.str_template(tokens)?,
 			_ => return ErrorList::comp(format!("Expected expression, found {}", token), token.pos).err()
-		};
-		expr_typ.to_expr(token.pos).wrap()
+		}.to_expr(token.pos).wrap()
 	}
 
 	fn list_literal(&mut self) -> Result<ExprType> {
-		let exprs = self.expr_list(|typ| *typ == Symbol(CloseSqr))?;
-		self.expect(Symbol(CloseSqr))?;
-		ExprType::Literal(LiteralData::List(exprs)).wrap()
+		let mut errors = ErrorList::new();
+		let exprs = append!(self.expr_list(Symbol(CloseSqr)); to errors; dummy vec![]);
+		errors.try_append(self.expect(Symbol(CloseSqr)));
+		errors.if_empty(ExprType::Literal(LiteralData::List(exprs)))
 	}
 
 	fn obj_field(&mut self) -> Result<(String, Expression)> {
@@ -250,7 +248,7 @@ impl Parser {
 
 	fn obj_literal(&mut self) -> Result<ExprType> {
 		let mut map = HashMap::new();
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 		loop {
 			self.skip_new_lines();
 			let peek = self.peek();
@@ -266,13 +264,10 @@ impl Parser {
 				_ => {
 					match self.obj_field() {
 						Ok((name, expr)) => { map.insert(name, expr); },
-						Err(err) => {
-							errors.append(err);
-							return errors.err();
-						}
+						Err(err) => { errors.append(err); continue },
 					}
 					if self.next_match(Symbol(CloseBracket)) { continue; }
-					self.expect_any(&[Symbol(Comma), EOL])?;
+					errors.try_append(self.expect_any_or_sync(&[Symbol(Comma), EOL]));
 				}
 			}
 		}
@@ -280,7 +275,7 @@ impl Parser {
 
 	fn str_template(&mut self, tokens: Vec<Token>) -> Result<ExprType> {
 		let mut exprs = Vec::new();
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 
 		let mut template_parser = Parser::new(tokens);
 
@@ -292,10 +287,7 @@ impl Parser {
 					match template_parser.expression() {
 						Ok(expr) => {
 							exprs.push(expr);
-							if let Err(err) = template_parser.expect(Symbol(CloseBracket)) {
-								errors.append(err);
-								template_parser.synchronize();
-							}
+							errors.try_append(template_parser.expect_or_sync(Symbol(CloseBracket)));
 						}
 						Err(err) => {
 							errors.append(err);
@@ -303,50 +295,56 @@ impl Parser {
 						}
 					}
 				}
-				_ => match template_parser.expression() {
-					Ok(expr) => exprs.push(expr),
-					Err(err) => {
-						errors.append(err);
-						template_parser.synchronize_with(Symbol(CloseBracket));
-					}
-				} 
+				_ => exprs.push(template_parser.expression().expect("this should never be an error")),
 			}
 		}
 
-		if errors.is_empty() {
-			ExprType::Literal(LiteralData::Template(exprs)).wrap()
-		} else {
-			errors.err()
-		}
+		errors.if_empty(ExprType::Literal(LiteralData::Template(exprs)))
 	}
 
 	fn lambda(&mut self) -> Result<ExprType> {
-		self.expect(Symbol(OpenPar))?;
+		self.expect_or_sync(Symbol(OpenPar))?;
 		let mut params = Vec::new();
+		let mut errors = ErrorList::new();
 		loop {
 			let peek = self.peek();
 			match peek.typ {
+				EOF => {
+					errors.add_comp("Unexpected EOF".to_owned(), peek.pos);
+					return errors.err();
+				},
 				Symbol(ClosePar) => { self.next(); break; }
 				Identifier(name) if params.is_empty() => { self.next(); params.push(Identifier::new(name)); },
-				_ => {
-					self.expect(Symbol(Comma))?;
+				Symbol(Comma) => {
+					self.next();
 					self.skip_new_lines();
 					let next = self.next();
 					if let Identifier(name) = next.typ {
 						params.push(Identifier::new(name))
 					} else {
-						return ErrorList::comp(format!("Expected identifier, found {}", next), next.pos).err()
+						errors.add_comp(format!("Expected identifier, found {}", next), next.pos);
+						self.synchronize_until_any(&[Symbol(Comma), Symbol(ClosePar)]);
 					}
+				},
+				_ => {
+					if params.is_empty() {
+						errors.add_comp(format!("Expected identifier, found {}", peek), peek.pos);
+					} else {
+						errors.add_comp(format!("Expected COMMA or CLOSE_PAR, found {}", peek), peek.pos);
+					}
+					self.synchronize_until_any(&[Symbol(Comma), Symbol(ClosePar)]);
 				}
 			}
 		}
+
 		let body = if let Some(Token { pos, .. }) = self.optional(Symbol(EqualsCloseAng)) {
-			let expr = self.expression()?;
+			let expr = append!(self.expression(); to errors);
 			Block::from([StmtType::Return(Box::new(expr)).to_stmt(pos)])
 		} else {
-			self.block()?
+			append!(self.block(); to errors)
 		};
-		ExprType::Lambda(LambdaData { params, body }).wrap()
+
+		errors.if_empty(ExprType::Lambda(LambdaData { params, body }))
 	}
 
 }

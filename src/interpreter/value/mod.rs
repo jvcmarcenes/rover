@@ -52,6 +52,7 @@ impl Value {
 	}
 
 	pub fn get_field(&self, field: &str, pos: SourcePos) -> Result<Rc<RefCell<Value>>> {
+		// Add resolution to Attribute methods here
 		match self {
 			Object(map) => match map.get(field) {
 				Some(val) => return val.clone().wrap(),
@@ -105,14 +106,11 @@ impl Value {
 			Num(num) => num.to_string(),
 			Bool(bool) => bool.to_string(),
 			List(list) => {
-				let mut str = String::new();
-				str.push('[');
-				let mut i = 0;
-				loop {
-					if i >= list.len() { break; }
-					str.push_str(&list[i].to_string(interpreter, pos)?);
-					if i + 1 < list.len() { str.push_str(", "); }
-					i += 1;
+				let mut str = String::from("[");
+				let mut values = list.iter().peekable();
+				while let Some(value) = values.next() {
+					str.push_str(&value.to_string(interpreter, pos)?);
+					if let Some(_) = values.peek() { str.push_str(", "); }
 				}
 				str.push(']');
 				str

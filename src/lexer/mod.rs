@@ -100,14 +100,10 @@ impl Lexer {
 
 	fn scan_number(&mut self, first_digit: char) -> TokenResult {
 		let mut value = String::from(first_digit);
-		loop {
-			match self.source.peek() {
-				Some(&c) if c.is_ascii_digit() || (c == '.' && !value.contains('.')) => {
-					value.push(c);
-					self.next_char();
-				}
-				_ => break,
-			}
+		while let Some(&c) = self.source.peek() {
+			if !(c.is_ascii_digit() || (c == '.' && !value.contains('.'))) { break }
+			value.push(c);
+			self.next_char();
 		}
 		match value.parse::<f64>() {
 			Ok(n) => Token::new(Literal(Num(n)), self.cursor).wrap(),
@@ -127,7 +123,7 @@ impl Lexer {
 
 	fn scan_str_template(&mut self) -> TokenResult {
 		let mut tokens = Vec::new();
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 
 		let template_pos = self.cursor;
 
@@ -139,7 +135,7 @@ impl Lexer {
 					loop {
 						match self.next_char() {
 							Some('}') => break,
-							Some(c) if c == '\n' => { errors.add_comp("Illegal EOL inside string template".to_owned(), self.cursor); return errors.err() },
+							Some(c) if c == '\n' => { errors.add_comp("Illegal EOL inside string template term".to_owned(), self.cursor); return errors.err() },
 							Some(c) if c.is_whitespace() => continue,
 							Some(c) => match self.scan_token(c) {
 								Ok(Some(token)) => tokens.push(token),
@@ -221,7 +217,7 @@ impl Lexer {
 
 	pub fn scan_tokens(&mut self) -> LexerResult {
 		let mut tokens = Vec::new();
-		let mut errors = ErrorList::empty();
+		let mut errors = ErrorList::new();
 
 		loop {
 			match self.next_char() {
@@ -229,6 +225,7 @@ impl Lexer {
 				Some(c) if c.is_whitespace() => continue,
 				Some(c) => match self.scan_token(c) {
 					Ok(Some(token)) if token.typ == Symbol(BarCloseAng) => {
+						// allows function piping operator '|>' to be put in the line after an expression
 						if let Some(token) = tokens.last() { if token.typ == EOL { tokens.pop(); } }
 						tokens.push(token);
 					},

@@ -5,7 +5,7 @@ use crate::utils::{result::*, source_pos::*};
 
 use self::ExprType::*;
 
-use super::{Identifier, statement::Block};
+use super::{identifier::Identifier, statement::Block};
 
 #[derive(Debug, Clone)]
 pub enum BinaryOperator {
@@ -15,7 +15,7 @@ pub enum BinaryOperator {
 
 #[derive(Debug, Clone)]
 pub enum UnaryOperator {
-	Not, Neg,
+	Not, Pos, Neg,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +29,7 @@ pub enum LiteralData {
 	Str(String),
 	Num(f64),
 	Bool(bool),
+	// The following variants aren't "really" literals, maybe we should move them to another expression type
 	Template(Vec<Expression>),
 	List(Vec<Expression>),
 	Object(HashMap<String, Expression>),

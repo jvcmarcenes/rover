@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{interpreter::{Interpreter, value::{Value, callable::Callable}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::{Value, callable::Callable, macros::cast}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 fn sin() -> Value {
 	#[derive(Clone, Debug)] struct Sin;
@@ -10,8 +10,8 @@ fn sin() -> Value {
     fn arity(&self) -> usize { 1 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.sin()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.sin()).wrap()
     }
 	}
 
@@ -25,8 +25,8 @@ fn cos() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.cos()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.cos()).wrap()
 		}
 	}
 	
@@ -40,8 +40,8 @@ fn tan() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.tan()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.tan()).wrap()
 		}
 	}
 	
@@ -55,9 +55,9 @@ fn pow() -> Value {
 		fn arity(&self) -> usize { 2 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (base, base_pos) = args[0].clone();
-			let (exp, exp_pos) = args[1].clone();
-			Value::Num(base.to_num(base_pos)?.powf(exp.to_num(exp_pos)?)).wrap()
+			let n0 = cast!(num args[0].0);
+			let n1 = cast!(num args[1].0);
+			Value::Num(n0.powf(n1)).wrap()
 		}
 	}
 	
@@ -71,12 +71,11 @@ fn sqrt() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			let n = v0.to_num(p0)?;
-			if n < 0.0 {
+			let n0 = cast!(num args[0].0);
+			if n0 < 0.0 {
 				Value::Error(Value::Str("sqrt of negative numbers is undefined".to_owned()).wrap())
 			} else {
-				Value::Num(n.sqrt())
+				Value::Num(n0.sqrt())
 			}.wrap()
 		}
 	}
@@ -91,8 +90,8 @@ fn floor() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.floor()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.floor()).wrap()
 		}
 	}
 	
@@ -106,8 +105,8 @@ fn ceil() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.ceil()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.ceil()).wrap()
 		}
 	}
 	
@@ -121,8 +120,8 @@ fn round() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.round()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.round()).wrap()
 		}
 	}
 	
@@ -136,8 +135,8 @@ fn abs() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.abs()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.abs()).wrap()
 		}
 	}
 	
@@ -151,9 +150,9 @@ fn max() -> Value {
 		fn arity(&self) -> usize { 2 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			let (v1, p1) = args[1].clone();
-			Value::Num(v0.to_num(p0)?.max(v1.to_num(p1)?)).wrap()
+			let n0 = cast!(num args[0].0);
+			let n1 = cast!(num args[1].0);
+			Value::Num(n0.max(n1)).wrap()
 		}
 	}
 	
@@ -167,9 +166,9 @@ fn min() -> Value {
 		fn arity(&self) -> usize { 2 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			let (v1, p1) = args[1].clone();
-			Value::Num(v0.to_num(p0)?.min(v1.to_num(p1)?)).wrap()
+			let n0 = cast!(num args[0].0);
+			let n1 = cast!(num args[1].0);
+			Value::Num(n0.min(n1)).wrap()
 		}
 	}
 	
@@ -183,10 +182,10 @@ fn clamp() -> Value {
 		fn arity(&self) -> usize { 3 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			let (v1, p1) = args[1].clone();
-			let (v2, p2) = args[2].clone();
-			Value::Num(v0.to_num(p0)?.clamp(v1.to_num(p1)?, v2.to_num(p2)?)).wrap()
+			let n0 = cast!(num args[0].0);
+			let n1 = cast!(num args[1].0);
+			let n2 = cast!(num args[2].0);
+			Value::Num(n0.clamp(n1, n2)).wrap()
 		}
 	}
 	
@@ -200,8 +199,8 @@ fn frac() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (val, pos) = args[0].clone();
-			Value::Num(val.to_num(pos)?.fract()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.fract()).wrap()
 		}
 	}
 	
@@ -215,12 +214,30 @@ fn sign() -> Value {
 		fn arity(&self) -> usize { 1 }
 	
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
-			let (v0, p0) = args[0].clone();
-			Value::Num(v0.to_num(p0)?.signum()).wrap()
+			let n0 = cast!(num args[0].0);
+			Value::Num(n0.signum()).wrap()
 		}
 	}
 	
 	Value::Callable(Sign.wrap())
+}
+
+fn lerp() -> Value {
+	#[derive(Clone, Debug)] struct Clamp;
+	
+	impl Callable for Clamp {
+		fn arity(&self) -> usize { 3 }
+	
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Value, SourcePos)>) -> Result<Value> {
+			let n0 = cast!(num args[0].0);
+			let n1 = cast!(num args[1].0);
+			let n2 = cast!(num args[2].0);
+			let t = n0.clamp(0.0, 1.0);
+			Value::Num((1.0 - t) * n1 + t * n2).wrap()
+		}
+	}
+	
+	Value::Callable(Clamp.wrap())
 }
 
 pub fn math() -> Value {
@@ -239,8 +256,9 @@ pub fn math() -> Value {
 		("max", max()),
 		("min", min()),
 		("clamp", clamp()),
-		("sign", sign()),
 		("frac", frac()),
+		("sign", sign()),
+		("lerp", lerp()),
 		("pi", Value::Num(std::f64::consts::PI)),
 		("e", Value::Num(std::f64::consts::E)),
 	];
