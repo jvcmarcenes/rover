@@ -203,7 +203,6 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		if field.borrow().get_type() == ValueType::Callable {
 			field.borrow().to_callable(pos)?.borrow_mut().bind(head);
 		};
-		// field.clone().borrow().clone().wrap()
 		field.clone().borrow().clone().wrap()
 	}
 
