@@ -1,6 +1,7 @@
 
 mod math;
 mod fs;
+pub mod attributes;
 
 use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
@@ -8,7 +9,7 @@ use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{attributes::{DEFAULT_ATTR, register_default_attr}, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -390,8 +391,8 @@ impl Globals {
 			
 			// to be moved to attributes
 			("size", size()),
-			("is_num", is_num()),
-			("to_num", to_num()),
+			// ("is_num", is_num()),
+			// ("to_num", to_num()),
 			
 			// system / process		
 			("exit", exit()),
@@ -414,7 +415,9 @@ impl Globals {
 			("fs", fs()),
 		];
 
-		let mut i = 1;
+		register_default_attr(&mut globals);
+
+		let mut i = 1 + DEFAULT_ATTR.len();
 		for (key, val) in v {
 			globals.ids.insert(key.to_owned(), IdentifierData::new(i, true));
 			globals.values.insert(i, val);

@@ -199,7 +199,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let head = pass_msg!(data.head.accept(self)?);
-		let field = head.get_field(&data.field, pos)?;
+		let field = head.get_field(&data.field, self, pos)?;
 		if field.borrow().get_type() == ValueType::Callable {
 			field.borrow().to_callable(pos)?.borrow_mut().bind(head);
 		};

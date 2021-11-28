@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt::{Debug, Display}, rc::Rc};
 
 use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap};
 
-use self::primitives::{callable::Callable, object::ObjectMap};
+use self::primitives::{attribute::Attribute, callable::Callable, object::ObjectMap};
 
 use super::{Interpreter, Message};
 
@@ -14,7 +14,10 @@ pub mod messenger;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValueType {
-	None, Num, Str, Bool, Vector, Object, Callable, Error, Messenger,
+	None, Num, Str, Bool, 
+	Vector, Object, Callable,
+	Error, Messenger,
+	Attribute,
 }
 
 impl Display for ValueType {
@@ -29,6 +32,7 @@ impl Display for ValueType {
 			ValueType::Callable  => write!(f, "callable"),
 			ValueType::Error     => write!(f, "error"),
 			ValueType::Messenger => write!(f, "messenger"),
+			ValueType::Attribute => write!(f, "attribute"),
 		}
 	}
 }
@@ -43,6 +47,7 @@ pub trait Value : Debug {
 	fn to_obj(&self, pos: SourcePos) -> Result<ObjectMap> { ErrorList::run("Cannot cast value to object".to_owned(), pos).err() }
 	fn to_callable(&self, pos: SourcePos) -> Result<Rc<RefCell<dyn Callable>>> { ErrorList::run("Cannot cast value to callable".to_owned(), pos).err() }
 	fn to_error(&self, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Cannot cast value to error".to_owned(), pos).err() }
+	fn to_attr(&self, pos: SourcePos) -> Result<Attribute> { ErrorList::run("Cannot cast value to attribute".to_owned(), pos).err() }
 	
 	fn to_message(&self) -> Message { panic!("Cannot cast value to messenger") }
 	
@@ -50,8 +55,23 @@ pub trait Value : Debug {
 	
 	fn cloned(&self) -> Box<dyn Value>;
 	
-	fn get_field(&self, field: &str, pos: SourcePos) -> Result<Rc<RefCell<Box<dyn Value>>>> { ErrorList::run(format!("Property {} is undefined for {}", field, self.get_type()), pos).err() }
-
+	fn get_attributes(&self) -> Vec<usize> { vec![] }
+	
+	fn get_field(&self, field: &str, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Rc<RefCell<Box<dyn Value>>>> {
+		
+		let attrs = self.get_attributes();
+		let mut cur = attrs.as_slice();
+		while let [ rest @ .., top ] = cur {
+			let attr = interpreter.env.get(*top);
+			match attr.to_attr(pos)?.get(field) {
+				Some(method) => return method.wrap(),
+				None => cur = rest,
+			}
+		}
+		
+		ErrorList::run(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()
+	}
+	
 	fn to_string(&self, _interpreter: &mut Interpreter, _pos: SourcePos) -> Result<String>;
 	
 	fn add(&self, other: Box<dyn Value>, _other_pos: SourcePos,  _interpreter: &mut Interpreter, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run(format!("Operation ADD is not defined for {} and {}", self.get_type(), other.get_type()), pos).err() }
@@ -60,7 +80,7 @@ pub trait Value : Debug {
 	fn div(&self, other: Box<dyn Value>, _other_pos: SourcePos,  _interpreter: &mut Interpreter, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run(format!("Operation DIV is not defined for {} and {}", self.get_type(), other.get_type()), pos).err() }
 	
 	fn equ(&self, other: Box<dyn Value>, other_pos: SourcePos, _interpreter: &mut Interpreter, _pos: SourcePos) -> Result<bool>;
-
+	
 	fn equals(&self, other: Box<dyn Value>, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<bool> {
 		if self.get_type() == other.get_type() {
 			self.equ(other, other_pos, interpreter, pos)?
@@ -68,7 +88,7 @@ pub trait Value : Debug {
 			false
 		}.wrap()
 	}
-
+	
 }
 
 impl Clone for Box<dyn Value> {
@@ -81,4 +101,10 @@ impl <T : Value + 'static> Wrap<Box<dyn Value>> for T {
 
 impl <T : Value + 'static> Wrap<Result<Box<dyn Value>>> for T {
 	fn wrap(self) -> Result<Box<dyn Value>> { Ok(Box::new(self)) }
+}
+
+impl Wrap<Result<Rc<RefCell<Box<dyn Value>>>>> for Box<dyn Value> {
+	fn wrap(self) -> Result<Rc<RefCell<Box<dyn Value>>>> {
+		Ok(Rc::new(RefCell::new(self)))
+	}
 }

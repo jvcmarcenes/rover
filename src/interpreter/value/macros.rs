@@ -30,28 +30,28 @@ macro_rules! cast {
 	(str $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_str(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Str => bind.to_str(SourcePos::new(0, 0)).unwrap(),
 			_ => return crate::interpreter::value::primitives::error::Error::new(crate::interpreter::value::primitives::string::Str::from("Cannot cast value to string")).wrap()
 		}
 	}};
 	(vec $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_vector(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Vector => bind.to_vector(SourcePos::new(0, 0)).unwrap(),
 			_ => return crate::interpreter::value::primitives::error::Error::new(crate::interpreter::value::primitives::string::Str::from("Cannot cast value to vector")).wrap()
 		}
 	}};
 	(obj $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_obj(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Object => bind.to_obj(SourcePos::new(0, 0)).unwrap(),
 			_ => return crate::interpreter::value::primitives::error::Error::new(crate::interpreter::value::primitives::string::Str::from("Cannot cast value to object")).wrap()
 		}
 	}};
 	(err $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_error(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Error => bind.to_error(SourcePos::new(0, 0)).unwrap(),
 			_ => return crate::interpreter::value::primitives::error::Error::new(crate::interpreter::value::primitives::string::Str::from("Cannot cast value to error")).wrap()
 		}
 	}};
@@ -68,28 +68,28 @@ macro_rules! castf {
 	(str $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_str(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Str => bind.to_str(SourcePos::new(0, 0)).unwrap(),
 			_ => panic!("Cannot cast value to string")
 		}
 	}};
 	(vec $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_vector(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Vector => bind.to_vector(SourcePos::new(0, 0)).unwrap(),
 			_ => panic!("Cannot cast value to vector")
 		}
 	}};
 	(obj $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_obj(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Object => bind.to_obj(SourcePos::new(0, 0)).unwrap(),
 			_ => panic!("Cannot cast value to object")
 		}
 	}};
 	(err $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Num => bind.to_error(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Error => bind.to_error(SourcePos::new(0, 0)).unwrap(),
 			_ => panic!("Cannot cast value to error")
 		}
 	}};

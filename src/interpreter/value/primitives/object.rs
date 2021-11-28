@@ -18,7 +18,7 @@ impl Object {
 	}
 
 	fn method_call(&self, method: &str, interpreter: &mut Interpreter, pos: SourcePos, args: Vec<(Box<dyn Value>, SourcePos)>, default: Result<Box<dyn Value>>) -> Result<Box<dyn Value>> {
-		if let Ok(field) = self.get_field(method, pos) {
+		if let Ok(field) = self.get_field(method, interpreter, pos) {
 			let callable = field.borrow().clone().to_callable(pos)?;
 			callable.borrow_mut().bind(self.cloned());
 			let res = callable.borrow_mut().call(pos, interpreter, args);
@@ -36,7 +36,7 @@ impl Value for Object {
 	
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
 	
-	fn get_field(&self, field: &str, pos: SourcePos) -> Result<Rc<RefCell<Box<dyn Value>>>> {
+	fn get_field(&self, field: &str, _interpreter: &mut Interpreter, pos: SourcePos) -> Result<Rc<RefCell<Box<dyn Value>>>> {
 		match self.data.get(field) {
 			Some(val) => val.clone().wrap(),
 			None => ErrorList::run(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()

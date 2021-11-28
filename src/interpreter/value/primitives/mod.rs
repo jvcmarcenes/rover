@@ -7,3 +7,5 @@ pub mod vector;
 pub mod object;
 pub mod callable;
 pub mod error;
+
+pub mod attribute;
