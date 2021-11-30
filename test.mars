@@ -1,4 +1,30 @@
 
-let str = '32a'
+attr Complex {
+	add(other) => {
+		real = self.real + other.real
+		imag = self.imag + other.imag
+		:: Complex
+	}
 
-writeline(str.is_num())
+	to_string() {
+		if self.imag < 0 {
+			return '#{self.real} - #{-self.imag}i'
+		} else {
+			return '#{self.real} + #{self.imag}i'
+		}
+	}
+}
+
+let c1 = {
+	real = 5
+	imag = 3
+	:: Complex
+}
+
+let c2 = {
+	real = 5
+	imag = 3
+	:: Complex
+}
+
+writeline(c1 - c2)

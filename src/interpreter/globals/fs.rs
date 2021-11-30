@@ -114,7 +114,7 @@ fn new_file(path: PathBuf) -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map)
+	Object::new(map, vec![])
 }
 
 pub fn open() -> Box<dyn Value> {
@@ -196,5 +196,5 @@ pub fn fs() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map)
+	Object::new(map, vec![])
 }

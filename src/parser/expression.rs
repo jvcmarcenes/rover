@@ -247,8 +247,9 @@ impl Parser {
 	}
 
 	fn obj_literal(&mut self) -> Result<ExprType> {
-		let mut map = HashMap::new();
 		let mut errors = ErrorList::new();
+		let mut map = HashMap::new();
+		let mut attrs = Vec::new();
 		loop {
 			self.skip_new_lines();
 			let peek = self.peek();
@@ -259,7 +260,17 @@ impl Parser {
 				},
 				Symbol(CloseBracket) => {
 					self.next();
-					return errors.if_empty(ExprType::Literal(LiteralData::Object(map)));
+					return errors.if_empty(ExprType::Literal(LiteralData::Object(map, attrs)));
+				},
+				Symbol(DoubleColon) => {
+					self.next();
+					let next = self.next();
+					match next.typ {
+						Identifier(name) => { attrs.push(Identifier::new(name)); },
+						typ => { errors.add_comp(format!("Expected identifier, found {}", typ), next.pos); self.synchronize() }
+					}
+					if self.next_match(Symbol(CloseBracket)) { continue; }
+					errors.try_append(self.expect_any_or_sync(&[Symbol(Comma), EOL]));
 				},
 				_ => {
 					match self.obj_field() {
@@ -302,7 +313,7 @@ impl Parser {
 		errors.if_empty(ExprType::Literal(LiteralData::Template(exprs)))
 	}
 
-	fn lambda(&mut self) -> Result<ExprType> {
+	pub(super) fn lambda_data(&mut self) -> Result<LambdaData> {
 		self.expect_or_sync(Symbol(OpenPar))?;
 		let mut params = Vec::new();
 		let mut errors = ErrorList::new();
@@ -344,7 +355,11 @@ impl Parser {
 			append!(self.block(); to errors)
 		};
 
-		errors.if_empty(ExprType::Lambda(LambdaData { params, body }))
+		errors.if_empty(LambdaData { params, body })
+	}
+
+	fn lambda(&mut self) -> Result<ExprType> {
+		self.lambda_data().map(|data| ExprType::Lambda(data))
 	}
 
 }

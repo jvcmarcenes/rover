@@ -267,5 +267,5 @@ pub fn math() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map)
+	Object::new(map, vec![])
 }

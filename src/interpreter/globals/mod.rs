@@ -9,7 +9,7 @@ use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{attributes::{DEFAULT_ATTR, register_default_attr}, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{attributes::register_default_attr, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -130,25 +130,6 @@ fn random() -> Box<dyn Value> {
 	}
 
 	ValCallable::new(Random.wrap())
-}
-
-fn size() -> Box<dyn Value> {
-	#[derive(Debug, Clone)] struct Size;
-
-	impl Callable for Size {
-		fn arity(&self) -> usize { 1 }
-
-    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			let v0 = args[0].0.clone();
-			match v0.get_type() {
-				ValueType::Vector => Number::new(castf!(vec v0).len() as f64),
-				ValueType::Str => Number::new(castf!(str v0).len() as f64),
-				_ => Error::new(Str::new(format!("Invalid argument type '{}'", v0.get_type())))
-			}.wrap()
-    }
-	}
-
-	ValCallable::new(Size.wrap())
 }
 
 fn is_num() -> Box<dyn Value> {
@@ -304,7 +285,7 @@ fn _char() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map)
+	Object::new(map, vec![])
 }
 
 fn paint() -> Box<dyn Value> {
@@ -350,7 +331,7 @@ fn paint() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map)
+	Object::new(map, vec![])
 }
 
 fn is_err() -> Box<dyn Value> {
@@ -388,12 +369,7 @@ impl Globals {
 			("writeline", writeline()),
 			("debug", debug()),
 			("read", read()),
-			
-			// to be moved to attributes
-			("size", size()),
-			// ("is_num", is_num()),
-			// ("to_num", to_num()),
-			
+	
 			// system / process		
 			("exit", exit()),
 			("abort", abort()),
@@ -415,9 +391,9 @@ impl Globals {
 			("fs", fs()),
 		];
 
-		register_default_attr(&mut globals);
+		let attrs = register_default_attr(&mut globals);
 
-		let mut i = 1 + DEFAULT_ATTR.len();
+		let mut i = 1 + attrs;
 		for (key, val) in v {
 			globals.ids.insert(key.to_owned(), IdentifierData::new(i, true));
 			globals.values.insert(i, val);

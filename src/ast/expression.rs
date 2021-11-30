@@ -32,7 +32,7 @@ pub enum LiteralData {
 	// The following variants aren't "really" literals, maybe we should move them to another expression type
 	Template(Vec<Expression>),
 	List(Vec<Expression>),
-	Object(HashMap<String, Expression>),
+	Object(HashMap<String, Expression>, Vec<Identifier>),
 	Error(Box<Expression>),
 }
 

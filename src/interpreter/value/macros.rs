@@ -93,6 +93,13 @@ macro_rules! castf {
 			_ => panic!("Cannot cast value to error")
 		}
 	}};
+	(attr $val:expr) => {{
+		let bind = $val;
+		match bind.get_type() {
+			crate::interpreter::value::ValueType::Attribute => bind.to_attr(SourcePos::new(0, 0)).unwrap(),
+			_ => panic!("Cannot cast value to attribute")
+		}
+	}};
 }
 
 macro_rules! pass_msg {

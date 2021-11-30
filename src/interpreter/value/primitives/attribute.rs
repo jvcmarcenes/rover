@@ -1,7 +1,7 @@
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{interpreter::{Interpreter, value::{Value, ValueType}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::{Value, ValueType}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
 
 #[derive(Debug, Clone)]
 pub struct Attribute {
@@ -26,6 +26,10 @@ impl Value for Attribute {
 	
 	fn cloned(&self) -> Box<dyn Value> {
 		self.clone().wrap()
+	}
+	
+	fn get_field(&self, _field: &str, _interpreter: &mut Interpreter, pos: SourcePos) -> Result<Rc<RefCell<Box<dyn Value>>>> {
+		ErrorList::run("Cannot access fields on an attribute".to_owned(), pos).err()
 	}
 	
 	fn to_string(&self, _interpreter: &mut Interpreter, _pos: SourcePos) -> Result<String> {

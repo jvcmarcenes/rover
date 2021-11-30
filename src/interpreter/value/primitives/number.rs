@@ -42,7 +42,7 @@ impl Value for Number {
 		if r == 0.0 {
 			ErrorList::run("Cannot divide by zero".to_owned(), other_pos).err()
 		} else {
-			Number::new(self.data + r).wrap()
+			Number::new(self.data / r).wrap()
 		}
 	}
 	

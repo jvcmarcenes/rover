@@ -22,6 +22,7 @@ pub enum Keyword {
 	Function, Return,
 	_Self,
 	Do,
+	Attr,
 }
 
 impl Keyword {
@@ -47,6 +48,7 @@ impl Keyword {
 			"self" => _Self,
 			"do" => Do,
 			"error" => Error,
+			"attr" => Attr,
 			_ => return None,
 		}.wrap()
 	}
@@ -55,7 +57,7 @@ impl Keyword {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
 	OpenPar, ClosePar, OpenSqr, CloseSqr, OpenBracket, CloseBracket, OpenAng, CloseAng,
-	Dot, Comma, Colon,
+	Dot, Comma, Colon, DoubleColon,
 	Plus, Minus, Star, Slash, Exclam,
 	Equals, PlusEquals, MinusEquals, StarEquals, SlashEquals,
 	DoubleEquals, ExclamEquals, OpenAngEquals, CloseAngEquals,

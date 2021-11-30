@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -43,6 +43,7 @@ pub struct Context {
 	in_function: bool,
 	in_loop: bool,
 	in_obj: bool,
+	in_method: bool,
 	overwriting: bool,
 }
 
@@ -55,7 +56,7 @@ pub struct Resolver {
 }
 
 impl Resolver {
-
+	
 	pub fn new(globals: Globals) -> Self {
 		Resolver {
 			last_id: globals.ids.len() + 1,
@@ -64,21 +65,21 @@ impl Resolver {
 			ctx: Context::default(),
 		}
 	}
-
+	
 	pub fn resolve(&mut self, block: &Block) -> Result<()> {
 		let mut errors = ErrorList::new();
-
+		
 		// dbg!(&block);
-
+		
 		self.push_scope();
 		for stmt in block.clone() {
 			errors.try_append(stmt.accept(self));
 		}
 		self.pop_scope();
-
+		
 		errors.if_empty(())
 	}
-
+	
 	fn add(&mut self, iden: Identifier, constant: bool, pos: SourcePos) -> Result<()> {
 		if self.globals.ids.contains_key(&iden.get_name()) {
 			return ErrorList::comp(format!("Cannot redefine global constant '{}'", iden), pos).err();
@@ -90,15 +91,15 @@ impl Resolver {
 		self.last_id += 1;
 		Ok(())
 	}
-
+	
 	fn push_scope(&mut self) {
 		self.tables.push(SymbolTable::new());
 	}
-
+	
 	fn pop_scope(&mut self) {
 		self.tables.pop();
 	}
-
+	
 	fn get_var(&self, name: &str) -> Option<IdentifierData> {
 		let mut cur = self.tables.as_slice();
 		while let [rest @ .., table] = cur {
@@ -109,30 +110,37 @@ impl Resolver {
 		}
 		None
 	}
-
+	
 }
 
 impl ExprVisitor<()> for Resolver {
-
-	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<()> {
+	
+	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
-
+		
 		let exprs = match data {
 			LiteralData::List(exprs) => exprs,
 			LiteralData::Template(exprs) => exprs,
-			LiteralData::Object(map) => {
+			LiteralData::Object(map, attrs) => {
 				let exprs = map.clone().into_values();
 				with_ctx!(self, for expr in exprs { errors.try_append(expr.accept(self)); }, in_obj: true);
+				for attr in attrs {
+					if let Some(var) = self.get_var(&attr.get_name()) {
+						*attr.id.borrow_mut() = var.id;
+					} else {
+						errors.add_comp(format!("Use of undefined attribute {}", attr.get_name()), pos);
+					}
+				}
 				return errors.if_empty(());
 			}
 			LiteralData::Error(val) => return val.accept(self),
 			_ => return Ok(()),
 		};
-
+		
 		for expr in exprs {
 			errors.try_append(expr.accept(self));
 		}
-
+		
 		errors.if_empty(())
 	}
 	
@@ -167,7 +175,7 @@ impl ExprVisitor<()> for Resolver {
 					return ErrorList::comp(format!("Cannot assign to constant '{}'", data), pos).err();
 				}
 			}
-
+			
 			*data.id.borrow_mut() = var.id;
 			Ok(())
 		} else {
@@ -201,23 +209,23 @@ impl ExprVisitor<()> for Resolver {
 		with_ctx!(self, errors.try_append(data.index.accept(self)), overwriting: false);
 		errors.if_empty(())
 	}
-
+	
 	fn field(&mut self, data: FieldData, _pos: SourcePos) -> Result<()> {
 		data.head.accept(self)
 	}
-
+	
 	fn self_ref(&mut self, pos: SourcePos) -> Result<()> {
-		allowed(self.ctx.in_obj && self.ctx.in_function, "Invalid self expression", pos)
+		allowed(self.ctx.in_method || (self.ctx.in_obj && self.ctx.in_function), "Invalid self expression", pos)
 	}
-
+	
 	fn do_expr(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
 		self.resolve(&block)
 	}
-
+	
 }
 
 impl StmtVisitor<()> for Resolver {
-
+	
 	fn expr(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<()> {
 		expr.accept(self)
 	}
@@ -225,7 +233,7 @@ impl StmtVisitor<()> for Resolver {
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		match data.expr.typ.clone() {
-			ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_)) => {
+			ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _)) => {
 				errors.try_append(self.add(data.name, data.constant, pos));
 				errors.try_append(data.expr.accept(self));
 			},
@@ -233,6 +241,20 @@ impl StmtVisitor<()> for Resolver {
 				errors.try_append(data.expr.accept(self));
 				errors.try_append(self.add(data.name, data.constant, pos));
 			}
+		}
+		errors.if_empty(())
+	}
+	
+	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::new();
+		errors.try_append(self.add(data.name, true, pos));
+		for method in data.methods {
+			self.push_scope();
+			for param in method.params {
+				errors.try_append(self.add(param, false, pos));
+			}
+			with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_method: true);
+			self.pop_scope();
 		}
 		errors.if_empty(())
 	}
@@ -266,13 +288,13 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
-		errors.try_append(allowed(self.ctx.in_function, "Invalid return statement", pos));
+		errors.try_append(allowed(self.ctx.in_function || self.ctx.in_method, "Invalid return statement", pos));
 		errors.try_append(expr.accept(self));
 		errors.if_empty(())
 	}
-
+	
 	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
 		self.resolve(&block)
 	}
-
+	
 }

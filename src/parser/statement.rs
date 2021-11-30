@@ -1,5 +1,5 @@
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, BinaryOperator, CallData, ExprType, IndexData, LiteralData}, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -60,6 +60,7 @@ impl Parser {
 			Keyword(Break) => self.break_stmt(),
 			Keyword(Continue) => self.continue_stmt(),
 			Keyword(Return) => self.return_stmt(),
+			Keyword(Attr) => self.attr_declaration(),
 			_ => self.assignment_or_expression(),
 		}
 	}
@@ -115,6 +116,32 @@ impl Parser {
 		)
 	}
 
+	fn attr_declaration(&mut self) -> StmtResult {
+		let mut errors = ErrorList::new();
+		let Token { pos, .. } = self.next();
+		let next = self.next();
+		let name = match next.typ { 
+			TokenType::Identifier(name) => Identifier::new(name),
+			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
+		};
+		self.skip_new_lines();
+		errors.try_append(self.expect(Symbol(OpenBracket)));
+		let mut methods = Vec::new();
+		loop {
+			self.skip_new_lines();
+			let next = self.next();
+			match next.typ {
+				Symbol(CloseBracket) => return StmtType::AttrDeclaration(AttrDeclarationData { name, methods }).to_stmt(pos).wrap(),
+				Identifier(name) => {
+					let LambdaData { params, body } = self.lambda_data()?;
+					methods.push(MethodData { name, params, body });
+				},
+				typ => append!(ret comp format!("Expected Identifier or CLOSE_BRACKET, found {}", typ), pos; to errors),
+			}
+		}
+
+	}
+
 	fn if_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
 		let mut errors = ErrorList::new();
@@ -155,8 +182,11 @@ impl Parser {
 				StmtType::Declaration(DeclarationData {
 					constant: true, name: Identifier::new("$len".to_owned()),
 					expr: ExprType::Call(CallData {
-						calee: ExprType::Variable(Identifier::new("size".to_owned())).to_expr(pos).wrap(),
-						args: vec![ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos)]
+						calee: ExprType::FieldGet(FieldData {
+							head: ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos).wrap(),
+							field: "size".to_owned(),
+						}).to_expr(pos).wrap(), 
+						args: vec![]
 					}).to_expr(pos).wrap()
 				}).to_stmt(pos),
 				StmtType::Loop(vec![

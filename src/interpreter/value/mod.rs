@@ -1,9 +1,9 @@
 
 use std::{cell::RefCell, fmt::{Debug, Display}, rc::Rc};
 
-use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap};
+use crate::{interpreter::value::macros::castf, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::primitives::{attribute::Attribute, callable::Callable, object::ObjectMap};
+use self::primitives::{attribute::Attribute, callable::Callable, object::ObjectMap, vector::VectorData};
 
 use super::{Interpreter, Message};
 
@@ -11,6 +11,8 @@ pub mod macros;
 
 pub mod primitives;
 pub mod messenger;
+
+pub type ValueRef = Rc<RefCell<Box<dyn Value>>>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValueType {
@@ -43,7 +45,7 @@ pub trait Value : Debug {
 	
 	fn to_num(&self, pos: SourcePos) -> Result<f64> { ErrorList::run("Cannot cast value to number".to_owned(), pos).err() }
 	fn to_str(&self, pos: SourcePos) -> Result<String> { ErrorList::run("Cannot cast value to string".to_owned(), pos).err() }
-	fn to_vector(&self, pos: SourcePos) -> Result<Vec<Box<dyn Value>>> { ErrorList::run("Cannot cast value to vector".to_owned(), pos).err() }
+	fn to_vector(&self, pos: SourcePos) -> Result<VectorData> { ErrorList::run("Cannot cast value to vector".to_owned(), pos).err() }
 	fn to_obj(&self, pos: SourcePos) -> Result<ObjectMap> { ErrorList::run("Cannot cast value to object".to_owned(), pos).err() }
 	fn to_callable(&self, pos: SourcePos) -> Result<Rc<RefCell<dyn Callable>>> { ErrorList::run("Cannot cast value to callable".to_owned(), pos).err() }
 	fn to_error(&self, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Cannot cast value to error".to_owned(), pos).err() }
@@ -57,18 +59,16 @@ pub trait Value : Debug {
 	
 	fn get_attributes(&self) -> Vec<usize> { vec![] }
 	
-	fn get_field(&self, field: &str, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Rc<RefCell<Box<dyn Value>>>> {
-		
+	fn get_field(&self, field: &str, interpreter: &mut Interpreter, pos: SourcePos) -> Result<ValueRef> {
 		let attrs = self.get_attributes();
 		let mut cur = attrs.as_slice();
 		while let [ rest @ .., top ] = cur {
 			let attr = interpreter.env.get(*top);
-			match attr.to_attr(pos)?.get(field) {
+			match castf!(attr attr).get(field) {
 				Some(method) => return method.wrap(),
 				None => cur = rest,
 			}
 		}
-		
 		ErrorList::run(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()
 	}
 	
@@ -106,5 +106,11 @@ impl <T : Value + 'static> Wrap<Result<Box<dyn Value>>> for T {
 impl Wrap<Result<Rc<RefCell<Box<dyn Value>>>>> for Box<dyn Value> {
 	fn wrap(self) -> Result<Rc<RefCell<Box<dyn Value>>>> {
 		Ok(Rc::new(RefCell::new(self)))
+	}
+}
+
+impl Wrap<Option<Rc<RefCell<Box<dyn Value>>>>> for Box<dyn Value> {
+	fn wrap(self) -> Option<Rc<RefCell<Box<dyn Value>>>> {
+		Some(Rc::new(RefCell::new(self)))
 	}
 }

@@ -5,11 +5,11 @@ pub mod globals;
 
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::{environment::{Environment, ValueMap}, value::{Value, primitives::callable::{ValCallable, function::{Function, SELF}}}};
+use self::{environment::{Environment, ValueMap}, value::{Value, primitives::{callable::{ValCallable, function::{Function, SELF}}, attribute::Attribute}}};
 
-fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
+pub fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
 	if n < 0.0 { n += len as f64; }
 	if n < 0.0 || n >= len as f64 { 
 		ErrorList::run("Index out of bounds".to_owned(), pos).err()
@@ -33,24 +33,24 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-
+	
 	pub fn new(globals: ValueMap, root_path: PathBuf) -> Self {
 		Self {
 			env: Environment::new(globals),
 			root_path,
 		}
 	}
-
+	
 	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
 		for stmt in statements.clone() { stmt.accept(self)?; }
 		Ok(())
 	}
-
+	
 	fn execute_block(&mut self, block: Block) -> Result<Message> {
 		self.env.push_new();
-
+		
 		let mut last_eval = Message::None;
-
+		
 		for stmt in block {
 			match stmt.accept(self)? {
 				Message::None => continue,
@@ -64,12 +64,12 @@ impl Interpreter {
 		self.env.pop();
 		last_eval.wrap()
 	}
-
+	
 }
 
 impl ExprVisitor<Box<dyn Value>> for Interpreter {
-
-	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<Box<dyn Value>> {
+	
+	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		match data {
 			LiteralData::None => ValNone.wrap(),
 			LiteralData::Str(s) => Str::new(s).wrap(),
@@ -87,17 +87,23 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 				for expr in exprs { values.push(expr.accept(self)?) }
 				Vector::new(values).wrap()
 			},
-			LiteralData::Object(map) => {
+			LiteralData::Object(map, attrs) => {
 				let mut value_map = HashMap::new();
 				for (key, expr) in map {
 					value_map.insert(key, expr.accept(self)?.wrap());
 				}
-				Object::new(value_map).wrap()
+				let mut attributes = Vec::new();
+				for attr in attrs {
+					let val = self.env.get(attr.get_id());
+					val.to_attr(pos)?;
+					attributes.push(attr.get_id());
+				}
+				Object::new(value_map, attributes).wrap()
 			}
 			LiteralData::Error(expr) => Error::new(pass_msg!(expr.accept(self)?)).wrap(),
 		}
 	}
-
+	
 	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let (l_pos, r_pos) = (data.lhs.pos, data.rhs.pos);
 		let lhs = pass_msg!(data.lhs.accept(self)?);
@@ -116,7 +122,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			BinaryOperator::Neq => Bool::new(!lhs.equals(rhs, r_pos, self, pos)?).wrap(),
 		}
 	}
-
+	
 	fn unary(&mut self, data: UnaryData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let pos = data.expr.pos;
 		let val = pass_msg!(data.expr.accept(self)?);
@@ -126,7 +132,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			UnaryOperator::Not => Bool::new(!val.is_truthy()).wrap(),
 		}
 	}
-
+	
 	fn logic(&mut self, data: LogicData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let left = pass_msg!(data.lhs.accept(self)?).is_truthy();
 		Bool::new(match data.op {
@@ -134,20 +140,20 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			LogicOperator::Or => if left { true } else { pass_msg!(data.rhs.accept(self)?).is_truthy() }
 		}).wrap()
 	}
-
+	
 	fn grouping(&mut self, data: Box<Expression>, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		data.accept(self)
 	}
-
+	
 	fn variable(&mut self, data: Identifier, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		self.env.get(data.get_id()).wrap()
 	}
-
+	
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let func = Function::new(self.env.clone(), data.params, data.body);
 		ValCallable::new(func.wrap()).wrap()
 	}
-
+	
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let calee_pos = data.calee.pos;
 		let bound = match data.calee.typ {
@@ -164,9 +170,9 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		// We need a shared reference (Rc<RefCell<dyn Callable>>) to be able to handle closures and interior mutability
 		// We need multiple mutable borrows to handle recursive function calls
 		// This should not cause any issues since the function won't drop itself or it's environment!
-			// Actually... a function can reference the name it is bound too, and therefore can mutate it, causing it to be dropped
-			// A solution that could get rid of the 'unsafe' code (and solve this) could be:
-			// instead of mutating the function reference, we clone it, mutate it's local environemnt, and then assign it to itself after the call is done
+		// Actually... a function can reference the name it is bound too, and therefore can mutate it, causing it to be dropped
+		// A solution that could get rid of the 'unsafe' code (and solve this) could be:
+		// instead of mutating the function reference, we clone it, mutate it's local environemnt, and then assign it to itself after the call is done
 		// HOWEVER, we can only do this if the value is bound in the environment, if the calee is a lambda this would cause a segfault
 		// Additionaly, if a function isn't bound, it can't call itself recursively, so we don't need multiple mutable borrows either way
 		if bound {
@@ -183,12 +189,12 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			ret
 		}
 	}
-
+	
 	fn index(&mut self, data: IndexData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let (head_pos, index_pos) = (data.head.pos, data.index.pos);
 		let head_val = pass_msg!(data.head.accept(self)?);
 		let list = match head_val.get_type() {
-			ValueType::Vector => head_val.to_vector(head_pos)?,
+			ValueType::Vector => head_val.to_vector(head_pos)?.borrow().clone(),
 			ValueType::Str => head_val.to_str(head_pos)?.chars().map(|c| Str::new(c.to_string())).collect(),
 			typ => return ErrorList::run(format!("Cannot index {}", typ), head_pos).err()
 		};
@@ -196,7 +202,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		let index = get_index(index, list.len(), index_pos)?;
 		list[index].clone().wrap()
 	}
-
+	
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let head = pass_msg!(data.head.accept(self)?);
 		let field = head.get_field(&data.field, self, pos)?;
@@ -205,11 +211,11 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		};
 		field.clone().borrow().clone().wrap()
 	}
-
+	
 	fn self_ref(&mut self, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		self.env.get(SELF).wrap()
 	}
-
+	
 	fn do_expr(&mut self, block: Block, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		match self.execute_block(block)? {
 			Message::None => ValNone::new(),
@@ -217,16 +223,16 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			msg => Messenger::new(msg),
 		}.wrap()
 	}
-
+	
 }
 
 impl StmtVisitor<Message> for Interpreter {
-
+	
 	fn expr(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<Message> {
 		let val = unwrap_msg!(expr.accept(self)?);
 		Message::Eval(val).wrap()
 	}
-
+	
 	fn declaration(&mut self, data: DeclarationData, _pos: SourcePos) -> Result<Message> {
 		// this crashes with objects that try to 'statically' access the variable they're being declared to
 		// the resolver allows it (and it should), but here the name is only defined after the r-value is evaluated
@@ -235,7 +241,17 @@ impl StmtVisitor<Message> for Interpreter {
 		self.env.define(data.name.get_id(), val);
 		Message::None.wrap()
 	}
-
+	
+	fn attr_declaration(&mut self, data: AttrDeclarationData, _pos: SourcePos) -> Result<Message> {
+		let mut methods = HashMap::new();
+		for method in data.methods {
+			let func = Function::new(self.env.clone(), method.params, method.body);
+			methods.insert(method.name, ValCallable::new(func.wrap()));
+		}
+		self.env.define(data.name.get_id(), Attribute::new(data.name.get_name(), methods));
+		Message::None.wrap()
+	}
+	
 	fn assignment(&mut self, data: AssignData, _pos: SourcePos) -> Result<Message> {
 		let mut head = data.head;
 		let mut val = unwrap_msg!(data.expr.accept(self)?);
@@ -252,30 +268,40 @@ impl StmtVisitor<Message> for Interpreter {
 				ExprType::Index(IndexData { head: ihead, index }) => {
 					let h_pos = ihead.pos;
 					head = ihead.clone();
-					let mut list = ihead.accept(self)?.to_vector(h_pos)?;
+					let head = ihead.accept(self)?;
+					let mut list = match head.get_type() {
+						ValueType::Vector => castf!(vec head.clone()).borrow().clone(),
+						ValueType::Str => castf!(str head.clone()).chars().map(|c| Str::new(c.to_string())).collect(),
+						typ => return ErrorList::run(format!("Cannot index {}", typ), h_pos).err(),
+					};
 					let i_pos = index.pos;
 					let index = unwrap_msg!(index.accept(self)?).to_num(i_pos)?;
-					let index = get_index(index, list.len() + 1, i_pos)?;
+					let index = get_index(index, list.len(), i_pos)?;
 					if index < list.len() { list.remove(index); }
 					list.insert(index, val);
-					val = Vector::new(list);
+					val = match head.get_type() {
+						ValueType::Vector => Vector::new(list),
+						ValueType::Str => Str::new(list.iter().map(|v| castf!(str v)).collect::<Vec<_>>().join("")),
+						_ => panic!(),
+					};
 				},
 				ExprType::FieldGet(FieldData { head: fhead, field }) => {
 					let h_pos = fhead.pos;
-					head = fhead.clone();
+					// head = fhead.clone();
 					let map = fhead.accept(self)?.to_obj(h_pos)?;
 					if let Some(cur) = map.get(&field) {
 						*cur.borrow_mut() = val;
 					} else {
 						return ErrorList::run(format!("Property {} is undefined for object", field), h_pos).err();
 					}
-					val = Object::new(map);
+					// val = Object::new(map);
+					return Message::None.wrap();
 				},
 				_ => return ErrorList::run("Invalid assignment target".to_owned(), head.pos).err()
 			}
 		}
 	}
-
+	
 	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> Result<Message> {
 		if unwrap_msg!(data.cond.accept(self)?).is_truthy() {
 			self.execute_block(data.then_block)
@@ -283,7 +309,7 @@ impl StmtVisitor<Message> for Interpreter {
 			self.execute_block(data.else_block)
 		}
 	}
-
+	
 	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
 		loop {
 			match self.execute_block(block.clone())? {
@@ -293,22 +319,22 @@ impl StmtVisitor<Message> for Interpreter {
 			}
 		}
 	}
-
+	
 	fn break_stmt(&mut self, _pos: SourcePos) -> Result<Message> {
 		Message::Break.wrap()
 	}
-
+	
 	fn continue_stmt(&mut self, _pos: SourcePos) -> Result<Message> {
 		Message::Continue.wrap()
 	}
-
+	
 	fn return_stmt(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<Message> {
 		let val = unwrap_msg!(expr.accept(self)?);
 		Message::Return(val).wrap()
 	}
-
+	
 	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
 		self.execute_block(block)
 	}
-
+	
 }
