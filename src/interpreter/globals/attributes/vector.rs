@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, ValCallable}, none::ValNone, number::Number}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, ValCallable}, none::ValNone, number::Number, object::ObjectMap}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 fn size() -> Box<dyn Value> {
 	#[derive(Debug)] struct Size(NatSelf);
@@ -122,5 +122,5 @@ pub fn vector() -> Box<dyn Value> {
 		methods.insert(key.to_owned(), val);
 	}
 	
-	Attribute::new("vector".to_owned(), methods)
+	Attribute::new("vector".to_owned(), ObjectMap::new(), methods)
 }

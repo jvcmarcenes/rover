@@ -256,6 +256,9 @@ impl StmtVisitor<()> for Resolver {
 			with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_method: true);
 			self.pop_scope();
 		}
+		for expr in data.fields.into_values() {
+			errors.try_append(expr.accept(self))
+		}
 		errors.if_empty(())
 	}
 	

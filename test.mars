@@ -1,5 +1,11 @@
 
 attr Complex {
+
+	static new = function(real, imag) => {
+		real, imag
+		:: Complex
+	}
+
 	add(other) => {
 		real = self.real + other.real
 		imag = self.imag + other.imag
@@ -13,18 +19,11 @@ attr Complex {
 			return '#{self.real} + #{self.imag}i'
 		}
 	}
+
 }
 
-let c1 = {
-	real = 5
-	imag = 3
-	:: Complex
-}
+let c1 = Complex.new(2, 3)
 
-let c2 = {
-	real = 5
-	imag = 3
-	:: Complex
-}
+let c2 = Complex.new(8, 4)
 
-writeline(c1 - c2)
+writeline(c1 + c2)

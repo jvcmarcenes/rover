@@ -1,4 +1,6 @@
 
+use std::collections::HashMap;
+
 use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
 
 use super::Parser;
@@ -127,14 +129,23 @@ impl Parser {
 		self.skip_new_lines();
 		errors.try_append(self.expect(Symbol(OpenBracket)));
 		let mut methods = Vec::new();
+		let mut fields = HashMap::new();
 		loop {
 			self.skip_new_lines();
 			let next = self.next();
 			match next.typ {
-				Symbol(CloseBracket) => return StmtType::AttrDeclaration(AttrDeclarationData { name, methods }).to_stmt(pos).wrap(),
+				Symbol(CloseBracket) => return StmtType::AttrDeclaration(AttrDeclarationData { name, fields, methods }).to_stmt(pos).wrap(),
+				Keyword(Static) => {
+					match self.obj_field() {
+						Ok((name, expr)) => { fields.insert(name, expr); },
+						Err(err) => { errors.append(err); continue },
+					}
+					errors.try_append(self.expect_eol());
+				},
 				Identifier(name) => {
 					let LambdaData { params, body } = self.lambda_data()?;
 					methods.push(MethodData { name, params, body });
+					errors.try_append(self.expect_eol());
 				},
 				typ => append!(ret comp format!("Expected Identifier or CLOSE_BRACKET, found {}", typ), pos; to errors),
 			}

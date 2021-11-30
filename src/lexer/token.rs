@@ -14,15 +14,13 @@ pub enum LiteralType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Keyword {
 	True, False, _None, Error,
-	Let, Const,
+	Let, Const, Do,
 	Mod, And, Or,
 	If, Else,
 	Loop, Break, Continue,
 	For, In,
 	Function, Return,
-	_Self,
-	Do,
-	Attr,
+	_Self, Attr, Static,
 }
 
 impl Keyword {
@@ -49,6 +47,7 @@ impl Keyword {
 			"do" => Do,
 			"error" => Error,
 			"attr" => Attr,
+			"static" => Static,
 			_ => return None,
 		}.wrap()
 	}

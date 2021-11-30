@@ -232,7 +232,7 @@ impl Parser {
 		errors.if_empty(ExprType::Literal(LiteralData::List(exprs)))
 	}
 
-	fn obj_field(&mut self) -> Result<(String, Expression)> {
+	pub(super) fn obj_field(&mut self) -> Result<(String, Expression)> {
 		let next = self.next();
 		if let Identifier(name) = next.typ {
 			let expr = if self.optional(Symbol(Equals)).is_some() {

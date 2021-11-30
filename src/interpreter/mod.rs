@@ -248,7 +248,11 @@ impl StmtVisitor<Message> for Interpreter {
 			let func = Function::new(self.env.clone(), method.params, method.body);
 			methods.insert(method.name, ValCallable::new(func.wrap()));
 		}
-		self.env.define(data.name.get_id(), Attribute::new(data.name.get_name(), methods));
+		let mut fields = HashMap::new();
+		for (key, expr) in data.fields {
+			fields.insert(key, expr.accept(self)?.wrap());
+		}
+		self.env.define(data.name.get_id(), Attribute::new(data.name.get_name(), fields, methods));
 		Message::None.wrap()
 	}
 	
