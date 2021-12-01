@@ -380,7 +380,6 @@ impl Globals {
 			// other
 			("clock", clock()),
 			("range", range()),
-			("is_err", is_err()),
 			("typeof", _typeof()),
 			("random", random()),
 			("char", _char()),

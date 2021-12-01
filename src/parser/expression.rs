@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}};
 
@@ -46,9 +46,10 @@ fn err_handler(expr: Expression, handler: Block, pos: SourcePos) -> Expression {
 	ExprType::DoExpr(vec![
 		StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), expr: expr.wrap() }).to_stmt(pos),
 		StmtType::If(IfData {
-			cond: ExprType::Call(CallData { 
-				calee: ExprType::Variable(Identifier::new("is_err".to_owned())).to_expr(pos).wrap(),
-				args: vec![ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos)],
+			cond: ExprType::Binary(BinaryData { 
+				lhs: ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap(),
+				op: BinaryOperator::Typ,
+				rhs: ExprType::Variable(Identifier::new("Error".to_owned())).to_expr(pos).wrap(),
 			}).to_expr(pos).wrap(),
 			then_block: handler,
 			else_block: vec![],
