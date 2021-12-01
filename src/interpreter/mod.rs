@@ -120,6 +120,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			BinaryOperator::Gre => Bool::new(lhs.to_num(l_pos)? >= rhs.to_num(r_pos)?).wrap(),
 			BinaryOperator::Equ => Bool::new(lhs.equals(rhs, r_pos, self, pos)?).wrap(),
 			BinaryOperator::Neq => Bool::new(!lhs.equals(rhs, r_pos, self, pos)?).wrap(),
+			BinaryOperator::Typ => Bool::new(lhs.is_attr(rhs.to_attr(r_pos)?.get_id())).wrap(),
 		}
 	}
 	
@@ -252,7 +253,7 @@ impl StmtVisitor<Message> for Interpreter {
 		for (key, expr) in data.fields {
 			fields.insert(key, expr.accept(self)?.wrap());
 		}
-		self.env.define(data.name.get_id(), Attribute::new(data.name.get_name(), fields, methods));
+		self.env.define(data.name.get_id(), Attribute::new(data.name, fields, methods));
 		Message::None.wrap()
 	}
 	

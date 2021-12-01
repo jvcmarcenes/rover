@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
 use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}};
 
@@ -20,6 +20,7 @@ fn bin_operation_for_token(token: &Token) -> BinaryOperator {
 		Symbol(CloseAngEquals) => Gre,
 		Symbol(DoubleEquals) => Equ,
 		Symbol(ExclamEquals) => Neq,
+		Keyword(Is) => Typ,
 		_ => panic!("This function should only be called when we know it will match"),
 	}
 }
@@ -95,7 +96,7 @@ impl Parser {
 	}
 
 	fn comparison(&mut self) -> ExprResult {
-		self.binary(|parser| parser.term(), &[Symbol(CloseAng), Symbol(CloseAngEquals), Symbol(OpenAng), Symbol(OpenAngEquals)])
+		self.binary(|parser| parser.term(), &[Symbol(CloseAng), Symbol(CloseAngEquals), Symbol(OpenAng), Symbol(OpenAngEquals), Keyword(Is)])
 	}
 
 	fn term(&mut self) -> ExprResult {

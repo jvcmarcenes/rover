@@ -11,6 +11,7 @@ use super::{identifier::Identifier, statement::Block};
 pub enum BinaryOperator {
 	Add, Sub, Mul, Div, Rem,
 	Equ, Neq, Lst, Lse, Grt, Gre,
+	Typ,
 }
 
 #[derive(Debug, Clone)]

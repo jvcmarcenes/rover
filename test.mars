@@ -53,4 +53,4 @@ list.push(23)
 list.push(12)
 list.push(-5)
 
-writeline(list)
+writeline(list is List)

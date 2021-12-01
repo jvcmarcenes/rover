@@ -20,7 +20,7 @@ pub enum Keyword {
 	Loop, Break, Continue,
 	For, In,
 	Function, Return,
-	_Self, Attr, Static,
+	_Self, Attr, Static, Is,
 }
 
 impl Keyword {
@@ -48,6 +48,7 @@ impl Keyword {
 			"error" => Error,
 			"attr" => Attr,
 			"static" => Static,
+			"is" => Is,
 			_ => return None,
 		}.wrap()
 	}

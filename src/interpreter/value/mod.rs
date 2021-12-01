@@ -89,6 +89,10 @@ pub trait Value : Debug {
 		}.wrap()
 	}
 	
+	fn is_attr(&self, attr: usize) -> bool {
+		self.get_attributes().contains(&attr)
+	}
+
 }
 
 impl Clone for Box<dyn Value> {
