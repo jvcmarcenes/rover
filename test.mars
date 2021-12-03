@@ -1,2 +1,21 @@
 
+attr Named {
+	get_name() => self.name
+}
 
+attr Person {
+	is Named
+
+	static new = function(name) => {
+		is Person
+		name
+	}
+
+	greet() {
+		writeline('Hello #{self.get_name()}!')
+	}
+}
+
+let p = Person.new('John')
+
+p.greet()

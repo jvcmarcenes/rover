@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{interpreter::{Interpreter, value::{Value, macros::cast, primitives::{callable::{Callable, ValCallable}, error::Error, number::Number, object::Object, string::Str}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
@@ -267,5 +267,5 @@ pub fn math() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map, vec![])
+	Object::new(map, HashSet::new())
 }

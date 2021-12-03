@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, fs::OpenOptions, io::Write, path::{Path, PathBuf}};
+use std::{collections::{HashMap, HashSet}, fs::OpenOptions, io::Write, path::{Path, PathBuf}};
 
 use crate::{interpreter::{Interpreter, value::{Value, primitives::{bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, object::Object, string::Str}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
@@ -114,7 +114,7 @@ fn new_file(path: PathBuf) -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map, vec![])
+	Object::new(map, HashSet::new())
 }
 
 pub fn open() -> Box<dyn Value> {
@@ -196,5 +196,5 @@ pub fn fs() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map, vec![])
+	Object::new(map, HashSet::new())
 }

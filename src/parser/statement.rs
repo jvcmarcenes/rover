@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
 
@@ -130,11 +130,12 @@ impl Parser {
 		errors.try_append(self.expect(Symbol(OpenBracket)));
 		let mut methods = Vec::new();
 		let mut fields = HashMap::new();
+		let mut attributes = HashSet::new();
 		loop {
 			self.skip_new_lines();
 			let next = self.next();
 			match next.typ {
-				Symbol(CloseBracket) => return StmtType::AttrDeclaration(AttrDeclarationData { name, fields, methods }).to_stmt(pos).wrap(),
+				Symbol(CloseBracket) => return StmtType::AttrDeclaration(AttrDeclarationData { name, fields, methods, attributes }).to_stmt(pos).wrap(),
 				Keyword(Static) => {
 					match self.obj_field() {
 						Ok((name, expr)) => { fields.insert(name, expr); },
@@ -142,6 +143,15 @@ impl Parser {
 					}
 					errors.try_append(self.expect_eol());
 				},
+				Keyword(Is) => {
+					let next = self.next();
+					match next.typ {
+						Identifier(name) => { attributes.insert(Identifier::new(name)); },
+						typ => { errors.add_comp(format!("Expected identifier, found {}", typ), next.pos); self.synchronize() },
+					}
+					if self.next_match(Symbol(CloseBracket)) { continue; }
+					errors.try_append(self.expect_eol());
+				}
 				Identifier(name) => {
 					let LambdaData { params, body } = self.lambda_data()?;
 					methods.push(MethodData { name, params, body });

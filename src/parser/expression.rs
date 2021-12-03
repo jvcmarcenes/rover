@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}};
 
@@ -251,7 +251,7 @@ impl Parser {
 	fn obj_literal(&mut self) -> Result<ExprType> {
 		let mut errors = ErrorList::new();
 		let mut map = HashMap::new();
-		let mut attrs = Vec::new();
+		let mut attrs = HashSet::new();
 		loop {
 			self.skip_new_lines();
 			let peek = self.peek();
@@ -264,11 +264,11 @@ impl Parser {
 					self.next();
 					return errors.if_empty(ExprType::Literal(LiteralData::Object(map, attrs)));
 				},
-				Symbol(DoubleColon) => {
+				Keyword(Is) => {
 					self.next();
 					let next = self.next();
 					match next.typ {
-						Identifier(name) => { attrs.push(Identifier::new(name)); },
+						Identifier(name) => { attrs.insert(Identifier::new(name)); },
 						typ => { errors.add_comp(format!("Expected identifier, found {}", typ), next.pos); self.synchronize() }
 					}
 					if self.next_match(Symbol(CloseBracket)) { continue; }

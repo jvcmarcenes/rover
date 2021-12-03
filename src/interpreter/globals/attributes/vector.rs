@@ -1,7 +1,7 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, ValCallable}, none::ValNone, number::Number, object::ObjectMap}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
+use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, ValCallable}, none::ValNone, number::Number, object::ObjectMap, vector::Vector}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
 
 use super::VECTOR_ATTR;
 
@@ -109,6 +109,24 @@ fn contains() -> Box<dyn Value> {
 	ValCallable::new(Contains(None).wrap())
 }
 
+fn reverse() -> Box<dyn Value> {
+	#[derive(Debug)] struct Reverse(NatSelf);
+	
+	impl Callable for Reverse {
+		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
+		
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+			let vec_ref = self.0.clone().unwrap();
+			let vec = castf!(vec vec_ref.borrow());
+			let mut rev = vec.borrow().clone();
+			rev.reverse();
+			Vector::new(rev).wrap()
+		}
+	}
+	
+	ValCallable::new(Reverse(None).wrap())
+}
+
 pub fn vector() -> Box<dyn Value> {
 	let mut methods = HashMap::new();
 	
@@ -118,11 +136,12 @@ pub fn vector() -> Box<dyn Value> {
 	("push", push()),
 	("pop", pop()),
 	("contains", contains()),
+	("reverse", reverse()),
 	];
 	
 	for (key, val) in v {
 		methods.insert(key.to_owned(), val);
 	}
 	
-	Attribute::new(Identifier { name: "vector".to_owned(), id: VECTOR_ATTR.wrap() }, ObjectMap::new(), methods)
+	Attribute::new(Identifier { name: "vector".to_owned(), id: VECTOR_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())
 }

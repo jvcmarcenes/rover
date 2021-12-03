@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::utils::{result::Result, source_pos::SourcePos};
 
@@ -14,7 +14,7 @@ pub struct DeclarationData { pub constant: bool, pub name: Identifier, pub expr:
 #[derive(Debug, Clone)]
 pub struct MethodData { pub name: String, pub params: Vec<Identifier>, pub body: Block }
 #[derive(Debug, Clone)]
-pub struct AttrDeclarationData { pub name: Identifier, pub fields: HashMap<String, Expression>, pub methods: Vec<MethodData> }
+pub struct AttrDeclarationData { pub name: Identifier, pub fields: HashMap<String, Expression>, pub methods: Vec<MethodData>, pub attributes: HashSet<Identifier> }
 #[derive(Debug, Clone)]
 pub struct AssignData { pub head: Box<Expression>, pub l_pos: SourcePos, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]

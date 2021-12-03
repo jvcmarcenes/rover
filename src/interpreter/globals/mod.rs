@@ -3,7 +3,7 @@ mod math;
 mod fs;
 pub mod attributes;
 
-use std::{cell::RefCell, collections::HashMap, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
 
 use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
@@ -285,7 +285,7 @@ fn _char() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map, vec![])
+	Object::new(map, HashSet::new())
 }
 
 fn paint() -> Box<dyn Value> {
@@ -331,7 +331,7 @@ fn paint() -> Box<dyn Value> {
 		map.insert(key.to_owned(), val.wrap());
 	}
 
-	Object::new(map, vec![])
+	Object::new(map, HashSet::new())
 }
 
 fn is_err() -> Box<dyn Value> {

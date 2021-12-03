@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{interpreter::{Interpreter, value::{ValueRef, ValueType, primitives::string::Str, macros::castf}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
 
@@ -10,11 +10,11 @@ pub type ObjectMap = HashMap<String, ValueRef>;
 #[derive(Debug, Clone)]
 pub struct Object {
 	data: ObjectMap,
-	attributes: Vec<usize>,
+	attributes: HashSet<usize>,
 }
 
 impl Object {
-	pub fn new(data: ObjectMap, attributes: Vec<usize>) -> Box<dyn Value> {
+	pub fn new(data: ObjectMap, attributes: HashSet<usize>) -> Box<dyn Value> {
 		Self { data, attributes }.wrap()
 	}
 	
@@ -37,7 +37,7 @@ impl Value for Object {
 	
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
 	
-	fn get_attributes(&self) -> Vec<usize> { self.attributes.clone() }
+	fn get_attributes(&self) -> Vec<usize> { self.attributes.clone().iter().cloned().collect::<Vec<_>>() }
 	
 	fn get_field(&self, field: &str, interpreter: &mut Interpreter, pos: SourcePos) -> Result<ValueRef> {
 		if let Some(val) = self.data.get(field) {

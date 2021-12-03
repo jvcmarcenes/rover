@@ -1,5 +1,5 @@
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
 use crate::{interpreter::{Interpreter, value::{Value, ValueType}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
 
@@ -10,11 +10,12 @@ pub struct Attribute {
 	id: Identifier,
 	methods: HashMap<String, Box<dyn Value>>,
 	fields: ObjectMap,
+	attributes: HashSet<usize>,
 }
 
 impl Attribute {
-	pub fn new(id: Identifier, fields: ObjectMap, methods: HashMap<String, Box<dyn Value>>) -> Box<dyn Value> {
-		Self { id, methods, fields }.wrap()
+	pub fn new(id: Identifier, methods: HashMap<String, Box<dyn Value>>, fields: ObjectMap, attributes: HashSet<usize>) -> Box<dyn Value> {
+		Self { id, methods, fields, attributes }.wrap()
 	}
 	
 	pub fn get(&self, method: &str) -> Option<Box<dyn Value>> {
@@ -23,6 +24,10 @@ impl Attribute {
 
 	pub fn get_id(&self) -> usize {
 		self.id.get_id()
+	}
+
+	pub fn super_attrs(&self) -> Vec<usize> {
+		self.attributes.iter().cloned().collect()
 	}
 }
 

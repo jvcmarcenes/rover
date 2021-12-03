@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::utils::{result::*, source_pos::*};
 
@@ -33,7 +33,7 @@ pub enum LiteralData {
 	// The following variants aren't "really" literals, maybe we should move them to another expression type
 	Template(Vec<Expression>),
 	List(Vec<Expression>),
-	Object(HashMap<String, Expression>, Vec<Identifier>),
+	Object(HashMap<String, Expression>, HashSet<Identifier>),
 	Error(Box<Expression>),
 }
 

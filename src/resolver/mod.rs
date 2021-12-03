@@ -259,6 +259,13 @@ impl StmtVisitor<()> for Resolver {
 		for expr in data.fields.into_values() {
 			errors.try_append(expr.accept(self))
 		}
+		for attr in data.attributes {
+			if let Some(var) = self.get_var(&attr.get_name()) {
+				*attr.id.borrow_mut() = var.id;
+			} else {
+				errors.add_comp(format!("Use of undefined attribute {}", attr.get_name()), pos);
+			}
+		}
 		errors.if_empty(())
 	}
 	

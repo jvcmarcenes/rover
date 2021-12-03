@@ -3,7 +3,7 @@ pub mod value;
 pub mod environment;
 pub mod globals;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
 use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
@@ -88,16 +88,24 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 				Vector::new(values).wrap()
 			},
 			LiteralData::Object(map, attrs) => {
+				fn set_attributes(interpreter: &Interpreter, set: &mut HashSet<usize>, attrs: Vec<usize>, pos: SourcePos) -> Result<()> {
+					for attr in attrs {
+						if !set.contains(&attr) {
+							set.insert(attr);
+						}
+						let val = interpreter.env.get(attr);
+						set_attributes(interpreter, set, val.to_attr(pos)?.super_attrs(), pos)?;
+					}
+					Ok(())
+				}
+
 				let mut value_map = HashMap::new();
 				for (key, expr) in map {
 					value_map.insert(key, expr.accept(self)?.wrap());
 				}
-				let mut attributes = Vec::new();
-				for attr in attrs {
-					let val = self.env.get(attr.get_id());
-					val.to_attr(pos)?;
-					attributes.push(attr.get_id());
-				}
+
+				let mut attributes = HashSet::new();
+				set_attributes(self, &mut attributes, attrs.iter().map(|i| i.get_id()).collect::<Vec<_>>(), pos)?;
 				Object::new(value_map, attributes).wrap()
 			}
 			LiteralData::Error(expr) => Error::new(pass_msg!(expr.accept(self)?)).wrap(),
@@ -120,7 +128,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			BinaryOperator::Gre => Bool::new(lhs.to_num(l_pos)? >= rhs.to_num(r_pos)?).wrap(),
 			BinaryOperator::Equ => Bool::new(lhs.equals(rhs, r_pos, self, pos)?).wrap(),
 			BinaryOperator::Neq => Bool::new(!lhs.equals(rhs, r_pos, self, pos)?).wrap(),
-			BinaryOperator::Typ => Bool::new(lhs.is_attr(rhs.to_attr(r_pos)?.get_id())).wrap(),
+			BinaryOperator::Typ => Bool::new(lhs.has_attr(rhs.to_attr(r_pos)?.get_id())).wrap(),
 		}
 	}
 	
@@ -249,11 +257,15 @@ impl StmtVisitor<Message> for Interpreter {
 			let func = Function::new(self.env.clone(), method.params, method.body);
 			methods.insert(method.name, ValCallable::new(func.wrap()));
 		}
+
 		let mut fields = HashMap::new();
 		for (key, expr) in data.fields {
 			fields.insert(key, expr.accept(self)?.wrap());
 		}
-		self.env.define(data.name.get_id(), Attribute::new(data.name, fields, methods));
+
+		let attrs = data.attributes.iter().map(|i| i.get_id()).collect();
+
+		self.env.define(data.name.get_id(), Attribute::new(data.name, methods, fields, attrs));
 		Message::None.wrap()
 	}
 	

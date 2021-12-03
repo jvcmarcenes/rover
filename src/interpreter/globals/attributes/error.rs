@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{interpreter::{value::{Value, primitives::{attribute::Attribute, object::ObjectMap, callable::{Callable, ValCallable}}, macros::castf}, globals::attributes::NatSelf, Interpreter}, ast::identifier::Identifier, utils::{result::Result, wrap::Wrap, source_pos::SourcePos}};
 
@@ -33,5 +33,5 @@ pub fn error() -> Box<dyn Value> {
 		methods.insert(key.to_owned(), val);
 	}
 	
-	Attribute::new(Identifier { name: "error".to_owned(), id: ERROR_ATTR.wrap() }, ObjectMap::new(), methods)
+	Attribute::new(Identifier { name: "error".to_owned(), id: ERROR_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())
 }
