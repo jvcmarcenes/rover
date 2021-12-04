@@ -19,6 +19,10 @@ impl Function {
 }
 
 impl Callable for Function {
+	fn cloned(&self) -> Box<dyn Callable> {
+		Box::new(Function::new(self.env.cloned(), self.params.clone(), self.body.clone()))
+	}
+
 	fn arity(&self) -> usize {
 		self.params.len()
 	}

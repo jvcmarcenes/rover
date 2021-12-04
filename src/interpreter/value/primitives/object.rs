@@ -37,22 +37,33 @@ impl Value for Object {
 	
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
 	
-	fn get_attributes(&self) -> Vec<usize> { self.attributes.clone().iter().cloned().collect::<Vec<_>>() }
-	
 	fn get_field(&self, field: &str, interpreter: &mut Interpreter, pos: SourcePos) -> Result<ValueRef> {
 		if let Some(val) = self.data.get(field) {
 			val.clone().wrap()
 		} else {
-			let attrs = self.get_attributes();
-			let mut cur = attrs.as_slice();
-			while let [ rest @ .., top ] = cur {
-				let attr = interpreter.env.get(*top);
-				match castf!(attr attr).get(field) {
-					Some(method) => return method.wrap(),
-					None => cur = rest,
+			fn find_in_attributes(field: &str, interpreter: &mut Interpreter, attributes: HashSet<usize>) -> Option<ValueRef> {
+				let v = attributes.clone().iter().cloned().collect::<Vec<_>>();
+				let mut cur = v.as_slice();
+				while let [ rest @ .., top ] = cur {
+					let attr = interpreter.env.get(*top);
+					let attr = castf!(attr attr);
+					match attr.get(field) {
+						Some(method) => return method.wrap(),
+						None => {
+							match find_in_attributes(field, interpreter, attr.super_attrs()) {
+								Some(method) => return method.wrap(),
+								None => cur = rest,
+							}
+						}
+					}
 				}
+				None
 			}
-			ErrorList::run(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()
+			
+			match find_in_attributes(field, interpreter, self.attributes.clone()) {
+				Some(val) => val.wrap(),
+				None => ErrorList::run(format!("Property {} is undefined for {}", field, self.get_type()), pos).err()
+			}
 		}
 	}
 	
@@ -78,6 +89,22 @@ impl Value for Object {
 	
 	fn div(&self, other: Box<dyn Value>, other_pos: SourcePos, interpreter: &mut Interpreter, pos: SourcePos) -> Result<Box<dyn Value>> {
 		self.method_call("div", interpreter, pos, vec![(other, other_pos)], ErrorList::run(format!("Property div is undefined for {}", self.get_type()), pos).err())
+	}
+	
+	fn has_attr(&self, attr: usize, interpreter: &mut Interpreter) -> bool {
+		fn find(layer: HashSet<usize>, attr: usize, interpreter: &mut Interpreter) -> bool {
+			let v = layer.iter().cloned().collect::<Vec<_>>();
+			let mut cur = v.as_slice();
+			while let [ rest @ .., top ] = cur {
+				if *top == attr { return true; }
+				let val = interpreter.env.get(*top);
+				let val = castf!(attr val);
+				if find(val.super_attrs(), attr, interpreter) { return true; }
+				cur = rest;
+			}
+			false
+		}
+		find(self.attributes.clone(), attr, interpreter)
 	}
 	
 }

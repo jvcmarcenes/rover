@@ -9,7 +9,7 @@ use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{attributes::register_default_attr, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{attributes::register_default_attr, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{bool::Bool, callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -25,7 +25,7 @@ fn clock() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Clock.wrap())
+	NativeFn::create(Clock.wrap())
 }
 
 fn write() -> Box<dyn Value> {
@@ -42,7 +42,7 @@ fn write() -> Box<dyn Value> {
 		}
 	}
 
-	ValCallable::new(Write.wrap())
+	NativeFn::create(Write.wrap())
 }
 
 fn writeline() -> Box<dyn Value> {
@@ -58,7 +58,7 @@ fn writeline() -> Box<dyn Value> {
 		}
 	}
 
-	ValCallable::new(Writeline.wrap())
+	NativeFn::create(Writeline.wrap())
 }
 
 fn debug() -> Box<dyn Value> {
@@ -74,7 +74,7 @@ fn debug() -> Box<dyn Value> {
 		}
 	}
 
-	ValCallable::new(Debug.wrap())
+	NativeFn::create(Debug.wrap())
 }
 
 fn read() -> Box<dyn Value> {
@@ -91,7 +91,7 @@ fn read() -> Box<dyn Value> {
 		}
 	}
 
-	ValCallable::new(Read.wrap())
+	NativeFn::create(Read.wrap())
 }
 
 fn random() -> Box<dyn Value> {
@@ -125,11 +125,11 @@ fn random() -> Box<dyn Value> {
 				}
 			}
 
-			ValCallable::new(Rng(rng).wrap()).wrap()
+			NativeFn::create(Rng(rng).wrap()).wrap()
 		}
 	}
 
-	ValCallable::new(Random.wrap())
+	NativeFn::create(Random.wrap())
 }
 
 fn is_num() -> Box<dyn Value> {
@@ -147,7 +147,7 @@ fn is_num() -> Box<dyn Value> {
 		}
 	}
 
-	ValCallable::new(IsNum.wrap())
+	NativeFn::create(IsNum.wrap())
 }
 
 fn to_num() -> Box<dyn Value> {
@@ -170,7 +170,7 @@ fn to_num() -> Box<dyn Value> {
 		}
 	}
 
-	ValCallable::new(ToNum.wrap())
+	NativeFn::create(ToNum.wrap())
 }
 
 fn exit() -> Box<dyn Value> {
@@ -184,7 +184,7 @@ fn exit() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Exit.wrap())
+	NativeFn::create(Exit.wrap())
 }
 
 fn abort() -> Box<dyn Value> {
@@ -204,7 +204,7 @@ fn abort() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Rc::new(RefCell::new(Exit)))
+	NativeFn::create(Rc::new(RefCell::new(Exit)))
 }
 
 fn sleep() -> Box<dyn Value> {
@@ -221,7 +221,7 @@ fn sleep() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Sleep.wrap())
+	NativeFn::create(Sleep.wrap())
 }
 
 fn range() -> Box<dyn Value> {
@@ -239,7 +239,7 @@ fn range() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Range.wrap())
+	NativeFn::create(Range.wrap())
 }
 
 fn _typeof() -> Box<dyn Value> {
@@ -253,13 +253,13 @@ fn _typeof() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(TypeOf.wrap())
+	NativeFn::create(TypeOf.wrap())
 }
 
 fn _char() -> Box<dyn Value> {
 	let mut map = HashMap::new();
 
-	#[derive(Debug)] struct CharFromCode;
+	#[derive(Clone, Debug)] struct CharFromCode;
 
 	impl Callable for CharFromCode {
 		fn arity(&self) -> usize { 1 }
@@ -278,7 +278,7 @@ fn _char() -> Box<dyn Value> {
 		("carriage_return", Str::from("\r")),
 		("tab", Str::from("\t")),
 		("null", Str::from("\0")),
-		("from_code", ValCallable::new(CharFromCode.wrap())),
+		("from_code", NativeFn::create(CharFromCode.wrap())),
 	];
 
 	for (key, val) in v {
@@ -289,7 +289,7 @@ fn _char() -> Box<dyn Value> {
 }
 
 fn paint() -> Box<dyn Value> {
-	#[derive(Debug)] struct Paint(Color);
+	#[derive(Clone, Debug)] struct Paint(Color);
 
 	impl Callable for Paint {
 		fn arity(&self) -> usize { 1 }
@@ -300,7 +300,7 @@ fn paint() -> Box<dyn Value> {
     }
 	}
 
-	#[derive(Debug)] struct RGBPaint;
+	#[derive(Clone, Debug)] struct RGBPaint;
 
 	impl Callable for RGBPaint {
 		fn arity(&self) -> usize { 3 }
@@ -309,22 +309,22 @@ fn paint() -> Box<dyn Value> {
 			let n0 = cast!(num args[0].0.clone());
 			let n1 = cast!(num args[1].0.clone());
 			let n2 = cast!(num args[2].0.clone());
-			ValCallable::new(Paint(Color::RGB(n0 as u8, n1 as u8, n2 as u8)).wrap()).wrap()
+			NativeFn::create(Paint(Color::RGB(n0 as u8, n1 as u8, n2 as u8)).wrap()).wrap()
     }
 	}
 
 	let mut map = HashMap::new();
 
 	let v = vec![
-		("red", ValCallable::new(Paint(Color::Red).wrap())),
-		("blue", ValCallable::new(Paint(Color::Blue).wrap())),
-		("green", ValCallable::new(Paint(Color::Green).wrap())),
-		("yellow", ValCallable::new(Paint(Color::Yellow).wrap())),
-		("cyan", ValCallable::new(Paint(Color::Cyan).wrap())),
-		("purple", ValCallable::new(Paint(Color::Purple).wrap())),
-		("white", ValCallable::new(Paint(Color::White).wrap())),
-		("black", ValCallable::new(Paint(Color::Black).wrap())),
-		("rgb", ValCallable::new(RGBPaint.wrap())),
+		("red", NativeFn::create(Paint(Color::Red).wrap())),
+		("blue", NativeFn::create(Paint(Color::Blue).wrap())),
+		("green", NativeFn::create(Paint(Color::Green).wrap())),
+		("yellow", NativeFn::create(Paint(Color::Yellow).wrap())),
+		("cyan", NativeFn::create(Paint(Color::Cyan).wrap())),
+		("purple", NativeFn::create(Paint(Color::Purple).wrap())),
+		("white", NativeFn::create(Paint(Color::White).wrap())),
+		("black", NativeFn::create(Paint(Color::Black).wrap())),
+		("rgb", NativeFn::create(RGBPaint.wrap())),
 	];
 
 	for (key, val) in v {
@@ -335,7 +335,7 @@ fn paint() -> Box<dyn Value> {
 }
 
 fn is_err() -> Box<dyn Value> {
-	#[derive(Debug)] struct IsErr;
+	#[derive(Clone, Debug)] struct IsErr;
 
 	impl Callable for IsErr {
 		fn arity(&self) -> usize { 1 }
@@ -346,7 +346,7 @@ fn is_err() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(IsErr.wrap())
+	NativeFn::create(IsErr.wrap())
 }
 
 #[derive(Clone, Debug)]

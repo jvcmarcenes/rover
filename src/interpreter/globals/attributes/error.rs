@@ -1,12 +1,12 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{value::{Value, primitives::{attribute::Attribute, object::ObjectMap, callable::{Callable, ValCallable}}, macros::castf}, globals::attributes::NatSelf, Interpreter}, ast::identifier::Identifier, utils::{result::Result, wrap::Wrap, source_pos::SourcePos}};
+use crate::{interpreter::{value::{Value, primitives::{attribute::Attribute, object::ObjectMap, callable::{Callable, nativefn::NativeFn}}, macros::castf}, globals::attributes::NatSelf, Interpreter}, ast::identifier::Identifier, utils::{result::Result, wrap::Wrap, source_pos::SourcePos}};
 
 use super::ERROR_ATTR;
 
 fn get() -> Box<dyn Value> {
-	#[derive(Debug)] struct Get(NatSelf);
+	#[derive(Clone, Debug)] struct Get(NatSelf);
 	
 	impl Callable for Get {
 		fn arity(&self) -> usize { 0 }
@@ -19,7 +19,7 @@ fn get() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Get(None).wrap())
+	NativeFn::create(Get(None).wrap())
 }
 
 pub fn error() -> Box<dyn Value> {
@@ -30,7 +30,7 @@ pub fn error() -> Box<dyn Value> {
 	];
 	
 	for (key, val) in v {
-		methods.insert(key.to_owned(), val);
+		methods.insert(key.to_owned(), val.wrap());
 	}
 	
 	Attribute::new(Identifier { name: "error".to_owned(), id: ERROR_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())

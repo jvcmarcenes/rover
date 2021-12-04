@@ -57,9 +57,9 @@ fn err_handler(expr: Expression, handler: Block, pos: SourcePos) -> Expression {
 		StmtType::Expr(ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap()).to_stmt(pos),
 	]).to_expr(pos)
 }
-
+	
 impl Parser {
-
+	
 	pub fn expression_or_none(&mut self) -> ExprResult {
 		let peek = self.peek();
 		match peek.typ {
@@ -67,11 +67,43 @@ impl Parser {
 			_ => self.expression()
 		}
 	}
-
+	
 	pub fn expression(&mut self) -> ExprResult {
-		self.logic()
+		self.bind_expr()
 	}
+	
+	fn bind_expr(&mut self) -> ExprResult {
+		fn access(parser: &mut Parser) -> ExprResult {
+			let Token { typ, pos } = parser.next();
+			if let Identifier(name) = typ {
+				let mut head = ExprType::Variable(Identifier::new(name)).to_expr(pos);
+				loop {
+					let peek = parser.peek();
+					head = match peek.typ {
+						Symbol(OpenSqr) => parser.index(head)?,
+						Symbol(Dot) => parser.field(head)?,
+						_ => return head.wrap(),
+					}
+				}
+			} else {
+				ErrorList::comp(format!("Expected identifier, found {}", typ), pos).err()
+			}
+		}
+		
+		let mut expr = self.logic()?;
+		
+		if let Some(Token { pos, .. }) = self.optional(Symbol(DoubleColon)) {
+			let method = access(self)?;
+			expr = ExprType::Binding(BindData { expr: Box::new(expr), method: Box::new(method) }).to_expr(pos);
+		}
 
+		if self.next_match(Symbol(OpenPar)) {
+			expr = self.function_call(expr)?;
+		}
+		
+		expr.wrap()
+	}
+	
 	fn logic(&mut self) -> ExprResult {
 		let mut left = self.equality()?;
 		while let Some(token) = self.optional_any(&[Keyword(And), Keyword(Or)]) {
@@ -79,9 +111,9 @@ impl Parser {
 			let right = self.equality()?;
 			left = Logic(LogicData { lhs: Box::new(left), op, rhs: Box::new(right) }).to_expr(token.pos);
 		}
-		return left.wrap();
+		left.wrap()
 	}
-
+	
 	fn binary<F : FnMut(&mut Self) -> ExprResult>(&mut self, mut operand: F, operators: &[TokenType]) -> ExprResult {
 		let mut left = operand(self)?;
 		while let Some(token) = self.optional_any(operators) {
@@ -89,35 +121,35 @@ impl Parser {
 			let right = operand(self)?;
 			left = Binary(BinaryData { lhs: Box::new(left), op, rhs: Box::new(right) }).to_expr(token.pos);
 		}
-		return left.wrap();
+		left.wrap()
 	}
-
+	
 	fn equality(&mut self) -> ExprResult {
 		self.binary(|parser| parser.comparison(), &[Symbol(DoubleEquals), Symbol(ExclamEquals)])
 	}
-
+	
 	fn comparison(&mut self) -> ExprResult {
 		self.binary(|parser| parser.term(), &[Symbol(CloseAng), Symbol(CloseAngEquals), Symbol(OpenAng), Symbol(OpenAngEquals), Keyword(Is)])
 	}
-
+	
 	fn term(&mut self) -> ExprResult {
 		self.binary(|parser| parser.factor(), &[Symbol(Plus), Symbol(Minus), Keyword(Mod)])
 	}
-
+	
 	fn factor(&mut self) -> ExprResult {
 		self.binary(|parser| parser.unary(), &[Symbol(Star), Symbol(Slash)])
 	}
-
+	
 	fn unary(&mut self) -> ExprResult {
 		if let Some(token) = self.optional_any(&[Symbol(Exclam), Symbol(Minus), Symbol(Plus)]) {
 			let op = un_operator_for_token(&token);
 			let expr = self.unary()?;
-			return Unary(UnaryData { op, expr: Box::new(expr) }).to_expr(token.pos).wrap();
+			Unary(UnaryData { op, expr: Box::new(expr) }).to_expr(token.pos).wrap()
 		} else {
-			return self.pipe_infix();
+			self.pipe_infix()
 		}
 	}
-
+	
 	fn pipe_infix(&mut self) -> ExprResult {
 		let mut expr = self.postfix()?;
 		while let Symbol(BarCloseAng) = self.peek().typ {
@@ -127,7 +159,7 @@ impl Parser {
 		}
 		expr.wrap()
 	}
-
+	
 	fn postfix(&mut self) -> ExprResult {
 		let mut expr = self.primary()?;
 		loop {
@@ -150,7 +182,7 @@ impl Parser {
 			};
 		}
 	}
-
+	
 	fn expr_list(&mut self, stop: TokenType) -> Result<Vec<Expression>> {
 		let mut exprs = Vec::new();
 		let mut errors = ErrorList::new();
@@ -175,21 +207,21 @@ impl Parser {
 		}
 		errors.if_empty(exprs)
 	}
-
+	
 	fn function_call(&mut self, calee: Expression) -> ExprResult {
 		let Token { pos, .. } = self.next();
 		let args = self.expr_list(Symbol(ClosePar))?;
 		self.expect(Symbol(ClosePar))?;
 		Call(CallData { calee: Box::new(calee), args }).to_expr(pos).wrap()
 	}
-
+	
 	fn index(&mut self, head: Expression) -> ExprResult {
 		let Token { pos, .. } = self.next();
 		let index = self.expression()?;
 		self.expect(Symbol(CloseSqr))?;
 		Index(IndexData { head: Box::new(head), index: Box::new(index) }).to_expr(pos).wrap()
 	}
-
+	
 	fn field(&mut self, head: Expression) -> ExprResult {
 		let Token { pos, .. } = self.next();
 		let next = self.next();
@@ -199,7 +231,7 @@ impl Parser {
 		};
 		ExprType::FieldGet(FieldData { head: Box::new(head), field }).to_expr(pos).wrap()
 	}
-
+	
 	fn primary(&mut self) -> ExprResult {
 		let token = self.next();
 		match token.typ {
@@ -226,14 +258,14 @@ impl Parser {
 			_ => return ErrorList::comp(format!("Expected expression, found {}", token), token.pos).err()
 		}.to_expr(token.pos).wrap()
 	}
-
+	
 	fn list_literal(&mut self) -> Result<ExprType> {
 		let mut errors = ErrorList::new();
 		let exprs = append!(self.expr_list(Symbol(CloseSqr)); to errors; dummy vec![]);
 		errors.try_append(self.expect(Symbol(CloseSqr)));
 		errors.if_empty(ExprType::Literal(LiteralData::List(exprs)))
 	}
-
+	
 	pub(super) fn obj_field(&mut self) -> Result<(String, Expression)> {
 		let next = self.next();
 		if let Identifier(name) = next.typ {
@@ -247,7 +279,7 @@ impl Parser {
 			ErrorList::comp(format!("Expected identifier, found {}", next), next.pos).err()
 		}
 	}
-
+	
 	fn obj_literal(&mut self) -> Result<ExprType> {
 		let mut errors = ErrorList::new();
 		let mut map = HashMap::new();
@@ -285,13 +317,13 @@ impl Parser {
 			}
 		}
 	}
-
+	
 	fn str_template(&mut self, tokens: Vec<Token>) -> Result<ExprType> {
 		let mut exprs = Vec::new();
 		let mut errors = ErrorList::new();
-
+		
 		let mut template_parser = Parser::new(tokens);
-
+		
 		loop {
 			match template_parser.peek().typ {
 				EOF => break,
@@ -311,10 +343,10 @@ impl Parser {
 				_ => exprs.push(template_parser.expression().expect("this should never be an error")),
 			}
 		}
-
+		
 		errors.if_empty(ExprType::Literal(LiteralData::Template(exprs)))
 	}
-
+	
 	pub(super) fn lambda_data(&mut self) -> Result<LambdaData> {
 		self.expect_or_sync(Symbol(OpenPar))?;
 		let mut params = Vec::new();
@@ -349,19 +381,20 @@ impl Parser {
 				}
 			}
 		}
-
+		
 		let body = if let Some(Token { pos, .. }) = self.optional(Symbol(EqualsCloseAng)) {
 			let expr = append!(self.expression(); to errors);
 			Block::from([StmtType::Return(Box::new(expr)).to_stmt(pos)])
 		} else {
 			append!(self.block(); to errors)
 		};
-
+		
 		errors.if_empty(LambdaData { params, body })
 	}
-
+	
 	fn lambda(&mut self) -> Result<ExprType> {
 		self.lambda_data().map(|data| ExprType::Lambda(data))
 	}
-
+	
 }
+	

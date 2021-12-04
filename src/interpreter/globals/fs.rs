@@ -1,10 +1,10 @@
 
 use std::{collections::{HashMap, HashSet}, fs::OpenOptions, io::Write, path::{Path, PathBuf}};
 
-use crate::{interpreter::{Interpreter, value::{Value, primitives::{bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, object::Object, string::Str}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::{Value, primitives::{bool::Bool, callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, object::Object, string::Str}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 fn wipe(path: &PathBuf) -> Box<dyn Value> {
-	#[derive(Debug)] struct WipeFile(PathBuf);
+	#[derive(Clone, Debug)] struct WipeFile(PathBuf);
 
 	impl Callable for WipeFile {
     fn arity(&self) -> usize { 0 }
@@ -24,11 +24,11 @@ fn wipe(path: &PathBuf) -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(WipeFile(path.clone()).wrap())
+	NativeFn::create(WipeFile(path.clone()).wrap())
 }
 
 fn writeline(path: &PathBuf) -> Box<dyn Value> {
-	#[derive(Debug)] struct WriteLineFile(PathBuf);
+	#[derive(Clone, Debug)] struct WriteLineFile(PathBuf);
 
 	impl Callable for WriteLineFile {
     fn arity(&self) -> usize { 1 }
@@ -50,11 +50,11 @@ fn writeline(path: &PathBuf) -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(WriteLineFile(path.clone()).wrap())
+	NativeFn::create(WriteLineFile(path.clone()).wrap())
 }
 
 fn write(path: &PathBuf) -> Box<dyn Value> {
-	#[derive(Debug)] struct WriteFile(PathBuf);
+	#[derive(Clone, Debug)] struct WriteFile(PathBuf);
 
 	impl Callable for WriteFile {
     fn arity(&self) -> usize { 1 }
@@ -76,11 +76,11 @@ fn write(path: &PathBuf) -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(WriteFile(path.clone()).wrap())
+	NativeFn::create(WriteFile(path.clone()).wrap())
 }
 
 fn read(path: &PathBuf) -> Box<dyn Value> {
-	#[derive(Debug)] struct ReadFile(PathBuf);	
+	#[derive(Clone, Debug)] struct ReadFile(PathBuf);	
 
 	impl Callable for ReadFile {
     fn arity(&self) -> usize { 0 }
@@ -93,7 +93,7 @@ fn read(path: &PathBuf) -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(ReadFile(path.clone()).wrap())
+	NativeFn::create(ReadFile(path.clone()).wrap())
 }
 
 fn new_file(path: PathBuf) -> Box<dyn Value> {
@@ -118,7 +118,7 @@ fn new_file(path: PathBuf) -> Box<dyn Value> {
 }
 
 pub fn open() -> Box<dyn Value> {
-	#[derive(Debug)] struct Open;
+	#[derive(Clone, Debug)] struct Open;
 
 	impl Callable for Open {
     fn arity(&self) -> usize { 1 }
@@ -138,11 +138,11 @@ pub fn open() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Open.wrap())
+	NativeFn::create(Open.wrap())
 }
 
 pub fn create() -> Box<dyn Value> {
-	#[derive(Debug)] struct Create;
+	#[derive(Clone, Debug)] struct Create;
 
 	impl Callable for Create {
     fn arity(&self) -> usize { 1 }
@@ -162,11 +162,11 @@ pub fn create() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Create.wrap())
+	NativeFn::create(Create.wrap())
 }
 
 pub fn exists() -> Box<dyn Value> {
-	#[derive(Debug)] struct Exists;
+	#[derive(Clone, Debug)] struct Exists;
 
 	impl Callable for Exists {
     fn arity(&self) -> usize { 1 }
@@ -180,7 +180,7 @@ pub fn exists() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Exists.wrap())
+	NativeFn::create(Exists.wrap())
 }
 
 pub fn fs() -> Box<dyn Value> {

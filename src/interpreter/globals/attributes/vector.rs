@@ -1,12 +1,12 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, ValCallable}, none::ValNone, number::Number, object::ObjectMap, vector::Vector}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
+use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, none::ValNone, number::Number, object::ObjectMap, vector::Vector}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
 
 use super::VECTOR_ATTR;
 
 fn size() -> Box<dyn Value> {
-	#[derive(Debug)] struct Size(NatSelf);
+	#[derive(Clone, Debug)] struct Size(NatSelf);
 	
 	impl Callable for Size {
 		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
@@ -17,11 +17,11 @@ fn size() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Size(None).wrap())
+	NativeFn::create(Size(None).wrap())
 }
 
 fn get() -> Box<dyn Value> {
-	#[derive(Debug)] struct Get(NatSelf);
+	#[derive(Clone, Debug)] struct Get(NatSelf);
 	
 	impl Callable for Get {
 		fn arity(&self) -> usize { 1 }
@@ -45,11 +45,11 @@ fn get() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Get(None).wrap())
+	NativeFn::create(Get(None).wrap())
 }
 
 fn push() -> Box<dyn Value> {
-	#[derive(Debug)] struct Push(NatSelf);
+	#[derive(Clone, Debug)] struct Push(NatSelf);
 	
 	impl Callable for Push {
 		fn arity(&self) -> usize { 1 }
@@ -65,11 +65,11 @@ fn push() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Push(None).wrap())
+	NativeFn::create(Push(None).wrap())
 }
 
 fn pop() -> Box<dyn Value> {
-	#[derive(Debug)] struct Pop(NatSelf);
+	#[derive(Clone, Debug)] struct Pop(NatSelf);
 	
 	impl Callable for Pop {
 		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
@@ -82,11 +82,11 @@ fn pop() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Pop(None).wrap())
+	NativeFn::create(Pop(None).wrap())
 }
 
 fn contains() -> Box<dyn Value> {
-	#[derive(Debug)] struct Contains(NatSelf);
+	#[derive(Clone, Debug)] struct Contains(NatSelf);
 	
 	impl Callable for Contains {
 		fn arity(&self) -> usize { 1 }
@@ -106,11 +106,11 @@ fn contains() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Contains(None).wrap())
+	NativeFn::create(Contains(None).wrap())
 }
 
 fn reverse() -> Box<dyn Value> {
-	#[derive(Debug)] struct Reverse(NatSelf);
+	#[derive(Clone, Debug)] struct Reverse(NatSelf);
 	
 	impl Callable for Reverse {
 		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
@@ -124,7 +124,7 @@ fn reverse() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Reverse(None).wrap())
+	NativeFn::create(Reverse(None).wrap())
 }
 
 pub fn vector() -> Box<dyn Value> {
@@ -140,7 +140,7 @@ pub fn vector() -> Box<dyn Value> {
 	];
 	
 	for (key, val) in v {
-		methods.insert(key.to_owned(), val);
+		methods.insert(key.to_owned(), val.wrap());
 	}
 	
 	Attribute::new(Identifier { name: "vector".to_owned(), id: VECTOR_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())

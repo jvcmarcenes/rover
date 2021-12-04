@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -42,8 +42,8 @@ fn allowed(cond: bool, msg: &str, pos: SourcePos) -> Result<()> {
 pub struct Context {
 	in_function: bool,
 	in_loop: bool,
-	in_obj: bool,
-	in_method: bool,
+	// in_obj: bool,
+	// in_method: bool,
 	overwriting: bool,
 }
 
@@ -123,7 +123,8 @@ impl ExprVisitor<()> for Resolver {
 			LiteralData::Template(exprs) => exprs,
 			LiteralData::Object(map, attrs) => {
 				let exprs = map.clone().into_values();
-				with_ctx!(self, for expr in exprs { errors.try_append(expr.accept(self)); }, in_obj: true);
+				// with_ctx!(self, for expr in exprs { errors.try_append(expr.accept(self)); }, in_obj: true);
+				for expr in exprs { errors.try_append(expr.accept(self)); };
 				for attr in attrs {
 					if let Some(var) = self.get_var(&attr.get_name()) {
 						*attr.id.borrow_mut() = var.id;
@@ -215,13 +216,20 @@ impl ExprVisitor<()> for Resolver {
 	}
 	
 	fn self_ref(&mut self, pos: SourcePos) -> Result<()> {
-		allowed(self.ctx.in_method || (self.ctx.in_obj && self.ctx.in_function), "Invalid self expression", pos)
+		allowed(self.ctx.in_function, "Invalid self expression", pos)
 	}
 	
 	fn do_expr(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
 		self.resolve(&block)
 	}
 	
+	fn bind_expr(&mut self, data: BindData, _pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::new();
+		errors.try_append(data.expr.accept(self));
+		errors.try_append(data.method.accept(self));
+		errors.if_empty(())
+	}
+
 }
 
 impl StmtVisitor<()> for Resolver {
@@ -253,7 +261,8 @@ impl StmtVisitor<()> for Resolver {
 			for param in method.params {
 				errors.try_append(self.add(param, false, pos));
 			}
-			with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_method: true);
+			// with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_method: true);
+			with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_function: true);
 			self.pop_scope();
 		}
 		for expr in data.fields.into_values() {
@@ -298,7 +307,7 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
-		errors.try_append(allowed(self.ctx.in_function || self.ctx.in_method, "Invalid return statement", pos));
+		errors.try_append(allowed(self.ctx.in_function, "Invalid return statement", pos));
 		errors.try_append(expr.accept(self));
 		errors.if_empty(())
 	}

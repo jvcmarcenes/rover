@@ -28,6 +28,15 @@ impl Environment {
 		self.0.last_mut().unwrap().borrow_mut().insert(key, value);
 	}
 	
+	pub fn has(&self, key: usize) -> bool {
+		let mut cur = self.0.as_slice();
+		while let [rest @ .., top] = cur {
+			if top.borrow().contains_key(&key) { return true; }
+			cur = rest;
+		}
+		false
+	}
+
 	pub fn get(&self, key: usize) -> Box<dyn Value> {
 		let mut cur = self.0.as_slice();
 		while let [rest @ .., top] = cur {
@@ -49,6 +58,14 @@ impl Environment {
 			cur = rest;
 		}
 		panic!("use of unresolved variable");
+	}
+
+	pub fn cloned(&self) -> Environment {
+		let mut env = Vec::new();
+		for r in &self.0 {
+			env.push(r.borrow().clone().wrap())
+		}
+		Environment(env)
 	}
 
 }

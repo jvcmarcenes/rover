@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, ValCallable}, error::Error, none::ValNone, number::Number, string::Str, object::ObjectMap}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
+use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, string::Str, object::ObjectMap}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
 
 use super::STRING_ATTR;
 
@@ -17,7 +17,7 @@ fn is_num() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(IsNum(None).wrap())
+	NativeFn::create(IsNum(None).wrap())
 }
 
 fn to_num() -> Box<dyn Value> {
@@ -35,11 +35,11 @@ fn to_num() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(ToNum(None).wrap())
+	NativeFn::create(ToNum(None).wrap())
 }
 
 fn size() -> Box<dyn Value> {
-	#[derive(Debug)] struct Size(NatSelf);
+	#[derive(Clone, Debug)] struct Size(NatSelf);
 	
 	impl Callable for Size {
 		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
@@ -50,11 +50,11 @@ fn size() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Size(None).wrap())
+	NativeFn::create(Size(None).wrap())
 }
 
 fn get() -> Box<dyn Value> {
-	#[derive(Debug)] struct Get(NatSelf);
+	#[derive(Clone, Debug)] struct Get(NatSelf);
 	
 	impl Callable for Get {
 		fn arity(&self) -> usize { 1 }
@@ -77,7 +77,7 @@ fn get() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Get(None).wrap())
+	NativeFn::create(Get(None).wrap())
 }
 
 pub fn string() -> Box<dyn Value> {
@@ -91,7 +91,7 @@ pub fn string() -> Box<dyn Value> {
 	];
 	
 	for (key, val) in v {
-		methods.insert(key.to_owned(), val);
+		methods.insert(key.to_owned(), val.wrap());
 	}
 	
 	Attribute::new(Identifier { name: "string".to_owned(), id: STRING_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())

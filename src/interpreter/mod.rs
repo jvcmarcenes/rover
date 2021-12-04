@@ -69,7 +69,7 @@ impl Interpreter {
 
 impl ExprVisitor<Box<dyn Value>> for Interpreter {
 	
-	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<Box<dyn Value>> {
+	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		match data {
 			LiteralData::None => ValNone.wrap(),
 			LiteralData::Str(s) => Str::new(s).wrap(),
@@ -88,24 +88,12 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 				Vector::new(values).wrap()
 			},
 			LiteralData::Object(map, attrs) => {
-				fn set_attributes(interpreter: &Interpreter, set: &mut HashSet<usize>, attrs: Vec<usize>, pos: SourcePos) -> Result<()> {
-					for attr in attrs {
-						if !set.contains(&attr) {
-							set.insert(attr);
-						}
-						let val = interpreter.env.get(attr);
-						set_attributes(interpreter, set, val.to_attr(pos)?.super_attrs(), pos)?;
-					}
-					Ok(())
-				}
-
 				let mut value_map = HashMap::new();
 				for (key, expr) in map {
 					value_map.insert(key, expr.accept(self)?.wrap());
 				}
-
-				let mut attributes = HashSet::new();
-				set_attributes(self, &mut attributes, attrs.iter().map(|i| i.get_id()).collect::<Vec<_>>(), pos)?;
+				
+				let attributes = attrs.iter().map(|i| i.get_id()).collect::<HashSet<_>>();
 				Object::new(value_map, attributes).wrap()
 			}
 			LiteralData::Error(expr) => Error::new(pass_msg!(expr.accept(self)?)).wrap(),
@@ -128,7 +116,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			BinaryOperator::Gre => Bool::new(lhs.to_num(l_pos)? >= rhs.to_num(r_pos)?).wrap(),
 			BinaryOperator::Equ => Bool::new(lhs.equals(rhs, r_pos, self, pos)?).wrap(),
 			BinaryOperator::Neq => Bool::new(!lhs.equals(rhs, r_pos, self, pos)?).wrap(),
-			BinaryOperator::Typ => Bool::new(lhs.has_attr(rhs.to_attr(r_pos)?.get_id())).wrap(),
+			BinaryOperator::Typ => Bool::new(lhs.has_attr(rhs.to_attr(r_pos)?.get_id(), self)).wrap(),
 		}
 	}
 	
@@ -160,7 +148,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 	
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let func = Function::new(self.env.clone(), data.params, data.body);
-		ValCallable::new(func.wrap()).wrap()
+		ValCallable::new(Box::new(func).wrap()).wrap()
 	}
 	
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Box<dyn Value>> {
@@ -216,13 +204,20 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		let head = pass_msg!(data.head.accept(self)?);
 		let field = head.get_field(&data.field, self, pos)?;
 		if field.borrow().get_type() == ValueType::Callable && head.get_type() != ValueType::Attribute {
-			field.borrow().to_callable(pos)?.borrow_mut().bind(head);
+			let method = field.borrow().to_callable(pos)?;
+			let mut bound_method = method.borrow().cloned();
+			bound_method.bind(head);
+			return ValCallable::new(bound_method.wrap()).wrap()
 		};
 		field.clone().borrow().clone().wrap()
 	}
 	
-	fn self_ref(&mut self, _pos: SourcePos) -> Result<Box<dyn Value>> {
-		self.env.get(SELF).wrap()
+	fn self_ref(&mut self, pos: SourcePos) -> Result<Box<dyn Value>> {
+		if self.env.has(SELF) {
+			self.env.get(SELF).wrap()
+		} else {
+			ErrorList::run("Unbound self".to_owned(), pos).err()
+		}
 	}
 	
 	fn do_expr(&mut self, block: Block, _pos: SourcePos) -> Result<Box<dyn Value>> {
@@ -231,6 +226,15 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			Message::Eval(val) => pass_msg!(val),
 			msg => Messenger::new(msg),
 		}.wrap()
+	}
+	
+	fn bind_expr(&mut self, data: BindData, _pos: SourcePos) -> Result<Box<dyn Value>> {
+		let head = data.expr.accept(self)?;
+		let method_pos = data.method.pos;
+		let method = data.method.accept(self)?.to_callable(method_pos)?;
+		let mut bound_method = method.borrow().cloned();
+		bound_method.bind(head);
+		ValCallable::new(bound_method.wrap()).wrap()
 	}
 	
 }
@@ -255,16 +259,16 @@ impl StmtVisitor<Message> for Interpreter {
 		let mut methods = HashMap::new();
 		for method in data.methods {
 			let func = Function::new(self.env.clone(), method.params, method.body);
-			methods.insert(method.name, ValCallable::new(func.wrap()));
+			methods.insert(method.name, ValCallable::new(Box::new(func).wrap()).wrap());
 		}
-
+		
 		let mut fields = HashMap::new();
 		for (key, expr) in data.fields {
 			fields.insert(key, expr.accept(self)?.wrap());
 		}
-
+		
 		let attrs = data.attributes.iter().map(|i| i.get_id()).collect();
-
+		
 		self.env.define(data.name.get_id(), Attribute::new(data.name, methods, fields, attrs));
 		Message::None.wrap()
 	}

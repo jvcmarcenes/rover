@@ -1,21 +1,23 @@
 
-attr Named {
-	get_name() => self.name
-}
-
-attr Person {
-	is Named
-
-	static new = function(name) => {
-		is Person
-		name
-	}
-
-	greet() {
-		writeline('Hello #{self.get_name()}!')
+attr Sumable {
+	eval(n) {
+		self + n
 	}
 }
 
-let p = Person.new('John')
+attr Doubable {
+	is Sumable
 
-p.greet()
+	eval() {
+		self::Sumable.eval(self.val)
+	}
+}
+
+let foo = {
+	is Doubable
+	val = 9
+}
+
+foo.eval()
+
+writeline(foo.val)

@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{Interpreter, value::{Value, macros::cast, primitives::{callable::{Callable, ValCallable}, error::Error, number::Number, object::Object, string::Str}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, value::{Value, macros::cast, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, number::Number, object::Object, string::Str}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 fn sin() -> Box<dyn Value> {
 	#[derive(Clone, Debug)] struct Sin;
@@ -15,7 +15,7 @@ fn sin() -> Box<dyn Value> {
     }
 	}
 
-	ValCallable::new(Sin.wrap())
+	NativeFn::create(Sin.wrap())
 }
 
 fn cos() -> Box<dyn Value> {
@@ -30,7 +30,7 @@ fn cos() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Cos.wrap())
+	NativeFn::create(Cos.wrap())
 }
 
 fn tan() -> Box<dyn Value> {
@@ -45,7 +45,7 @@ fn tan() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Tan.wrap())
+	NativeFn::create(Tan.wrap())
 }
 
 fn pow() -> Box<dyn Value> {
@@ -61,7 +61,7 @@ fn pow() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Pow.wrap())
+	NativeFn::create(Pow.wrap())
 }
 
 fn sqrt() -> Box<dyn Value> {
@@ -80,7 +80,7 @@ fn sqrt() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Sqrt.wrap())
+	NativeFn::create(Sqrt.wrap())
 }
 
 fn floor() -> Box<dyn Value> {
@@ -95,7 +95,7 @@ fn floor() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Floor.wrap())
+	NativeFn::create(Floor.wrap())
 }
 
 fn ceil() -> Box<dyn Value> {
@@ -110,7 +110,7 @@ fn ceil() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Ceil.wrap())
+	NativeFn::create(Ceil.wrap())
 }
 
 fn round() -> Box<dyn Value> {
@@ -125,7 +125,7 @@ fn round() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Round.wrap())
+	NativeFn::create(Round.wrap())
 }
 
 fn abs() -> Box<dyn Value> {
@@ -140,7 +140,7 @@ fn abs() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Abs.wrap())
+	NativeFn::create(Abs.wrap())
 }
 
 fn max() -> Box<dyn Value> {
@@ -156,7 +156,7 @@ fn max() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Max.wrap())
+	NativeFn::create(Max.wrap())
 }
 
 fn min() -> Box<dyn Value> {
@@ -172,7 +172,7 @@ fn min() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Floor.wrap())
+	NativeFn::create(Floor.wrap())
 }
 
 fn clamp() -> Box<dyn Value> {
@@ -189,7 +189,7 @@ fn clamp() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Clamp.wrap())
+	NativeFn::create(Clamp.wrap())
 }
 
 fn frac() -> Box<dyn Value> {
@@ -204,7 +204,7 @@ fn frac() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Frac.wrap())
+	NativeFn::create(Frac.wrap())
 }
 
 fn sign() -> Box<dyn Value> {
@@ -219,7 +219,7 @@ fn sign() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Sign.wrap())
+	NativeFn::create(Sign.wrap())
 }
 
 fn lerp() -> Box<dyn Value> {
@@ -237,7 +237,7 @@ fn lerp() -> Box<dyn Value> {
 		}
 	}
 	
-	ValCallable::new(Clamp.wrap())
+	NativeFn::create(Clamp.wrap())
 }
 
 pub fn math() -> Box<dyn Value> {

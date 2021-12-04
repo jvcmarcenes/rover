@@ -38,34 +38,37 @@ pub enum LiteralData {
 }
 
 #[derive(Debug, Clone)]
-pub struct BinaryData { pub lhs: Box<Expression>, pub op: BinaryOperator, pub rhs: Box<Expression> }
-#[derive(Debug, Clone)]
-pub struct UnaryData { pub op: UnaryOperator, pub expr: Box<Expression> }
+pub struct BindData { pub expr: Box<Expression>, pub method: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct LogicData { pub lhs: Box<Expression>, pub op: LogicOperator, pub rhs: Box<Expression> }
 #[derive(Debug, Clone)]
-pub struct LambdaData { pub params: Vec<Identifier>, pub body: Block }
+pub struct BinaryData { pub lhs: Box<Expression>, pub op: BinaryOperator, pub rhs: Box<Expression> }
+#[derive(Debug, Clone)]
+pub struct UnaryData { pub op: UnaryOperator, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct CallData { pub calee: Box<Expression>, pub args: Vec<Expression> }
 #[derive(Debug, Clone)]
 pub struct IndexData { pub head: Box<Expression>, pub index: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct FieldData { pub head: Box<Expression>, pub field: String }
+#[derive(Debug, Clone)]
+pub struct LambdaData { pub params: Vec<Identifier>, pub body: Block }
 
 #[derive(Debug, Clone)]
 pub enum ExprType {
-	Literal(LiteralData),
+	Binding(BindData),
+	Logic(LogicData),
 	Binary(BinaryData),
 	Unary(UnaryData),
-	Logic(LogicData),
-	Grouping(Box<Expression>),
-	Variable(Identifier),
-	Lambda(LambdaData),
 	Call(CallData),
 	Index(IndexData),
 	FieldGet(FieldData),
-	SelfRef,
+	Literal(LiteralData),
+	Grouping(Box<Expression>),
+	Variable(Identifier),
+	Lambda(LambdaData),
 	DoExpr(Block),
+	SelfRef,
 }
 
 impl ExprType {
@@ -101,6 +104,7 @@ impl Expression {
 			FieldGet(data) => visitor.field(data, self.pos),
 			SelfRef => visitor.self_ref(self.pos),
 			DoExpr(block) => visitor.do_expr(block, self.pos),
+    	Binding(data) => visitor.bind_expr(data, self.pos),
 		}
 	}
 }
@@ -118,4 +122,5 @@ pub trait ExprVisitor<T> {
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<T>;
 	fn self_ref(&mut self, pos: SourcePos) -> Result<T>;
 	fn do_expr(&mut self, block: Block, pos: SourcePos) -> Result<T>;
+	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<T>;
 }
