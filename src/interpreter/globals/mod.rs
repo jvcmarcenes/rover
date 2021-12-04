@@ -9,7 +9,7 @@ use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{attributes::register_default_attr, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{bool::Bool, callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{attributes::register_default_attr, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
 
 use super::value::Value;
 
@@ -130,47 +130,6 @@ fn random() -> Box<dyn Value> {
 	}
 
 	NativeFn::create(Random.wrap())
-}
-
-fn is_num() -> Box<dyn Value> {
-	#[derive(Debug, Clone)] struct IsNum;
-
-	impl Callable for IsNum {
-		fn arity(&self) -> usize { 1 }
-
-    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			let v0 = args[0].0.clone();
-			match v0.get_type() {
-				ValueType::Str => Bool::new(castf!(str v0).parse::<f64>().is_ok()),
-				_ => Error::new(Str::new(format!("Invalid argument type '{}'", v0.get_type()))),
-			}.wrap()
-		}
-	}
-
-	NativeFn::create(IsNum.wrap())
-}
-
-fn to_num() -> Box<dyn Value> {
-	#[derive(Debug, Clone)] struct ToNum;
-
-	impl Callable for ToNum {
-		fn arity(&self) -> usize { 1 }
-
-    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			let v0 = args[0].0.clone();
-			match v0.get_type() {
-				ValueType::Str => {
-					match castf!(str v0).parse::<f64>() {
-						Ok(n) => Number::new(n),
-						Err(_) => Error::new(Str::from("Cannot convert to number"))
-					}
-				},
-				_ => Error::new(Str::new(format!("Invalid argument type '{}'", v0.get_type()))),
-			}.wrap()
-		}
-	}
-
-	NativeFn::create(ToNum.wrap())
 }
 
 fn exit() -> Box<dyn Value> {
@@ -332,21 +291,6 @@ fn paint() -> Box<dyn Value> {
 	}
 
 	Object::new(map, HashSet::new())
-}
-
-fn is_err() -> Box<dyn Value> {
-	#[derive(Clone, Debug)] struct IsErr;
-
-	impl Callable for IsErr {
-		fn arity(&self) -> usize { 1 }
-	
-		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			let v0 = args[0].0.clone();
-			Bool::new(v0.to_error(SourcePos::new(0, 0)).is_ok()).wrap()
-    }
-	}
-
-	NativeFn::create(IsErr.wrap())
 }
 
 #[derive(Clone, Debug)]
