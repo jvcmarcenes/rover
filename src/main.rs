@@ -10,7 +10,7 @@ mod interpreter;
 
 use std::{path::Path, process};
 
-use interpreter::{Interpreter, globals::Globals};
+use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
 use resolver::Resolver;
@@ -42,9 +42,9 @@ fn run_file(path: &str) {
 		process::exit(1);
 	});
 
-	let globals = Globals::new();
+	// let globals = Globals::new();
 	
-	Resolver::new(globals.clone()).resolve(&ast).unwrap_or_else(|errors| {
+	Resolver::new().resolve(&ast).unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);
 	});
@@ -54,7 +54,7 @@ fn run_file(path: &str) {
 	let mut pathbuf = Path::new(path).to_path_buf();
 	pathbuf.pop();
 
-	let mut interpreter = Interpreter::new(globals.values, pathbuf);
+	let mut interpreter = Interpreter::new(pathbuf);
 
 	interpreter.interpret(&ast).unwrap_or_else(|err| {
 		err.report(&path);

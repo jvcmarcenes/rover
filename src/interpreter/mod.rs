@@ -7,7 +7,7 @@ use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
 use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::{environment::{Environment, ValueMap}, value::{Value, primitives::{callable::{ValCallable, function::{Function, SELF}}, attribute::Attribute}}};
+use self::{environment::Environment, value::{Value, primitives::{callable::{ValCallable, function::{Function, SELF}}, attribute::Attribute}}, globals::init_globals};
 
 pub fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
 	if n < 0.0 { n += len as f64; }
@@ -34,9 +34,9 @@ pub struct Interpreter {
 
 impl Interpreter {
 	
-	pub fn new(globals: ValueMap, root_path: PathBuf) -> Self {
+	pub fn new(root_path: PathBuf) -> Self {
 		Self {
-			env: Environment::new(globals),
+			env: Environment::new(init_globals()),
 			root_path,
 		}
 	}

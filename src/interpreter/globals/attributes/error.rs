@@ -1,9 +1,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{value::{Value, primitives::{attribute::Attribute, object::ObjectMap, callable::{Callable, nativefn::NativeFn}}, macros::castf}, globals::attributes::NatSelf, Interpreter}, ast::identifier::Identifier, utils::{result::Result, wrap::Wrap, source_pos::SourcePos}};
+use crate::{interpreter::{value::{Value, primitives::{attribute::Attribute, object::ObjectMap, callable::{Callable, nativefn::NativeFn}}, macros::castf}, globals::attributes::NatSelf, Interpreter}, ast::identifier::Identifier, utils::{result::Result, wrap::Wrap, source_pos::SourcePos, global_ids::global_id}};
 
-use super::ERROR_ATTR;
+pub const ERROR_ATTR: &str = "Error";
 
 fn get() -> Box<dyn Value> {
 	#[derive(Clone, Debug)] struct Get(NatSelf);
@@ -33,5 +33,5 @@ pub fn error() -> Box<dyn Value> {
 		methods.insert(key.to_owned(), val.wrap());
 	}
 	
-	Attribute::new(Identifier { name: "error".to_owned(), id: ERROR_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())
+	Attribute::new(Identifier { name: "error".to_owned(), id: global_id(ERROR_ATTR).wrap() }, methods, ObjectMap::new(), HashSet::new())
 }

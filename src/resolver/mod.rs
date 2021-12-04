@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, interpreter::globals::Globals, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -39,7 +39,7 @@ fn allowed(cond: bool, msg: &str, pos: SourcePos) -> Result<()> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Context {
+struct Context {
 	in_function: bool,
 	in_loop: bool,
 	// in_obj: bool,
@@ -51,17 +51,19 @@ pub struct Context {
 pub struct Resolver {
 	last_id: usize,
 	tables: Vec<SymbolTable>,
-	globals: Globals,
+	globals: SymbolTable,
 	ctx: Context,
 }
 
 impl Resolver {
 	
-	pub fn new(globals: Globals) -> Self {
+	pub fn new() -> Self {
+		let globals = get_global_identifiers();
+
 		Resolver {
-			last_id: globals.ids.len() + 1,
+			last_id: globals.len() + 1,
 			globals: globals.clone(),
-			tables: vec![globals.ids],
+			tables: vec![globals],
 			ctx: Context::default(),
 		}
 	}
@@ -81,7 +83,7 @@ impl Resolver {
 	}
 	
 	fn add(&mut self, iden: Identifier, constant: bool, pos: SourcePos) -> Result<()> {
-		if self.globals.ids.contains_key(&iden.get_name()) {
+		if self.globals.contains_key(&iden.get_name()) {
 			return ErrorList::comp(format!("Cannot redefine global constant '{}'", iden), pos).err();
 		}
 		
@@ -170,7 +172,7 @@ impl ExprVisitor<()> for Resolver {
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<()> {
 		if let Some(var) = self.get_var(&data.name) {
 			if self.ctx.overwriting {
-				if var.id < self.globals.ids.len() {
+				if var.id < self.globals.len() {
 					return ErrorList::comp(format!("Cannot assign to global constant '{}'", data), pos).err();
 				} else if var.constant {
 					return ErrorList::comp(format!("Cannot assign to constant '{}'", data), pos).err();

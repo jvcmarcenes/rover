@@ -1,9 +1,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, string::Str, object::ObjectMap}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
+use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, string::Str, object::ObjectMap}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}, ast::identifier::Identifier};
 
-use super::STRING_ATTR;
+pub const STRING_ATTR: &str = "String";
 
 fn is_num() -> Box<dyn Value> {
 	#[derive(Debug, Clone)] struct IsNum(NatSelf);
@@ -94,5 +94,5 @@ pub fn string() -> Box<dyn Value> {
 		methods.insert(key.to_owned(), val.wrap());
 	}
 	
-	Attribute::new(Identifier { name: "string".to_owned(), id: STRING_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())
+	Attribute::new(Identifier { name: "string".to_owned(), id: global_id(STRING_ATTR).wrap() }, methods, ObjectMap::new(), HashSet::new())
 }

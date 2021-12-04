@@ -1,23 +1,2 @@
 
-attr Sumable {
-	eval(n) {
-		self + n
-	}
-}
-
-attr Doubable {
-	is Sumable
-
-	eval() {
-		self::Sumable.eval(self.val)
-	}
-}
-
-let foo = {
-	is Doubable
-	val = 9
-}
-
-foo.eval()
-
-writeline(foo.val)
+writeline("Hello World")

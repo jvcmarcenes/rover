@@ -1,7 +1,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{interpreter::{Interpreter, globals::attributes::VECTOR_ATTR, value::{ValueType, macros::castf}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::attributes::vector::VECTOR_ATTR, value::{ValueType, macros::castf}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}};
 
 use super::super::Value;
 
@@ -25,7 +25,7 @@ impl Value for Vector {
 	
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
 	
-	fn get_attributes(&self) -> Vec<usize> { vec![VECTOR_ATTR] }
+	fn get_attributes(&self) -> Vec<usize> { vec![global_id(VECTOR_ATTR)] }
 
 	fn to_string(&self, interpreter: &mut Interpreter, pos: SourcePos) -> Result<String> {
 		let mut str = String::from("[");

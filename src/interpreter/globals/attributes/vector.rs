@@ -1,9 +1,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, none::ValNone, number::Number, object::ObjectMap, vector::Vector}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
+use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, none::ValNone, number::Number, object::ObjectMap, vector::Vector}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}, ast::identifier::Identifier};
 
-use super::VECTOR_ATTR;
+pub const VECTOR_ATTR: &str = "Vector";
 
 fn size() -> Box<dyn Value> {
 	#[derive(Clone, Debug)] struct Size(NatSelf);
@@ -143,5 +143,5 @@ pub fn vector() -> Box<dyn Value> {
 		methods.insert(key.to_owned(), val.wrap());
 	}
 	
-	Attribute::new(Identifier { name: "vector".to_owned(), id: VECTOR_ATTR.wrap() }, methods, ObjectMap::new(), HashSet::new())
+	Attribute::new(Identifier { name: "vector".to_owned(), id: global_id(VECTOR_ATTR).wrap() }, methods, ObjectMap::new(), HashSet::new())
 }

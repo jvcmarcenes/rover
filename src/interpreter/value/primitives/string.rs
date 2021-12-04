@@ -1,5 +1,5 @@
 
-use crate::{interpreter::{Interpreter, globals::attributes::STRING_ATTR, value::{ValueType, macros::castf}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::attributes::string::STRING_ATTR, value::{ValueType, macros::castf}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}};
 
 use super::super::Value;
 
@@ -23,7 +23,7 @@ impl Value for Str {
 	
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
 	
-	fn get_attributes(&self) -> Vec<usize> { vec![STRING_ATTR] }
+	fn get_attributes(&self) -> Vec<usize> { vec![global_id(STRING_ATTR)] }
 	
 	fn to_str(&self, _pos: SourcePos) -> Result<String> { self.data.clone().wrap() }
 	

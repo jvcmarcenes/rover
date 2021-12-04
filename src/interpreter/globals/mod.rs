@@ -9,7 +9,9 @@ use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{attributes::register_default_attr, fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, resolver::IdentifierData, utils::{result::*, source_pos::SourcePos, wrap::Wrap}};
+use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, utils::{result::*, source_pos::SourcePos, wrap::Wrap, global_ids::{global_id}}};
+
+use self::attributes::{string::string, vector::vector, error::error};
 
 use super::value::Value;
 
@@ -293,57 +295,39 @@ fn paint() -> Box<dyn Value> {
 	Object::new(map, HashSet::new())
 }
 
-#[derive(Clone, Debug)]
-pub struct Globals {
-	pub ids: HashMap<String, IdentifierData>,
-	pub values: HashMap<usize, Box<dyn Value>>,
-}
+pub fn init_globals() -> HashMap<usize, Box<dyn Value>> {
 
-impl Globals {
+	let v = vec![
+		// io
+		("write", write()),
+		("writeline", writeline()),
+		("debug", debug()),
+		("read", read()),
 
-	pub fn new() -> Self {
-		let mut globals = Self {
-			ids: HashMap::new(),
-			values: HashMap::new(),
-		};
+		// system / process		
+		("exit", exit()),
+		("abort", abort()),
+		
+		// thread		
+		("sleep", sleep()),
+		
+		// other
+		("clock", clock()),
+		("range", range()),
+		("typeof", _typeof()),
+		("random", random()),
+		("char", _char()),
+		("paint", paint()),
+		
+		// std lib	
+		("math", math()),
+		("fs", fs()),
 
-		let v = vec![
-			// io
-			("write", write()),
-			("writeline", writeline()),
-			("debug", debug()),
-			("read", read()),
-	
-			// system / process		
-			("exit", exit()),
-			("abort", abort()),
-			
-			// thread		
-			("sleep", sleep()),
-			
-			// other
-			("clock", clock()),
-			("range", range()),
-			("typeof", _typeof()),
-			("random", random()),
-			("char", _char()),
-			("paint", paint()),
-			
-			// std lib	
-			("math", math()),
-			("fs", fs()),
-		];
+		// attributes
+		("String", string()),
+		("Vector", vector()),
+		("Error", error()),
+	];
 
-		let attrs = register_default_attr(&mut globals);
-
-		let mut i = 1 + attrs;
-		for (key, val) in v {
-			globals.ids.insert(key.to_owned(), IdentifierData::new(i, true));
-			globals.values.insert(i, val);
-			i += 1;
-		}
- 
-		globals
-	}
-
+	v.into_iter().map(|(key, val)| (global_id(key), val)).collect()
 }
