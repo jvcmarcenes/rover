@@ -96,6 +96,18 @@ fn read() -> Box<dyn Value> {
 	NativeFn::create(Read.wrap())
 }
 
+fn rand() -> Box<dyn Value> {
+	#[derive(Debug, Clone)] struct Rand;
+
+	impl Callable for Rand {
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+			Number::new(rand::random()).wrap()
+		}
+	}
+
+	NativeFn::create(Rand.wrap())
+}
+
 fn random() -> Box<dyn Value> {
 	#[derive(Debug, Clone)] struct Random;
 
@@ -316,6 +328,7 @@ pub fn init_globals() -> HashMap<usize, Box<dyn Value>> {
 		("range", range()),
 		("typeof", _typeof()),
 		("random", random()),
+		("rand", rand()),
 		("char", _char()),
 		("paint", paint()),
 		

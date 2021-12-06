@@ -5,14 +5,10 @@ use crate::resolver::IdentifierData;
 
 pub static GLOBAL_IDS: &[&str] = &[
 	// io
-	"write",
-	"writeline",
-	"debug",
-	"read",
+	"write", "writeline", "debug", "read",
 
 	// system / process		
-	"exit",
-	"abort",
+	"exit", "abort",
 	
 	// thread		
 	"sleep",
@@ -21,18 +17,15 @@ pub static GLOBAL_IDS: &[&str] = &[
 	"clock",
 	"range",
 	"typeof",
-	"random",
+	"random", "rand",
 	"char",
 	"paint",
 	
 	// std lib	
-	"math",
-	"fs",
+	"math", "fs",
 
 	// attributes
-	"String",
-	"Vector",
-	"Error",
+	"String", "List", "Error",
 ];
 
 pub fn global_id(global: &str) -> usize {
@@ -40,7 +33,7 @@ pub fn global_id(global: &str) -> usize {
 		.iter()
 		.enumerate()
 		.find(|(_, &key)| key == global)
-		.expect("Tried to find an undefined global")
+		.expect(&format!("Tried to find an undefined global '{}'", global))
 		.0 + 1
 }
 
