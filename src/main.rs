@@ -42,8 +42,6 @@ fn run_file(path: &str) {
 		process::exit(1);
 	});
 
-	// let globals = Globals::new();
-	
 	Resolver::new().resolve(&ast).unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);

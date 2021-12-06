@@ -1,2 +1,9 @@
 
-writeline("Hello World")
+let str = 'Hello World'
+
+for c in str {
+	for c in "oops" {
+		write(c)
+	}
+	writeline(c)
+}

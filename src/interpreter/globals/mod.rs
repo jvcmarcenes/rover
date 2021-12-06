@@ -3,15 +3,15 @@ mod math;
 mod fs;
 pub mod attributes;
 
-use std::{cell::RefCell, collections::{HashMap, HashSet}, io::Write, process, rc::Rc, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::{HashMap, HashSet}, io::Write, process, time::{SystemTime, UNIX_EPOCH}};
 
 use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}}, utils::{result::*, source_pos::SourcePos, wrap::Wrap, global_ids::{global_id}}};
+use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}}}, utils::{result::*, source_pos::SourcePos, wrap::Wrap, global_ids::{global_id}}};
 
-use self::attributes::{string::string, vector::vector, error::error};
+use self::attributes::{string::string, list::list, error::error};
 
 use super::value::Value;
 
@@ -165,7 +165,7 @@ fn abort() -> Box<dyn Value> {
     }
 	}
 
-	NativeFn::create(Rc::new(RefCell::new(Exit)))
+	NativeFn::create(Exit.wrap())
 }
 
 fn sleep() -> Box<dyn Value> {
@@ -196,7 +196,7 @@ fn range() -> Box<dyn Value> {
 			let n1 = cast!(num args[1].0.clone());
 			let mut vec = Vec::new();
 			for i in (n0 as i32)..(n1 as i32) { vec.push(Number::new(i as f64)) }
-			Vector::new(vec).wrap()
+			List::new(vec).wrap()
     }
 	}
 
@@ -325,7 +325,7 @@ pub fn init_globals() -> HashMap<usize, Box<dyn Value>> {
 
 		// attributes
 		("String", string()),
-		("Vector", vector()),
+		("List", list()),
 		("Error", error()),
 	];
 

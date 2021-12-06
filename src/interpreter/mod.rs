@@ -5,7 +5,7 @@ pub mod globals;
 
 use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
-use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, vector::Vector}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{environment::Environment, value::{Value, primitives::{callable::{ValCallable, function::{Function, SELF}}, attribute::Attribute}}, globals::init_globals};
 
@@ -85,7 +85,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			LiteralData::List(exprs) => {
 				let mut values = Vec::new();
 				for expr in exprs { values.push(expr.accept(self)?) }
-				Vector::new(values).wrap()
+				List::new(values).wrap()
 			},
 			LiteralData::Object(map, attrs) => {
 				let mut value_map = HashMap::new();
@@ -148,7 +148,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 	
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let func = Function::new(self.env.clone(), data.params, data.body);
-		ValCallable::new(Box::new(func).wrap()).wrap()
+		ValCallable::new(func.wrap()).wrap()
 	}
 	
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Box<dyn Value>> {
@@ -191,7 +191,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		let (head_pos, index_pos) = (data.head.pos, data.index.pos);
 		let head_val = pass_msg!(data.head.accept(self)?);
 		let list = match head_val.get_type() {
-			ValueType::Vector => head_val.to_vector(head_pos)?.borrow().clone(),
+			ValueType::Vector => head_val.to_list(head_pos)?.borrow().clone(),
 			ValueType::Str => head_val.to_str(head_pos)?.chars().map(|c| Str::new(c.to_string())).collect(),
 			typ => return ErrorList::run(format!("Cannot index {}", typ), head_pos).err()
 		};
@@ -259,7 +259,7 @@ impl StmtVisitor<Message> for Interpreter {
 		let mut methods = HashMap::new();
 		for method in data.methods {
 			let func = Function::new(self.env.clone(), method.params, method.body);
-			methods.insert(method.name, ValCallable::new(Box::new(func).wrap()).wrap());
+			methods.insert(method.name, ValCallable::new(func.wrap()).wrap());
 		}
 		
 		let mut fields = HashMap::new();
@@ -301,7 +301,7 @@ impl StmtVisitor<Message> for Interpreter {
 					if index < list.len() { list.remove(index); }
 					list.insert(index, val);
 					val = match head.get_type() {
-						ValueType::Vector => Vector::new(list),
+						ValueType::Vector => List::new(list),
 						ValueType::Str => Str::new(list.iter().map(|v| castf!(str v)).collect::<Vec<_>>().join("")),
 						_ => panic!(),
 					};

@@ -1,9 +1,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, none::ValNone, number::Number, object::ObjectMap, vector::Vector}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}, ast::identifier::Identifier};
+use crate::{interpreter::{Interpreter, get_index, globals::attributes::NatSelf, value::{Value, macros::{cast, castf}, primitives::{attribute::Attribute, bool::Bool, callable::{Callable, nativefn::NativeFn}, none::ValNone, number::Number, object::ObjectMap, list::List}}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}, ast::identifier::Identifier};
 
-pub const VECTOR_ATTR: &str = "Vector";
+pub const LIST_ATTR: &str = "List";
 
 fn size() -> Box<dyn Value> {
 	#[derive(Clone, Debug)] struct Size(NatSelf);
@@ -12,8 +12,8 @@ fn size() -> Box<dyn Value> {
 		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
 		
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			let vec_ref = self.0.clone().unwrap();
-			Number::new(castf!(vec vec_ref.borrow()).borrow().len() as f64).wrap()
+			let list_ref = self.0.clone().unwrap();
+			Number::new(castf!(vec list_ref.borrow()).borrow().len() as f64).wrap()
 		}
 	}
 	
@@ -31,14 +31,14 @@ fn get() -> Box<dyn Value> {
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
 			let n0 = cast!(num args[0].0.clone());
 			let p0 = args[0].1.clone();
-			let vec_ref = self.0.clone().unwrap();
-			let vec = castf!(vec vec_ref.borrow());
-			let vec = vec.borrow();
-			let i = match get_index(n0, vec.len(), p0) {
+			let list_ref = self.0.clone().unwrap();
+			let list = castf!(vec list_ref.borrow());
+			let list = list.borrow();
+			let i = match get_index(n0, list.len(), p0) {
 				Ok(n) => n,
 				Err(_) => return ValNone::new().wrap(),
 			};
-			match vec.get(i) {
+			match list.get(i) {
 				Some(val) => val.clone(),
 				None => ValNone::new(),
 			}.wrap()
@@ -58,9 +58,9 @@ fn push() -> Box<dyn Value> {
 		
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
 			let v0 = args[0].0.clone();
-			let vec_ref = self.0.clone().unwrap();
-			let vec = castf!(vec vec_ref.borrow());
-			vec.borrow_mut().push(v0);
+			let list_ref = self.0.clone().unwrap();
+			let list = castf!(vec list_ref.borrow());
+			list.borrow_mut().push(v0);
 			ValNone::new().wrap()
 		}
 	}
@@ -75,9 +75,9 @@ fn pop() -> Box<dyn Value> {
 		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
 		
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			let vec_ref = self.0.clone().unwrap();
-			let vec = castf!(vec vec_ref.borrow());
-			let val = vec.borrow_mut().pop();
+			let list_ref = self.0.clone().unwrap();
+			let list = castf!(vec list_ref.borrow());
+			let val = list.borrow_mut().pop();
 			val.unwrap_or(ValNone::new()).wrap()
 		}
 	}
@@ -95,9 +95,9 @@ fn contains() -> Box<dyn Value> {
 		
 		fn call(&mut self, pos: SourcePos, interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
 			let (v0, p0) = args[0].clone();
-			let vec_ref = self.0.clone().unwrap();
-			let vec = castf!(vec vec_ref.borrow());
-			for val in vec.borrow().iter() {
+			let list_ref = self.0.clone().unwrap();
+			let list = castf!(vec list_ref.borrow());
+			for val in list.borrow().iter() {
 				if val.equals(v0.clone(), p0, interpreter, pos)? {
 					return Bool::new(true).wrap()
 				}
@@ -116,18 +116,18 @@ fn reverse() -> Box<dyn Value> {
 		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
 		
 		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			let vec_ref = self.0.clone().unwrap();
-			let vec = castf!(vec vec_ref.borrow());
-			let mut rev = vec.borrow().clone();
+			let list_ref = self.0.clone().unwrap();
+			let list = castf!(vec list_ref.borrow());
+			let mut rev = list.borrow().clone();
 			rev.reverse();
-			Vector::new(rev).wrap()
+			List::new(rev).wrap()
 		}
 	}
 	
 	NativeFn::create(Reverse(None).wrap())
 }
 
-pub fn vector() -> Box<dyn Value> {
+pub fn list() -> Box<dyn Value> {
 	let mut methods = HashMap::new();
 	
 	let v = vec![
@@ -143,5 +143,5 @@ pub fn vector() -> Box<dyn Value> {
 		methods.insert(key.to_owned(), val.wrap());
 	}
 	
-	Attribute::new(Identifier { name: "vector".to_owned(), id: global_id(VECTOR_ATTR).wrap() }, methods, ObjectMap::new(), HashSet::new())
+	Attribute::new(Identifier { name: "list".to_owned(), id: global_id(LIST_ATTR).wrap() }, methods, ObjectMap::new(), HashSet::new())
 }

@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt::{Debug, Display}, rc::Rc};
 
 use crate::{interpreter::value::macros::castf, utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::primitives::{attribute::Attribute, callable::Callable, object::ObjectMap, vector::VectorData};
+use self::primitives::{attribute::Attribute, callable::Callable, object::ObjectMap, list::ListData};
 
 use super::{Interpreter, Message};
 
@@ -45,7 +45,7 @@ pub trait Value : Debug {
 	
 	fn to_num(&self, pos: SourcePos) -> Result<f64> { ErrorList::run("Cannot cast value to number".to_owned(), pos).err() }
 	fn to_str(&self, pos: SourcePos) -> Result<String> { ErrorList::run("Cannot cast value to string".to_owned(), pos).err() }
-	fn to_vector(&self, pos: SourcePos) -> Result<VectorData> { ErrorList::run("Cannot cast value to vector".to_owned(), pos).err() }
+	fn to_list(&self, pos: SourcePos) -> Result<ListData> { ErrorList::run("Cannot cast value to vector".to_owned(), pos).err() }
 	fn to_obj(&self, pos: SourcePos) -> Result<ObjectMap> { ErrorList::run("Cannot cast value to object".to_owned(), pos).err() }
 	fn to_callable(&self, pos: SourcePos) -> Result<Rc<RefCell<Box<dyn Callable>>>> { ErrorList::run("Cannot cast value to callable".to_owned(), pos).err() }
 	fn to_error(&self, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Cannot cast value to error".to_owned(), pos).err() }

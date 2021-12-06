@@ -37,8 +37,12 @@ impl <T : Callable + 'static> Wrap<Rc<RefCell<dyn Callable>>> for T {
 	fn wrap(self) -> Rc<RefCell<(dyn Callable + 'static)>> { Rc::new(RefCell::new(self)) }
 }
 
-impl <T : Callable + 'static> Wrap<Rc<RefCell<Box<dyn Callable>>>> for Box<T> {
-	fn wrap(self) -> Rc<RefCell<Box<(dyn Callable + 'static)>>> { Rc::new(RefCell::new(self)) }
+// impl <T : Callable + 'static> Wrap<Rc<RefCell<Box<dyn Callable>>>> for Box<T> {
+// 	fn wrap(self) -> Rc<RefCell<Box<(dyn Callable + 'static)>>> { Rc::new(RefCell::new(self)) }
+// }
+
+impl <T : Callable + 'static> Wrap<Rc<RefCell<Box<dyn Callable>>>> for T {
+	fn wrap(self) -> Rc<RefCell<Box<(dyn Callable + 'static)>>> { Rc::new(RefCell::new(Box::new(self))) }
 }
 
 impl Clone for Box<dyn Callable> {
@@ -72,10 +76,4 @@ impl Value for ValCallable {
 	}
 	
 	fn equ(&self, _other: Box<dyn Value>, _other_pos: SourcePos, _interpreter: &mut Interpreter, _pos: SourcePos) -> Result<bool> { false.wrap() }
-}
-
-impl <T : Callable + 'static> Wrap<ValCallable> for Box<T> {
-	fn wrap(self) -> ValCallable {
-		ValCallable::create(self.wrap())
-	}
 }

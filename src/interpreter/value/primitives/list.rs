@@ -1,31 +1,31 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{interpreter::{Interpreter, globals::attributes::vector::VECTOR_ATTR, value::{ValueType, macros::castf}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}};
+use crate::{interpreter::{Interpreter, globals::attributes::list::LIST_ATTR, value::{ValueType, macros::castf}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap, global_ids::global_id}};
 
 use super::super::Value;
 
-pub type VectorData = Rc<RefCell<Vec<Box<dyn Value>>>>;
+pub type ListData = Rc<RefCell<Vec<Box<dyn Value>>>>;
 
 #[derive(Debug, Clone)]
-pub struct Vector {
-	data: VectorData,
+pub struct List {
+	data: ListData,
 }
 
-impl Vector {
+impl List {
 	pub fn new(data: Vec<Box<dyn Value>>) -> Box<dyn Value> {
 		Self { data: data.wrap() }.wrap()
 	}
 }
 
-impl Value for Vector {
+impl Value for List {
 	fn get_type(&self) -> ValueType { ValueType::Vector }
 	
-	fn to_vector(&self, _pos: SourcePos) -> Result<VectorData> { self.data.clone().wrap() } 
+	fn to_list(&self, _pos: SourcePos) -> Result<ListData> { self.data.clone().wrap() } 
 	
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
 	
-	fn get_attributes(&self) -> Vec<usize> { vec![global_id(VECTOR_ATTR)] }
+	fn get_attributes(&self) -> Vec<usize> { vec![global_id(LIST_ATTR)] }
 
 	fn to_string(&self, interpreter: &mut Interpreter, pos: SourcePos) -> Result<String> {
 		let mut str = String::from("[");

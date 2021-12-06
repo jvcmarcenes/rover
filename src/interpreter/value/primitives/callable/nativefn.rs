@@ -1,27 +1,27 @@
 
 use std::{rc::Rc, cell::RefCell};
 
-use crate::{utils::{result::Result, source_pos::SourcePos}, interpreter::{Interpreter, value::Value}};
+use crate::{utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, interpreter::{Interpreter, value::Value}};
 
 use super::{Callable, ValCallable};
 
 #[derive(Debug, Clone)]
 pub struct NativeFn {
-	function: Rc<RefCell<dyn Callable>>
+	function: Rc<RefCell<Box<dyn Callable>>>
 }
 
 impl NativeFn {
-	pub fn new(function: Rc<RefCell<dyn Callable>>) -> Self {
+	pub fn new(function: Rc<RefCell<Box<dyn Callable>>>) -> Self {
 		NativeFn { function }
 	}
 
-	pub fn create(function: Rc<RefCell<dyn Callable>>) -> Box<dyn Value> {
-		ValCallable::new(Rc::new(RefCell::new(Box::new(Self::new(function)))))
+	pub fn create(function: Rc<RefCell<Box<dyn Callable>>>) -> Box<dyn Value> {
+		ValCallable::new(Self::new(function).wrap())
 	}
 }
 
 impl Callable for NativeFn {
-	fn cloned(&self) -> Box<dyn Callable> { self.function.borrow().cloned() }
+	fn cloned(&self) -> Box<dyn Callable> { Box::new(self.clone()) }
 	fn display(&self) -> String { "<native function>".to_owned() }
 	
 	fn arity(&self) -> usize { self.function.borrow().arity() }

@@ -75,7 +75,7 @@ macro_rules! castf {
 	(vec $val:expr) => {{
 		let bind = $val;
 		match bind.get_type() {
-			crate::interpreter::value::ValueType::Vector => bind.to_vector(SourcePos::new(0, 0)).unwrap(),
+			crate::interpreter::value::ValueType::Vector => bind.to_list(SourcePos::new(0, 0)).unwrap(),
 			_ => panic!("Cannot cast value to vector")
 		}
 	}};
