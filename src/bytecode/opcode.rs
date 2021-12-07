@@ -10,9 +10,9 @@ pub type Value = f64;
 pub enum OpCode {
 	Return,
 	Const,
-	LongConst,
+	Const16,
 	
-	Negate,
+	Negate, Identity,
 	Add, Subtract, Multiply, Divide, Remainder,
 }
 
@@ -27,8 +27,9 @@ impl OpCode {
 		match self {
 			Return    => visitor.op_return(),
 			Const     => visitor.op_const(),
-			LongConst => visitor.op_long_const(),
+			Const16   => visitor.op_const_16(),
 			Negate    => visitor.op_negate(),
+			Identity  => visitor.op_identity(),
 			Add       => visitor.op_add(),
 			Subtract  => visitor.op_subtract(),
 			Multiply  => visitor.op_multiply(),
@@ -41,8 +42,9 @@ impl OpCode {
 pub trait OpCodeVisitor<T> {
 	fn op_return(&mut self) -> T;
 	fn op_const(&mut self) -> T;
-	fn op_long_const(&mut self) -> T;
+	fn op_const_16(&mut self) -> T;
 	fn op_negate(&mut self) -> T;
+	fn op_identity(&mut self) -> T;
 	fn op_add(&mut self) -> T;
 	fn op_subtract(&mut self) -> T;
 	fn op_multiply(&mut self) -> T;

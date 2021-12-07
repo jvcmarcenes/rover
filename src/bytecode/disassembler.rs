@@ -27,16 +27,13 @@ impl Disassembler {
 		self.chunk.next().expect("expected a byte")
 	}
 	
-	fn read_const(&mut self) -> (usize, Value) {
-		let c = self.next().0 as usize;
+	fn read_const_8(&mut self) -> (usize, Value) {
+		let c = self.chunk.read8() as usize;
 		(c, self.chunk.constant(c))
 	}
 	
-	fn read_long_const(&mut self) -> (usize, Value) {
-		let c0 = self.next().0 as usize;
-		let c1 = self.next().0 as usize;
-		let c2 = self.next().0 as usize;
-		let c = (c2 << 16) + (c1 << 8) + (c0);
+	fn read_const_16(&mut self) -> (usize, Value) {
+		let c = self.chunk.read16() as usize;
 		(c, self.chunk.constant(c))
 	}
 	
@@ -56,25 +53,27 @@ impl Disassembler {
 	
 }
 
-
-
 impl OpCodeVisitor<()> for Disassembler {
 	fn op_return(&mut self) {
 		simple_instr("OP_RETURN");
 	}
 	
 	fn op_const(&mut self) {
-		let (index, val) = self.read_const();
+		let (index, val) = self.read_const_8();
 		println!("{:-16} {:4} ({})", "OP_CONST", index, val);
 	}
 	
-	fn op_long_const(&mut self) {
-		let (index, val) = self.read_long_const();
+	fn op_const_16(&mut self) {
+		let (index, val) = self.read_const_16();
 		println!("{:-16} {:4} ({})", "OP_LONG_CONST", index, val);
 	}
 	
 	fn op_negate(&mut self) -> () {
 		simple_instr("OP_NEGATE")
+	}
+	
+	fn op_identity(&mut self) -> () {
+		simple_instr("OP_IDENTITY")
 	}
 	
 	fn op_add(&mut self) -> () {

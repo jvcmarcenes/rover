@@ -31,10 +31,9 @@ impl Chunk {
 	pub fn write_const(&mut self, value: Value, src_info: SourcePos) {
 		let c = self.add_const(value);
 		if c > u8::MAX as usize {
-			self.write_instr(OpCode::LongConst, src_info);
-			self.write_byte(c as u8, src_info);
+			self.write_instr(OpCode::Const16, src_info);
 			self.write_byte((c >> 8) as u8, src_info);
-			self.write_byte((c >> 16) as u8, src_info);
+			self.write_byte(c as u8, src_info);
 		} else {
 			self.write_instr(OpCode::Const, src_info);
 			self.write_byte(c as u8, src_info)
@@ -60,6 +59,24 @@ impl ChunkIter {
 	pub fn constant(&self, index: usize) -> Value {
 		self.constants[index]
 	}
+
+	pub fn read8(&mut self) -> u8 {
+		self.next().expect("expected byte").0
+	}
+
+	pub fn read16(&mut self) -> u16 {
+		let c0 = self.read8() as u16;
+		let c1 = self.read8() as u16;
+		(c0 << 8) + c1
+	}
+
+	// pub fn read24(&mut self) -> u32 {
+	// 	let c0 = self.read8() as u32;
+	// 	let c1 = self.read8() as u32;
+	// 	let c2 = self.read8() as u32;
+	// 	(c0 << 16) + (c1 << 8) + c2
+	// }
+
 }
 
 impl From<Chunk> for ChunkIter {
