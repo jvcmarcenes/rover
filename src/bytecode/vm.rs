@@ -126,7 +126,7 @@ impl OpCodeVisitor<Result<()>> for VM {
 	}
 	
 	fn op_add(&mut self, pos: SourcePos) -> Result<()> {
-		self.binary(|(a, apos), (b, bpos)| (a.add(b, apos, bpos, pos)), pos)
+		self.binary(|(a, apos), (b, bpos)| if b.is_string() { a.cast_string(apos)?.add(b, apos, bpos, pos) } else { a.add(b, apos, bpos, pos) }, pos)
 	}
 	
 	fn op_subtract(&mut self, pos: SourcePos) -> Result<()> {

@@ -2,12 +2,13 @@
 pub mod number;
 pub mod bool;
 pub mod none;
+pub mod string;
 
 use std::fmt::{Debug, Display};
 
 use crate::utils::{wrap::Wrap, result::{Result, ErrorList}, source_pos::SourcePos};
 
-use self::{number::Number, bool::Bool};
+use self::{number::Number, bool::Bool, string::Str};
 
 pub trait Value : Debug {
 
@@ -19,8 +20,11 @@ pub trait Value : Debug {
 	fn as_num(&self, pos: SourcePos) -> Result<Number> { ErrorList::run("Could not convert to number".to_owned(), pos).err() }
 	fn is_bool(&self) -> bool { false }
 	fn as_bool(&self, pos: SourcePos) -> Result<Bool> { ErrorList::run("Could not convert to bool".to_owned(), pos).err() }
+	fn is_string(&self) -> bool { false }
+	fn as_string(&self, pos: SourcePos) -> Result<Str> { ErrorList::run("Could not convert to string".to_owned(), pos).err() }
 
 	fn truthy(&self) -> bool { true }
+	fn cast_string(&self, _pos: SourcePos) -> Result<Box<dyn Value>> { Str::create(self.display()).wrap() }
 	fn sub(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation add is not defined".to_owned(), pos).err() }
 	fn add(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation sub is not defined".to_owned(), pos).err() }
 	fn mul(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation mul is not defined".to_owned(), pos).err() }

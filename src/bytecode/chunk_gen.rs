@@ -1,7 +1,7 @@
 
 use crate::{utils::{result::Result, wrap::Wrap, source_pos::SourcePos}, ast::{statement::*, expression::*, identifier::Identifier}};
 
-use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::number::Number};
+use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::{number::Number, string::Str}};
 
 pub struct ChunkGen {
 	chunk: Chunk
@@ -37,7 +37,7 @@ impl ExprVisitor<()> for ChunkGen {
 	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<()> {
 		match data {
 			LiteralData::None => self.chunk().write_instr(OpCode::ConstNone, pos),
-			LiteralData::Str(_) => todo!(),
+			LiteralData::Str(s) => self.chunk().write_const(Str::create(s), pos),
 			LiteralData::Num(n) => self.chunk().write_const(Number::create(n), pos),
 			LiteralData::Bool(b) => self.chunk().write_instr(if b { OpCode::ConstTrue } else { OpCode::ConstFalse }, pos),
 			LiteralData::Template(_) => todo!(),
