@@ -1,5 +1,5 @@
 
-#![allow(dead_code)]
+#![allow(dead_code, unused_variables)]
 
 mod utils;
 mod lexer;
@@ -11,7 +11,7 @@ mod bytecode;
 
 use std::{path::Path, process};
 
-use bytecode::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler};
+use bytecode::{chunk::Chunk, opcode::OpCode, vm::VM};
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
@@ -22,10 +22,17 @@ fn main() {
 
 	let mut chunk = Chunk::new();
 
-	chunk.write_instr(OpCode::Return, SourcePos::new(0, 0));
-	chunk.write_const(1.2, SourcePos::new(0, 0));
+	let dummy = SourcePos::new(123, 456);
 
-	Disassembler::new(&chunk).disassemble("test chunk");
+	chunk.write_const(1.2, dummy);
+	chunk.write_const(3.4, dummy);
+	chunk.write_instr(OpCode::Add, dummy);
+	chunk.write_const(5.6, dummy);
+	chunk.write_instr(OpCode::Divide, dummy);
+	chunk.write_instr(OpCode::Negate, dummy);
+	chunk.write_instr(OpCode::Return, dummy);
+
+	VM::new(chunk).run().unwrap();
 
 	// let mut args = std::env::args().skip(1);
 
