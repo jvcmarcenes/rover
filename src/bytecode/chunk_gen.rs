@@ -1,13 +1,14 @@
 
 use crate::{utils::{result::Result, wrap::Wrap, source_pos::SourcePos}, ast::{statement::*, expression::*, identifier::Identifier}};
 
-use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler};
+use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::number::Number};
 
 pub struct ChunkGen {
 	chunk: Chunk
 }
 
 impl ChunkGen {
+
 	pub fn new() -> Self {
 		Self {
 			chunk: Chunk::new(),
@@ -28,15 +29,17 @@ impl ChunkGen {
 		if cfg!(feature = "print_code") { Disassembler::new(self.chunk.clone()).disassemble("code"); }
 		self.chunk.clone().wrap()
 	}
+
 }
 
 impl ExprVisitor<()> for ChunkGen {
+
 	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<()> {
 		match data {
-			LiteralData::None => todo!(),
+			LiteralData::None => self.chunk().write_instr(OpCode::ConstNone, pos),
 			LiteralData::Str(_) => todo!(),
-			LiteralData::Num(n) => self.chunk().write_const(n, pos),
-			LiteralData::Bool(_) => todo!(),
+			LiteralData::Num(n) => self.chunk().write_const(Number::create(n), pos),
+			LiteralData::Bool(b) => self.chunk().write_instr(if b { OpCode::ConstTrue } else { OpCode::ConstFalse }, pos),
 			LiteralData::Template(_) => todo!(),
 			LiteralData::List(_) => todo!(),
 			LiteralData::Object(_, _) => todo!(),
@@ -54,12 +57,12 @@ impl ExprVisitor<()> for ChunkGen {
 			BinaryOperator::Mul => self.chunk().write_instr(OpCode::Multiply, pos),
 			BinaryOperator::Div => self.chunk().write_instr(OpCode::Divide, pos),
 			BinaryOperator::Rem => self.chunk().write_instr(OpCode::Remainder, pos),
-			BinaryOperator::Equ => todo!(),
-			BinaryOperator::Neq => todo!(),
-			BinaryOperator::Lst => todo!(),
-			BinaryOperator::Lse => todo!(),
-			BinaryOperator::Grt => todo!(),
-			BinaryOperator::Gre => todo!(),
+			BinaryOperator::Equ => self.chunk().write_instr(OpCode::Equals, pos),
+			BinaryOperator::Neq => self.chunk().write_instr(OpCode::NotEquals, pos),
+			BinaryOperator::Lst => self.chunk().write_instr(OpCode::Lesser, pos),
+			BinaryOperator::Lse => self.chunk().write_instr(OpCode::LesserEq, pos),
+			BinaryOperator::Grt => self.chunk().write_instr(OpCode::Greater, pos),
+			BinaryOperator::Gre => self.chunk().write_instr(OpCode::GreaterEq, pos),
 			BinaryOperator::Typ => todo!(),
 		}
 		Ok(())
@@ -68,7 +71,7 @@ impl ExprVisitor<()> for ChunkGen {
 	fn unary(&mut self, data: UnaryData, pos: SourcePos) -> Result<()> {
 		data.expr.accept(self)?;
 		match data.op {
-			UnaryOperator::Not => todo!(),
+			UnaryOperator::Not => self.chunk().write_instr(OpCode::Not, pos),
 			UnaryOperator::Pos => self.chunk().write_instr(OpCode::Identity, pos),
 			UnaryOperator::Neg => self.chunk().write_instr(OpCode::Negate, pos),
 		}
@@ -114,9 +117,11 @@ impl ExprVisitor<()> for ChunkGen {
 	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<()> {
 		todo!()
 	}
+
 }
 
 impl StmtVisitor<()> for ChunkGen {
+
 	fn expr(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
 		expr.accept(self)
 	}
@@ -157,4 +162,5 @@ impl StmtVisitor<()> for ChunkGen {
 	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<()> {
 		self.generate_block(block)
 	}
+
 }

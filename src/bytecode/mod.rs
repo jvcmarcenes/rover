@@ -1,7 +1,8 @@
 
-pub mod opcode;
-pub mod chunk;
+mod opcode;
+mod chunk;
 pub mod chunk_gen;
+mod disassembler;
 
-pub mod disassembler;
+mod value;
 pub mod vm;

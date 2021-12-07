@@ -3,13 +3,13 @@ use std::vec::IntoIter;
 
 use crate::utils::source_pos::SourcePos;
 
-use super::opcode::{Value, OpCode};
+use super::{opcode::OpCode, value::Value};
 
 #[derive(Debug, Clone, Default)]
 pub struct Chunk {
 	pub code: Vec<u8>,
 	pub source_info: Vec<SourcePos>,
-	pub constants: Vec<Value>,
+	pub constants: Vec<Box<dyn Value>>,
 }
 
 impl Chunk {
@@ -28,7 +28,7 @@ impl Chunk {
 		self.source_info.push(src_info);
 	}
 	
-	pub fn write_const(&mut self, value: Value, src_info: SourcePos) {
+	pub fn write_const(&mut self, value: Box <dyn Value>, src_info: SourcePos) {
 		let c = self.add_const(value);
 		if c > u8::MAX as usize {
 			self.write_instr(OpCode::Const16, src_info);
@@ -40,7 +40,7 @@ impl Chunk {
 		}
 	}
 	
-	pub fn add_const(&mut self, value: Value) -> usize {
+	pub fn add_const(&mut self, value: Box<dyn Value>) -> usize {
 		self.constants.push(value);
 		return self.constants.len() - 1;
 	}
@@ -52,12 +52,12 @@ pub struct ChunkIter {
 	pub offset: usize,
 	next_offset: usize,
 	code: IntoIter<(u8, SourcePos)>,
-	constants: Vec<Value>,	
+	constants: Vec<Box<dyn Value>>,	
 }
 
 impl ChunkIter {
-	pub fn constant(&self, index: usize) -> Value {
-		self.constants[index]
+	pub fn constant(&self, index: usize) -> Box<dyn Value> {
+		self.constants[index].clone()
 	}
 
 	pub fn read8(&mut self) -> u8 {
