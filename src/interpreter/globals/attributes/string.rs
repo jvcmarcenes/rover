@@ -38,6 +38,92 @@ fn to_num() -> Box<dyn Value> {
 	NativeFn::create(ToNum(None).wrap())
 }
 
+fn uppercase() -> Box<dyn Value> {
+	#[derive(Debug, Clone)] struct Uppercase(NatSelf);
+	
+	impl Callable for Uppercase {
+		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
+		
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+			let str_ref = self.0.clone().unwrap();
+			Str::new(
+				castf!(str str_ref.borrow())
+				.chars()
+				.map(|c| c.to_uppercase().to_string())
+				.collect::<String>()
+			).wrap()
+		}
+	}
+	
+	NativeFn::create(Uppercase(None).wrap())
+}
+
+fn lowercase() -> Box<dyn Value> {
+	#[derive(Debug, Clone)] struct Lowercase(NatSelf);
+	
+	impl Callable for Lowercase {
+		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
+		
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+			let str_ref = self.0.clone().unwrap();
+			Str::new(
+				castf!(str str_ref.borrow())
+				.chars()
+				.map(|c| c.to_lowercase().to_string())
+				.collect::<String>()
+			).wrap()
+		}
+	}
+	
+	NativeFn::create(Lowercase(None).wrap())
+}
+
+fn repeat() -> Box<dyn Value> {
+	#[derive(Debug, Clone)] struct Repeat(NatSelf);
+	
+	impl Callable for Repeat {
+		fn arity(&self) -> usize { 1 }
+		
+		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
+		
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+			let v0 = cast!(num args[0].0.clone());
+			let str_ref = self.0.clone().unwrap();
+			Str::new(
+				castf!(str str_ref.borrow()).repeat(v0 as usize)
+			).wrap()
+		}
+	}
+	
+	NativeFn::create(Repeat(None).wrap())
+}
+
+fn substring() -> Box<dyn Value> {
+	#[derive(Debug, Clone)] struct Substring(NatSelf);
+	
+	impl Callable for Substring {
+		fn arity(&self) -> usize { 2 }
+		
+		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
+		
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+			let v0 = cast!(num args[0].0.clone());
+			let v1 = cast!(num args[1].0.clone());
+			let str_ref = self.0.clone().unwrap();
+			Str::new(
+				castf!(str str_ref.borrow())
+				.chars()
+				.skip(v0 as usize)
+				.take(v1 as usize)
+				.map(|c| c.to_string())
+				.collect::<String>()
+			).wrap()
+		}
+	}
+	
+	NativeFn::create(Substring(None).wrap())
+}
+
 fn size() -> Box<dyn Value> {
 	#[derive(Clone, Debug)] struct Size(NatSelf);
 	
@@ -80,14 +166,34 @@ fn get() -> Box<dyn Value> {
 	NativeFn::create(Get(None).wrap())
 }
 
+fn reverse() -> Box<dyn Value> {
+	#[derive(Clone, Debug)] struct Reverse(NatSelf);
+	
+	impl Callable for Reverse {
+		fn bind(&mut self, binding: Box<dyn Value>) { self.0 = binding.wrap() }
+		
+		fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+			let str_ref = self.0.clone().unwrap();
+			Str::new(castf!(str str_ref.borrow()).chars().rev().map(|c| c.to_string()).collect::<String>()).wrap()
+		}
+	}
+	
+	NativeFn::create(Reverse(None).wrap())
+}
+
 pub fn string() -> Box<dyn Value> {
 	let mut methods = HashMap::new();
 	
 	let v = vec![
 	("is_num", is_num()),
 	("to_num", to_num()),
+	("uppercase", uppercase()),
+	("lowercase", lowercase()),
+	("repeat", repeat()),
+	("substring", substring()),
 	("size", size()),
 	("get", get()),
+	("reverse", reverse()),
 	];
 	
 	for (key, val) in v {

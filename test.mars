@@ -1,6 +1,2 @@
 
-let str = 'Hello World'
 
-for c in str {
-	rand() |> writeline
-}
