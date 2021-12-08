@@ -12,7 +12,7 @@ impl ValNone {
 
 impl Value for ValNone {
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
-	fn display(&self) -> String { "none".to_string() }
+	fn display(&self) -> Result<String> { "none".to_string().wrap() }
 
 	fn is_none(&self) -> bool { true }
 

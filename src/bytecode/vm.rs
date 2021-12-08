@@ -1,7 +1,7 @@
 
 use crate::utils::{result::Result, source_pos::SourcePos, wrap::Wrap};
 
-use super::{chunk::{ChunkIter, Chunk}, opcode::{OpCodeVisitor, OpCode}, value::{Value, number::Number, bool::Bool, none::ValNone}};
+use super::{chunk::{ChunkIter, Chunk}, opcode::{OpCodeVisitor, OpCode}, value::{Value, number::Number, bool::Bool, none::ValNone, string::Str}};
 
 pub struct VM {
 	chunk: ChunkIter,
@@ -76,7 +76,7 @@ impl VM {
 impl OpCodeVisitor<Result<()>> for VM {
 	
 	fn op_return(&mut self, _pos: SourcePos) -> Result<()> {
-		println!("{}", self.pop().0);
+		println!("{}", self.pop().0.display()?);
 		Ok(())
 	}
 	
@@ -107,6 +107,19 @@ impl OpCodeVisitor<Result<()>> for VM {
 		Ok(())
 	}
 	
+	fn op_template(&mut self, pos: SourcePos) -> Result<()> {
+		let mut str = String::new();
+		let len = self.chunk.read8();
+		for _ in 0..len {
+			let (v0, p0) = self.pop();
+			let mut s0 = v0.display()?;
+			s0.push_str(&str);
+			str = s0;
+		}
+		self.push(Str::create(str), pos);
+		Ok(())
+	}
+	
 	fn op_negate(&mut self, pos: SourcePos) -> Result<()> {
 		let (v0, p0) = self.pop();
 		let val = -v0.as_num(p0)?.data;
@@ -126,7 +139,7 @@ impl OpCodeVisitor<Result<()>> for VM {
 	}
 	
 	fn op_add(&mut self, pos: SourcePos) -> Result<()> {
-		self.binary(|(a, apos), (b, bpos)| if b.is_string() { a.cast_string(apos)?.add(b, apos, bpos, pos) } else { a.add(b, apos, bpos, pos) }, pos)
+		self.binary(|(a, apos), (b, bpos)| if b.is_string() { Str::new(a.display()?).add(b, apos, bpos, pos) } else { a.add(b, apos, bpos, pos) }, pos)
 	}
 	
 	fn op_subtract(&mut self, pos: SourcePos) -> Result<()> {

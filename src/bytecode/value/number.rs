@@ -20,7 +20,7 @@ impl Number {
 
 impl Value for Number {
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
-	fn display(&self) -> String { self.data.to_string() }
+	fn display(&self) -> Result<String> { self.data.to_string().wrap() }
 
 	fn is_num(&self) -> bool { true }
 	fn as_num(&self, pos: SourcePos) -> Result<Number> { self.clone().wrap() }

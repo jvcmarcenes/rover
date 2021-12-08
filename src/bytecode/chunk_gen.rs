@@ -40,7 +40,11 @@ impl ExprVisitor<()> for ChunkGen {
 			LiteralData::Str(s) => self.chunk().write_const(Str::create(s), pos),
 			LiteralData::Num(n) => self.chunk().write_const(Number::create(n), pos),
 			LiteralData::Bool(b) => self.chunk().write_instr(if b { OpCode::ConstTrue } else { OpCode::ConstFalse }, pos),
-			LiteralData::Template(_) => todo!(),
+			LiteralData::Template(exprs) => {
+				for expr in exprs.clone() { expr.accept(self)?; }
+				self.chunk.write_instr(OpCode::StrTemplate, pos);
+				self.chunk.write_byte(exprs.len() as u8, pos);
+			},
 			LiteralData::List(_) => todo!(),
 			LiteralData::Object(_, _) => todo!(),
 			LiteralData::Error(_) => todo!(),

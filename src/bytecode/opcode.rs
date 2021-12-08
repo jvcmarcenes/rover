@@ -10,6 +10,7 @@ use self::OpCode::*;
 pub enum OpCode {
 	Return,
 	Const, Const16, ConstFalse, ConstTrue, ConstNone,
+	StrTemplate,
 	
 	Negate, Identity, Not,
 	Add, Subtract, Multiply, Divide, Remainder,
@@ -31,6 +32,7 @@ impl OpCode {
 			ConstFalse => visitor.op_false(pos),
 			ConstTrue  => visitor.op_true(pos),
 			ConstNone  => visitor.op_none(pos),
+			StrTemplate => visitor.op_template(pos),
 			Negate     => visitor.op_negate(pos),
 			Identity   => visitor.op_identity(pos),
 			Not        => visitor.op_not(pos),
@@ -56,6 +58,7 @@ pub trait OpCodeVisitor<T> {
 	fn op_false(&mut self, _pos: SourcePos) -> T;
 	fn op_true(&mut self, _pos: SourcePos) -> T;
 	fn op_none(&mut self, _pos: SourcePos) -> T;
+	fn op_template(&mut self, _pos: SourcePos) -> T;
 	fn op_negate(&mut self, _pos: SourcePos) -> T;
 	fn op_identity(&mut self, _pos: SourcePos) -> T;
 	fn op_not(&mut self, _pos: SourcePos) -> T;

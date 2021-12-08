@@ -4,7 +4,7 @@ pub mod bool;
 pub mod none;
 pub mod string;
 
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use crate::utils::{wrap::Wrap, result::{Result, ErrorList}, source_pos::SourcePos};
 
@@ -13,7 +13,8 @@ use self::{number::Number, bool::Bool, string::Str};
 pub trait Value : Debug {
 
 	fn cloned(&self) -> Box<dyn Value>;
-	fn display(&self) -> String;
+	fn display(&self) -> Result<String>;
+	fn displayf(&self) -> String { self.display().expect("Could not display value") }
 
 	fn is_none(&self) -> bool { false }
 	fn is_num(&self) -> bool { false }
@@ -24,9 +25,8 @@ pub trait Value : Debug {
 	fn as_string(&self, pos: SourcePos) -> Result<Str> { ErrorList::run("Could not convert to string".to_owned(), pos).err() }
 
 	fn truthy(&self) -> bool { true }
-	fn cast_string(&self, _pos: SourcePos) -> Result<Box<dyn Value>> { Str::create(self.display()).wrap() }
-	fn sub(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation add is not defined".to_owned(), pos).err() }
-	fn add(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation sub is not defined".to_owned(), pos).err() }
+	fn add(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation add is not defined".to_owned(), pos).err() }
+	fn sub(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation sub is not defined".to_owned(), pos).err() }
 	fn mul(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation mul is not defined".to_owned(), pos).err() }
 	fn div(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation div is not defined".to_owned(), pos).err() }
 	fn rem(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation mod is not defined".to_owned(), pos).err() }
@@ -37,12 +37,6 @@ pub trait Value : Debug {
 
 impl Clone for Box<dyn Value> {
 	fn clone(&self) -> Self { self.cloned() }
-}
-
-impl Display for Box<dyn Value> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", self.display())
-	}
 }
 
 impl <T: 'static + Value> Wrap<Box<dyn Value>> for T {

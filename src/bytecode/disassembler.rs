@@ -61,12 +61,12 @@ impl OpCodeVisitor<()> for Disassembler {
 	
 	fn op_const(&mut self, _pos: SourcePos) {
 		let (index, val) = self.read_const_8();
-		println!("{:-16} {:4} ({})", "CONST", index, val);
+		println!("{:-16} {:4} ({})", "CONST", index, val.displayf());
 	}
 	
 	fn op_const_16(&mut self, _pos: SourcePos) {
 		let (index, val) = self.read_const_16();
-		println!("{:-16} {:4} ({})", "CONST_16", index, val);
+		println!("{:-16} {:4} ({})", "CONST_16", index, val.displayf());
 	}
 	
 	fn op_false(&mut self, _pos: SourcePos) -> () {
@@ -79,6 +79,11 @@ impl OpCodeVisitor<()> for Disassembler {
 	
 	fn op_none(&mut self, _pos: SourcePos) -> () {
 		simple_instr("CONST_NONE");
+	}
+	
+	fn op_template(&mut self, _pos: SourcePos) -> () {
+		let len = self.chunk.read8();
+		println!("{:-16} {:4}", "TEMPLATE", len);
 	}
 	
 	fn op_negate(&mut self, _pos: SourcePos) -> () {

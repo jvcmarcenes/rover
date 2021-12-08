@@ -20,7 +20,7 @@ impl Bool {
 
 impl Value for Bool {
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
-	fn display(&self) -> String { self.data.to_string() }
+	fn display(&self) -> Result<String> { self.data.to_string().wrap() }
 
 	fn is_bool(&self) -> bool { true }
 	fn as_bool(&self, pos: SourcePos) -> Result<Bool> { self.clone().wrap() }

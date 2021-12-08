@@ -20,11 +20,11 @@ impl Str {
 
 impl Value for Str {
 	fn cloned(&self) -> Box<dyn Value> { self.clone().wrap() }
-	fn display(&self) -> String { self.data.clone() }
+	fn display(&self) -> Result<String> { self.data.clone().wrap() }
 	
 	fn is_string(&self) -> bool { true }
 	fn as_string(&self, pos: SourcePos) -> Result<Str> { self.clone().wrap() }
 	
-	fn add(&self, other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { Str::create(format!("{}{}", self.data, other.display())).wrap() }
+	fn add(&self, other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { Str::create(format!("{}{}", self.data, other.display()?)).wrap() }
 	fn equ(&self, other: Box<dyn Value>, _spos: SourcePos, opos: SourcePos, pos: SourcePos) -> Result<bool> { (other.is_string() && self.data == other.as_string(opos)?.data).wrap() }
 }
