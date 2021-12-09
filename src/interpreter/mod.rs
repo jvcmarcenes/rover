@@ -274,51 +274,39 @@ impl StmtVisitor<Message> for Interpreter {
 	}
 	
 	fn assignment(&mut self, data: AssignData, _pos: SourcePos) -> Result<Message> {
-		let mut head = data.head;
-		let mut val = unwrap_msg!(data.expr.accept(self)?);
+		let val = unwrap_msg!(data.expr.accept(self)?);
 		loop {
-			match head.typ {
-				ExprType::SelfRef => {
-					self.env.assign(SELF, val);
-					return Message::None.wrap();
-				},
+			match data.head.typ {
 				ExprType::Variable(name) => {
 					self.env.assign(name.get_id(), val);
 					return Message::None.wrap();
 				},
 				ExprType::Index(IndexData { head: ihead, index }) => {
 					let h_pos = ihead.pos;
-					head = ihead.clone();
 					let head = ihead.accept(self)?;
-					let mut list = match head.get_type() {
-						ValueType::Vector => castf!(vec head.clone()).borrow().clone(),
-						ValueType::Str => castf!(str head.clone()).chars().map(|c| Str::new(c.to_string())).collect(),
-						typ => return ErrorList::run(format!("Cannot index {}", typ), h_pos).err(),
+					let list = if let ValueType::Vector = head.get_type() {
+						castf!(vec head.clone())
+					} else {
+						return ErrorList::run("Invalid assignment target".to_owned(), h_pos).err()
 					};
 					let i_pos = index.pos;
 					let index = unwrap_msg!(index.accept(self)?).to_num(i_pos)?;
-					let index = get_index(index, list.len(), i_pos)?;
-					if index < list.len() { list.remove(index); }
-					list.insert(index, val);
-					val = match head.get_type() {
-						ValueType::Vector => List::new(list),
-						ValueType::Str => Str::new(list.iter().map(|v| castf!(str v)).collect::<Vec<_>>().join("")),
-						_ => panic!(),
-					};
+					let index = get_index(index, list.borrow().len(), i_pos)?;
+					list.borrow_mut().remove(index);
+					list.borrow_mut().insert(index, val);
+					return Message::None.wrap();
 				},
 				ExprType::FieldGet(FieldData { head: fhead, field }) => {
 					let h_pos = fhead.pos;
-					// head = fhead.clone();
 					let map = fhead.accept(self)?.to_obj(h_pos)?;
 					if let Some(cur) = map.get(&field) {
 						*cur.borrow_mut() = val;
 					} else {
 						return ErrorList::run(format!("Property {} is undefined for object", field), h_pos).err();
 					}
-					// val = Object::new(map);
 					return Message::None.wrap();
 				},
-				_ => return ErrorList::run("Invalid assignment target".to_owned(), head.pos).err()
+				_ => return ErrorList::run("Invalid assignment target".to_owned(), data.head.pos).err()
 			}
 		}
 	}
