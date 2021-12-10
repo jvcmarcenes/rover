@@ -5,27 +5,35 @@ use crate::{utils::{result::{Result, ErrorList}, wrap::Wrap, source_pos::SourceP
 
 use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::{number::Number, string::Str}};
 
+#[derive(Default)]
+struct Context {
+	loop_stack: Vec<u16>,
+	break_stack: Vec<Vec<u16>>,
+}
+
 pub struct ChunkGen {
-	chunk: Chunk
+	chunk: Chunk,
+	ctx: Context,
 }
 
 impl ChunkGen {
-
+	
 	pub fn new() -> Self {
 		Self {
 			chunk: Chunk::new(),
+			ctx: Context::default(),
 		}
 	}
-
+	
 	fn chunk(&mut self) -> &mut Chunk {
 		&mut self.chunk
 	}
-
+	
 	fn generate_block(&mut self, block: Block) -> Result<()> {
 		for stmt in block { stmt.accept(self)?; }
 		Ok(())
 	}
-
+	
 	pub fn generate(mut self, code: Block) -> Result<Chunk> {
 		self.generate_block(code)?;
 		if cfg!(feature = "print_code") {
@@ -33,7 +41,7 @@ impl ChunkGen {
 		}
 		self.chunk.wrap()
 	}
-
+	
 	fn write_var(&mut self, instr: OpCode, id: usize, pos: SourcePos) -> Result<()> {
 		if id > u8::MAX as usize {
 			if id > u16::MAX as usize { panic!("not enough space to store variable id") }
@@ -50,11 +58,11 @@ impl ChunkGen {
 		}
 		Ok(())
 	}
-
+	
 }
 
 impl ExprVisitor<()> for ChunkGen {
-
+	
 	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<()> {
 		match data {
 			LiteralData::None => self.chunk().write_instr(OpCode::ConstNone, pos),
@@ -107,7 +115,15 @@ impl ExprVisitor<()> for ChunkGen {
 	}
 	
 	fn logic(&mut self, data: LogicData, pos: SourcePos) -> Result<()> {
-		todo!()
+		data.lhs.accept(self)?;
+		let end_anchor = match data.op {
+			LogicOperator::And => self.chunk.write_jump(OpCode::FalseJump, pos),
+			LogicOperator::Or => self.chunk.write_jump(OpCode::TrueJump, pos),
+		};
+		self.chunk.write_instr(OpCode::Pop, pos);
+		data.rhs.accept(self)?;
+		self.chunk.patch_jump(end_anchor);
+		Ok(())
 	}
 	
 	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<()> {
@@ -145,11 +161,11 @@ impl ExprVisitor<()> for ChunkGen {
 	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<()> {
 		todo!()
 	}
-
+	
 }
 
 impl StmtVisitor<()> for ChunkGen {
-
+	
 	fn expr(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
 		expr.accept(self)?;
 		self.chunk.write_instr(OpCode::Pop, pos);
@@ -190,15 +206,27 @@ impl StmtVisitor<()> for ChunkGen {
 	}
 	
 	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<()> {
-		todo!()
+		let anchor = self.chunk.anchor();
+		self.ctx.loop_stack.push(anchor);
+		self.ctx.break_stack.push(Vec::new());
+		self.generate_block(block)?;
+		self.chunk.write_jump_back(anchor, pos);
+		for break_stmt in self.ctx.break_stack.pop().unwrap() {
+			self.chunk.patch_jump(break_stmt);
+		}
+		Ok(())
 	}
 	
 	fn break_stmt(&mut self, pos: SourcePos) -> Result<()> {
-		todo!()
+		let break_anchor = self.chunk.write_jump(OpCode::Jump, pos);
+		self.ctx.break_stack.last_mut().unwrap().push(break_anchor);
+		Ok(())
 	}
 	
 	fn continue_stmt(&mut self, pos: SourcePos) -> Result<()> {
-		todo!()
+		let loop_anchor = *self.ctx.loop_stack.last().unwrap();
+		self.chunk.write_jump_back(loop_anchor, pos);
+		Ok(())
 	}
 	
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
@@ -210,5 +238,5 @@ impl StmtVisitor<()> for ChunkGen {
 	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<()> {
 		self.generate_block(block)
 	}
-
+	
 }

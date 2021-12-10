@@ -1,12 +1,8 @@
 
-let buf
+let i = 0
 
-let x = 16
-
-if x mod 2 == 0 {
-	buf = '#{x} is even'
-} else {
-	buf = '#{x} is odd'
+loop {
+	if i > 10 { break }
+	if i mod 2 == 0 { i += 1; continue }
+	i += 1
 }
-
-buf

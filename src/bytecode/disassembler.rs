@@ -34,154 +34,159 @@ impl Disassembler {
 	pub fn disassemble(&mut self, name: &str) {
 		println!("== {} ==", name);
 		
-		while let Some((code, pos)) = self.chunk.next() {
-			self.disassemble_instr(code, pos);
+		while let Some(code) = self.chunk.next() {
+			self.disassemble_instr(code, self.chunk.get_src_info());
 		}
 	}
 	
 	pub fn disassemble_instr(&mut self, code: u8, pos: SourcePos) {
 		print!("{:04} ", self.chunk.offset());
 		print!("[{:04}:{:04}] ", pos.lin, pos.col);
-		OpCode::from(code).accept(self, pos);
+		OpCode::from(code).accept(self);
 	}
 	
 }
 
 impl OpCodeVisitor<()> for Disassembler {
 	
-	fn op_pop(&mut self, _pos: SourcePos) {
+	fn op_pop(&mut self) {
 		simple_instr("POP");
 	}
 
-	fn op_define(&mut self, _pos: SourcePos) {
+	fn op_define(&mut self) {
 		let id = self.chunk.read8();
 		println!("{:-16} {:4}", "DEFINE", id);
 	}
 
-	fn op_load(&mut self, _pos: SourcePos) {
+	fn op_load(&mut self) {
 		let id = self.chunk.read8();
 		println!("{:-16} {:4}", "LOAD", id);
 	}
 
-	fn op_store(&mut self, _pos: SourcePos) {
+	fn op_store(&mut self) {
 		let id = self.chunk.read8();
 		println!("{:-16} {:4}", "STORE", id);
 	}
 
-	fn op_define16(&mut self, _pos: SourcePos) {
+	fn op_define16(&mut self) {
 		let id = self.chunk.read16();
 		println!("{:-16} {:4}", "DEFINE_16", id);
 	}
 
-	fn op_load16(&mut self, _pos: SourcePos) {
+	fn op_load16(&mut self) {
 		let id = self.chunk.read16();
 		println!("{:-16} {:4}", "LOAD_16", id);
 	}
 
-	fn op_store16(&mut self, _pos: SourcePos) {
+	fn op_store16(&mut self) {
 		let id = self.chunk.read16();
 		println!("{:-16} {:4}", "STORE_16", id);
 	}
 
-	fn op_jump(&mut self, _pos: SourcePos) {
+	fn op_jump(&mut self) {
 		let offset = self.chunk.read16();
 		println!("{:-16} {:4}", "JUMP", offset + 3); // we add 3 to jump to represent the 2 jump offset bytes, and the skipped instructin we jump to
 	}
 
-	fn op_false_jump(&mut self, _pos: SourcePos) {
+	fn op_false_jump(&mut self) {
 		let offset = self.chunk.read16();
 		println!("{:-16} {:4}", "FALSE_JUMP", offset + 3);
 	}
 
-	fn op_true_jump(&mut self, _pos: SourcePos) {
+	fn op_true_jump(&mut self) {
 		let offset = self.chunk.read16();
 		println!("{:-16} {:4}", "TRUE_JUMP", offset + 3);
 	}
 
-	fn op_return(&mut self, _pos: SourcePos) {
+	fn op_jump_back(&mut self) -> () {
+		let offset = self.chunk.read16();
+		println!("{:-16} {:4}", "JUMP_BACK", offset - 3);
+	}
+
+	fn op_return(&mut self) {
 		simple_instr("RETURN");
 	}
 	
-	fn op_const(&mut self, _pos: SourcePos) {
+	fn op_const(&mut self) {
 		let (index, val) = self.read_const_8();
 		println!("{:-16} {:4} ({})", "CONST", index, val.displayf());
 	}
 	
-	fn op_const_16(&mut self, _pos: SourcePos) {
+	fn op_const_16(&mut self) {
 		let (index, val) = self.read_const_16();
 		println!("{:-16} {:4} ({})", "CONST_16", index, val.displayf());
 	}
 	
-	fn op_false(&mut self, _pos: SourcePos) {
+	fn op_false(&mut self) {
 		simple_instr("CONST_FALSE");
 	}
 	
-	fn op_true(&mut self, _pos: SourcePos) {
+	fn op_true(&mut self) {
 		simple_instr("CONST_TRUE");
 	}
 	
-	fn op_none(&mut self, _pos: SourcePos) {
+	fn op_none(&mut self) {
 		simple_instr("CONST_NONE");
 	}
 	
-	fn op_template(&mut self, _pos: SourcePos) {
+	fn op_template(&mut self) {
 		let len = self.chunk.read8();
 		println!("{:-16} {:4}", "TEMPLATE", len);
 	}
 	
-	fn op_negate(&mut self, _pos: SourcePos) {
+	fn op_negate(&mut self) {
 		simple_instr("NEGATE");
 	}
 	
-	fn op_identity(&mut self, _pos: SourcePos) {
+	fn op_identity(&mut self) {
 		simple_instr("IDENTITY");
 	}
 	
-	fn op_not(&mut self, _pos: SourcePos) {
+	fn op_not(&mut self) {
 		simple_instr("NOT");
 	}
 	
-	fn op_add(&mut self, _pos: SourcePos) {
+	fn op_add(&mut self) {
 		simple_instr("ADD");
 	}
 	
-	fn op_subtract(&mut self, _pos: SourcePos) {
+	fn op_subtract(&mut self) {
 		simple_instr("SUBTRACT");
 	}
 	
-	fn op_multiply(&mut self, _pos: SourcePos) {
+	fn op_multiply(&mut self) {
 		simple_instr("MULTIPLY");
 	}
 	
-	fn op_divide(&mut self, _pos: SourcePos) {
+	fn op_divide(&mut self) {
 		simple_instr("DIVIDE");
 	}
 	
-	fn op_remainder(&mut self, _pos: SourcePos) {
+	fn op_remainder(&mut self) {
 		simple_instr("REMAINDER");
 	}
 	
-	fn op_equals(&mut self, _pos: SourcePos) {
+	fn op_equals(&mut self) {
 		simple_instr("EQUALS");
 	}
 	
-	fn op_notequals(&mut self, _pos: SourcePos) {
+	fn op_notequals(&mut self) {
 		simple_instr("NOT_EQUALS");
 	}
 	
-	fn op_greater(&mut self, _pos: SourcePos) {
+	fn op_greater(&mut self) {
 		simple_instr("GREATER");
 	}
 	
-	fn op_lesser(&mut self, _pos: SourcePos) {
+	fn op_lesser(&mut self) {
 		simple_instr("LESSER");
 	}
 	
-	fn op_greatereq(&mut self, _pos: SourcePos) {
+	fn op_greatereq(&mut self) {
 		simple_instr("GREATER_EQUALS");
 	}
 	
-	fn op_lessereq(&mut self, _pos: SourcePos) {
+	fn op_lessereq(&mut self) {
 		simple_instr("LESSER_EQUALS");
 	}
 	

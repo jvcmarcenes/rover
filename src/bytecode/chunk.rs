@@ -44,17 +44,28 @@ impl Chunk {
 		}
 	}
 
-	pub fn write_jump(&mut self, instr: OpCode, src_info: SourcePos) -> usize {
-		self.write_instr(instr, src_info);
-		let anchor = self.code.len();
-		self.write_u16(0xffff, src_info);
-		return anchor;
+	pub fn anchor(&self) -> u16 {
+		self.code.len() as u16
 	}
 
-	pub fn patch_jump(&mut self, anchor: usize) {
+	pub fn write_jump(&mut self, instr: OpCode, src_info: SourcePos) -> u16 {
+		self.write_instr(instr, src_info);
+		let anchor = self.anchor();
+		self.write_u16(0xffff, src_info);
+		anchor
+	}
+
+	pub fn patch_jump(&mut self, anchor: u16) {
+		let anchor = anchor as usize;
 		let offset = self.code.len() - anchor - 2;
 		*self.code.get_mut(anchor).unwrap() = (offset >> 8) as u8;
 		*self.code.get_mut(anchor + 1).unwrap() = offset as u8;
+	}
+
+	pub fn write_jump_back(&mut self, anchor: u16, src_info: SourcePos) {
+		self.write_instr(OpCode::JumpBack, src_info);
+		let offset = self.anchor() - anchor + 2;
+		self.write_u16(offset, src_info);
 	}
 
 	fn add_const(&mut self, value: Box<dyn Value>) -> usize {
@@ -69,14 +80,14 @@ impl Chunk {
 
 impl Chunk {
 
-	pub fn next(&mut self) -> Option<(u8, SourcePos)> {
+	pub fn next(&mut self) -> Option<u8> {
 		self.offset.0 = self.offset.1;
 		self.offset.1 += 1;
-		if let (Some(&byte), Some(&pos)) = (self.code.get(self.offset.0), self.source_info.get(self.offset.0)) {
-			Some((byte, pos))
-		} else {
-			None
-		}
+		self.code.get(self.offset.0).map(|byte| *byte)
+	}
+
+	pub fn get_src_info(&self) -> SourcePos {
+		*self.source_info.get(self.offset.0).expect("expected src info")
 	}
 
 	pub fn constant(&self, index: usize)  -> Box<dyn Value> {
@@ -84,7 +95,9 @@ impl Chunk {
 	}
 
 	pub fn read8(&mut self) -> u8 {
-		self.next().expect("expected byte").0
+		self.offset.0 = self.offset.1;
+		self.offset.1 += 1;
+		*self.code.get(self.offset.0).expect("expected byte")
 	}
 
 	pub fn read16(&mut self) -> u16 {
@@ -98,13 +111,11 @@ impl Chunk {
 	}
 
 	pub fn jump(&mut self, offset: u16) {
-		self.offset.0 += offset as usize;
-		self.offset.1 = self.offset.0 + 1;
+		self.offset.1 += offset as usize;
 	}
 
-	// pub fn jump_back(&mut self, offset: u16) {
-	// 	self.offset.0 -= offset as usize;
-	// 	self.offset.1 = self.offset.0 + 1;
-	// }
+	pub fn jump_back(&mut self, offset: u16) {
+		self.offset.1 -= offset as usize;
+	}
 	
 }
