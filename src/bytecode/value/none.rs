@@ -17,5 +17,5 @@ impl Value for ValNone {
 	fn is_none(&self) -> bool { true }
 
 	fn truthy(&self) -> bool { false }
-	fn equ(&self, other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<bool> { other.is_none().wrap() }
+	fn equ(&self, other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, _pos: SourcePos) -> Result<bool> { other.is_none().wrap() }
 }

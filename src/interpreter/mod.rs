@@ -1,13 +1,12 @@
 
 pub mod value;
-pub mod environment;
 pub mod globals;
 
 use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
-use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{environment::Environment, ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
-use self::{environment::Environment, value::{Value, primitives::{callable::{ValCallable, function::{Function, SELF}}, attribute::Attribute}}, globals::init_globals};
+use self::{value::{Value, primitives::{callable::{ValCallable, function::{Function, SELF}}, attribute::Attribute}}, globals::init_globals};
 
 pub fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
 	if n < 0.0 { n += len as f64; }
@@ -28,7 +27,7 @@ pub enum Message {
 }
 
 pub struct Interpreter {
-	env: Environment,
+	env: Environment<Box<dyn Value>>,
 	pub root_path: PathBuf,
 }
 

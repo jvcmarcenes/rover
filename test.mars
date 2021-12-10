@@ -1,3 +1,6 @@
 
-'Hello #{'John'}!'
-return
+let a = 23
+let b = 42
+a = 16
+let c = a + b
+c += a

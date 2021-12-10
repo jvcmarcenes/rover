@@ -1,5 +1,7 @@
 
-use crate::{utils::{result::Result, wrap::Wrap, source_pos::SourcePos}, ast::{statement::*, expression::*, identifier::Identifier}};
+#![allow(unused_variables)]
+
+use crate::{utils::{result::{Result, ErrorList}, wrap::Wrap, source_pos::SourcePos}, ast::{statement::*, expression::*, identifier::Identifier}};
 
 use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::{number::Number, string::Str}};
 
@@ -14,7 +16,7 @@ impl ChunkGen {
 			chunk: Chunk::new(),
 		}
 	}
-	
+
 	fn chunk(&mut self) -> &mut Chunk {
 		&mut self.chunk
 	}
@@ -22,12 +24,31 @@ impl ChunkGen {
 	fn generate_block(&mut self, block: Block) -> Result<()> {
 		for stmt in block { stmt.accept(self)?; }
 		Ok(())
- }
+	}
 
-	pub fn generate(&mut self, code: Block) -> Result<Chunk> {
+	pub fn generate(mut self, code: Block) -> Result<Chunk> {
 		self.generate_block(code)?;
-		if cfg!(feature = "print_code") { Disassembler::new(self.chunk.clone()).disassemble("code"); }
-		self.chunk.clone().wrap()
+		if cfg!(feature = "print_code") {
+			Disassembler::new(self.chunk.clone()).disassemble("code");
+		}
+		self.chunk.wrap()
+	}
+
+	fn write_var(&mut self, instr: OpCode, id: usize, pos: SourcePos) -> Result<()> {
+		if id > u8::MAX as usize {
+			if id > u16::MAX as usize { panic!("not enough space to store variable id") }
+			match instr {
+				OpCode::Define => self.chunk.write_instr(OpCode::Define16, pos),
+				OpCode::Load   => self.chunk.write_instr(OpCode::Load16, pos),
+				OpCode::Store  => self.chunk.write_instr(OpCode::Store, pos),
+				_ => panic!("invalid instruction for variable"),
+			}
+			self.chunk.write_u16(id as u16, pos);
+		} else {
+			self.chunk.write_instr(instr, pos);
+			self.chunk.write_u8(id as u8, pos);
+		}
+		Ok(())
 	}
 
 }
@@ -41,9 +62,12 @@ impl ExprVisitor<()> for ChunkGen {
 			LiteralData::Num(n) => self.chunk().write_const(Number::create(n), pos),
 			LiteralData::Bool(b) => self.chunk().write_instr(if b { OpCode::ConstTrue } else { OpCode::ConstFalse }, pos),
 			LiteralData::Template(exprs) => {
+				if exprs.len() > u8::MAX as usize {
+					return ErrorList::comp("Template string had over 255 elements".to_owned(), pos).err()
+				}
 				for expr in exprs.clone() { expr.accept(self)?; }
 				self.chunk.write_instr(OpCode::StrTemplate, pos);
-				self.chunk.write_byte(exprs.len() as u8, pos);
+				self.chunk.write_u8(exprs.len() as u8, pos);
 			},
 			LiteralData::List(_) => todo!(),
 			LiteralData::Object(_, _) => todo!(),
@@ -91,7 +115,7 @@ impl ExprVisitor<()> for ChunkGen {
 	}
 	
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<()> {
-		todo!()
+		self.write_var(OpCode::Load, data.get_id(), pos)
 	}
 	
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<()> {
@@ -115,7 +139,7 @@ impl ExprVisitor<()> for ChunkGen {
 	}
 	
 	fn do_expr(&mut self, block: Block, pos: SourcePos) -> Result<()> {
-		todo!()
+		todo!(); // self.generate_block(block)
 	}
 	
 	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<()> {
@@ -127,11 +151,15 @@ impl ExprVisitor<()> for ChunkGen {
 impl StmtVisitor<()> for ChunkGen {
 
 	fn expr(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
-		expr.accept(self)
+		expr.accept(self)?;
+		self.chunk.write_instr(OpCode::Pop, pos);
+		Ok(())
 	}
 	
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
-		todo!()
+		data.expr.accept(self)?;
+		self.write_var(OpCode::Define, data.name.get_id(), pos)?;
+		Ok(())
 	}
 	
 	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<()> {
@@ -139,11 +167,22 @@ impl StmtVisitor<()> for ChunkGen {
 	}
 	
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> Result<()> {
-		todo!()
+		data.expr.accept(self)?;
+		if let ExprType::Variable(id) = data.head.typ {
+			self.write_var(OpCode::Store, id.get_id(), pos)?;
+		} else {
+			return ErrorList::comp("Enviroment overflowed 255 variables".to_owned(), pos).err();
+		}
+		Ok(())
 	}
 	
 	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<()> {
-		todo!()
+		// data.cond.accept(self)?;
+		// let anchor = self.chunk.write_jump(OpCode::FalseJump, pos);
+		// self.generate_block(data.then_block)?;
+		// self.chunk.patch_jump(anchor);
+		// Ok(())
+		todo!();
 	}
 	
 	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<()> {
@@ -159,6 +198,7 @@ impl StmtVisitor<()> for ChunkGen {
 	}
 	
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
+		expr.accept(self)?;
 		self.chunk().write_instr(OpCode::Return, pos);
 		Ok(())
 	}

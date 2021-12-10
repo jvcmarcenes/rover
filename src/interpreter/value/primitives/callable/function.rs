@@ -1,5 +1,5 @@
 
-use crate::{ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment, value::{Value, primitives::none::ValNone}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{environment::Environment, ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, value::{Value, primitives::none::ValNone}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Callable;
 
@@ -7,13 +7,13 @@ pub const SELF: usize = 0;
 
 #[derive(Debug, Clone)]
 pub struct Function {
-	pub env: Environment,
+	pub env: Environment<Box<dyn Value>>,
 	pub params: Vec<Identifier>,
 	pub body: Block,
 }
 
 impl Function {
-	pub fn new(env: Environment, params: Vec<Identifier>, body: Block) -> Self {
+	pub fn new(env: Environment<Box<dyn Value>>, params: Vec<Identifier>, body: Block) -> Self {
 		Self { env, params, body }
 	}
 }

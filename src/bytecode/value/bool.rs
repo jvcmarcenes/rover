@@ -23,8 +23,8 @@ impl Value for Bool {
 	fn display(&self) -> Result<String> { self.data.to_string().wrap() }
 
 	fn is_bool(&self) -> bool { true }
-	fn as_bool(&self, pos: SourcePos) -> Result<Bool> { self.clone().wrap() }
+	fn as_bool(&self, _pos: SourcePos) -> Result<Bool> { self.clone().wrap() }
 
 	fn truthy(&self) -> bool { self.data }
-	fn equ(&self, other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<bool> { (self.data == other.truthy()).wrap() }
+	fn equ(&self, other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, _pos: SourcePos) -> Result<bool> { (self.data == other.truthy()).wrap() }
 }
