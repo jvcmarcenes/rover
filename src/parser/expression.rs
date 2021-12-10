@@ -34,14 +34,6 @@ fn un_operator_for_token(token: &Token) -> UnaryOperator {
 	}
 }
 
-fn lg_operator_for_token(token: &Token) -> LogicOperator {
-	match token.typ {
-		Keyword(And) => LogicOperator::And,
-		Keyword(Or) => LogicOperator::Or,
-		_ => panic!("This function should only be called when we know it will match"),
-	}
-}
-
 fn err_handler(expr: Expression, handler: Block, pos: SourcePos) -> Expression {
 	ExprType::DoExpr(vec![
 		StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), expr: expr.wrap() }).to_stmt(pos),
@@ -69,47 +61,23 @@ impl Parser {
 	}
 	
 	pub fn expression(&mut self) -> ExprResult {
-		self.bind_expr()
+		self.logic_or()
 	}
-	
-	fn bind_expr(&mut self) -> ExprResult {
-		fn access(parser: &mut Parser) -> ExprResult {
-			let Token { typ, pos } = parser.next();
-			if let Identifier(name) = typ {
-				let mut head = ExprType::Variable(Identifier::new(name)).to_expr(pos);
-				loop {
-					let peek = parser.peek();
-					head = match peek.typ {
-						Symbol(OpenSqr) => parser.index(head)?,
-						Symbol(Dot) => parser.field(head)?,
-						_ => return head.wrap(),
-					}
-				}
-			} else {
-				ErrorList::comp(format!("Expected identifier, found {}", typ), pos).err()
-			}
-		}
-		
-		let mut expr = self.logic()?;
-		
-		if let Some(Token { pos, .. }) = self.optional(Symbol(DoubleColon)) {
-			let method = access(self)?;
-			expr = ExprType::Binding(BindData { expr: Box::new(expr), method: Box::new(method) }).to_expr(pos);
-		}
 
-		if self.next_match(Symbol(OpenPar)) {
-			expr = self.function_call(expr)?;
+	fn logic_or(&mut self) -> ExprResult {
+		let mut left = self.logic_and()?;
+		while let Some(token) = self.optional(Keyword(Or)) {
+			let right = self.logic_and()?;
+			left = Logic(LogicData { lhs: left.wrap(), op: LogicOperator::Or, rhs: right.wrap() }).to_expr(token.pos);
 		}
-		
-		expr.wrap()
+		left.wrap()
 	}
-	
-	fn logic(&mut self) -> ExprResult {
+
+	fn logic_and(&mut self) -> ExprResult {
 		let mut left = self.equality()?;
-		while let Some(token) = self.optional_any(&[Keyword(And), Keyword(Or)]) {
-			let op = lg_operator_for_token(&token);
+		while let Some(token) = self.optional(Keyword(And)) {
 			let right = self.equality()?;
-			left = Logic(LogicData { lhs: Box::new(left), op, rhs: Box::new(right) }).to_expr(token.pos);
+			left = Logic(LogicData { lhs: left.wrap(), op: LogicOperator::And, rhs: right.wrap() }).to_expr(token.pos);
 		}
 		left.wrap()
 	}
@@ -151,15 +119,47 @@ impl Parser {
 	}
 	
 	fn pipe_infix(&mut self) -> ExprResult {
-		let mut expr = self.postfix()?;
+		let mut expr = self.bind_expr()?;
 		while let Symbol(BarCloseAng) = self.peek().typ {
 			let Token { pos, .. } = self.next();
-			let calee = self.postfix()?;
+			let calee = self.bind_expr()?;
 			expr = Call(CallData { calee: Box::new(calee), args: vec![expr] }).to_expr(pos);
 		}
 		expr.wrap()
 	}
 	
+	fn bind_expr(&mut self) -> ExprResult {
+		fn access(parser: &mut Parser) -> ExprResult {
+			let Token { typ, pos } = parser.next();
+			if let Identifier(name) = typ {
+				let mut head = ExprType::Variable(Identifier::new(name)).to_expr(pos);
+				loop {
+					let peek = parser.peek();
+					head = match peek.typ {
+						Symbol(OpenSqr) => parser.index(head)?,
+						Symbol(Dot) => parser.field(head)?,
+						_ => return head.wrap(),
+					}
+				}
+			} else {
+				ErrorList::comp(format!("Expected identifier, found {}", typ), pos).err()
+			}
+		}
+		
+		let mut expr = self.postfix()?;
+		
+		if let Some(Token { pos, .. }) = self.optional(Symbol(DoubleColon)) {
+			let method = access(self)?;
+			expr = ExprType::Binding(BindData { expr: Box::new(expr), method: Box::new(method) }).to_expr(pos);
+		}
+
+		if self.next_match(Symbol(OpenPar)) {
+			expr = self.function_call(expr)?;
+		}
+		
+		expr.wrap()
+	}
+
 	fn postfix(&mut self) -> ExprResult {
 		let mut expr = self.primary()?;
 		loop {
