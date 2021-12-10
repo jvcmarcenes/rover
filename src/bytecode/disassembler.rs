@@ -83,20 +83,20 @@ impl OpCodeVisitor<()> for Disassembler {
 		println!("{:-16} {:4}", "STORE_16", id);
 	}
 
-	// fn op_jump(&mut self, _pos: SourcePos) {
-	// 	let offset = self.chunk.read16();
-	// 	println!("{:-16} {:4}", "JUMP", offset);
-	// }
+	fn op_jump(&mut self, _pos: SourcePos) {
+		let offset = self.chunk.read16();
+		println!("{:-16} {:4}", "JUMP", offset + 3); // we add 3 to jump to represent the 2 jump offset bytes, and the skipped instructin we jump to
+	}
 
-	// fn op_false_jump(&mut self, _pos: SourcePos) {
-	// 	let offset = self.chunk.read16();
-	// 	println!("{:-16} {:4}", "FALSE_JUMP", offset);
-	// }
+	fn op_false_jump(&mut self, _pos: SourcePos) {
+		let offset = self.chunk.read16();
+		println!("{:-16} {:4}", "FALSE_JUMP", offset + 3);
+	}
 
-	// fn op_true_jump(&mut self, _pos: SourcePos) {
-	// 	let offset = self.chunk.read16();
-	// 	println!("{:-16} {:4}", "TRUE_JUMP", offset);
-	// }
+	fn op_true_jump(&mut self, _pos: SourcePos) {
+		let offset = self.chunk.read16();
+		println!("{:-16} {:4}", "TRUE_JUMP", offset + 3);
+	}
 
 	fn op_return(&mut self, _pos: SourcePos) {
 		simple_instr("RETURN");

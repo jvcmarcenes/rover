@@ -177,12 +177,16 @@ impl StmtVisitor<()> for ChunkGen {
 	}
 	
 	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<()> {
-		// data.cond.accept(self)?;
-		// let anchor = self.chunk.write_jump(OpCode::FalseJump, pos);
-		// self.generate_block(data.then_block)?;
-		// self.chunk.patch_jump(anchor);
-		// Ok(())
-		todo!();
+		data.cond.accept(self)?;
+		let else_anchor = self.chunk.write_jump(OpCode::FalseJump, pos);
+		self.chunk.write_instr(OpCode::Pop, pos);
+		self.generate_block(data.then_block)?;
+		let end_anchor = self.chunk.write_jump(OpCode::Jump, pos);
+		self.chunk.patch_jump(else_anchor);
+		self.chunk.write_instr(OpCode::Pop, pos);
+		self.generate_block(data.else_block)?;
+		self.chunk.patch_jump(end_anchor);
+		Ok(())
 	}
 	
 	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<()> {

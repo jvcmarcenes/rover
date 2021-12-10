@@ -44,18 +44,18 @@ impl Chunk {
 		}
 	}
 
-	// pub fn write_jump(&mut self, instr: OpCode, src_info: SourcePos) -> usize {
-	// 	self.write_instr(instr, src_info);
-	// 	let anchor = self.offset.0;
-	// 	self.write_u16(0xffff, src_info);
-	// 	return anchor;
-	// }
+	pub fn write_jump(&mut self, instr: OpCode, src_info: SourcePos) -> usize {
+		self.write_instr(instr, src_info);
+		let anchor = self.code.len();
+		self.write_u16(0xffff, src_info);
+		return anchor;
+	}
 
-	// pub fn patch_jump(&mut self, anchor: usize) {
-	// 	let offset = self.offset.0;
-	// 	*self.code.get_mut(anchor).unwrap() = (offset >> 8) as u8;
-	// 	*self.code.get_mut(anchor + 1).unwrap() = offset as u8;
-	// }
+	pub fn patch_jump(&mut self, anchor: usize) {
+		let offset = self.code.len() - anchor - 2;
+		*self.code.get_mut(anchor).unwrap() = (offset >> 8) as u8;
+		*self.code.get_mut(anchor + 1).unwrap() = offset as u8;
+	}
 
 	fn add_const(&mut self, value: Box<dyn Value>) -> usize {
 		if self.constants.contains(&value) {
@@ -97,9 +97,14 @@ impl Chunk {
 		self.offset.0
 	}
 
-	// pub fn jump(&mut self, offset: u16) {
-	// 	self.offset.0 += offset as usize;
+	pub fn jump(&mut self, offset: u16) {
+		self.offset.0 += offset as usize;
+		self.offset.1 = self.offset.0 + 1;
+	}
+
+	// pub fn jump_back(&mut self, offset: u16) {
+	// 	self.offset.0 -= offset as usize;
 	// 	self.offset.1 = self.offset.0 + 1;
 	// }
-
+	
 }

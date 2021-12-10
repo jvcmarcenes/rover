@@ -10,7 +10,7 @@ use self::OpCode::*;
 pub enum OpCode {
 	Pop,
 	Define, Load, Store, Define16, Load16, Store16,
-	/* Jump, FalseJump, TrueJump, */ Return,
+	Jump, FalseJump, TrueJump, Return,
 
 	Const, Const16, ConstFalse, ConstTrue, ConstNone,
 	StrTemplate,
@@ -36,9 +36,9 @@ impl OpCode {
 			Define16   => visitor.op_define16(pos),
 			Load16     => visitor.op_load16(pos),
 			Store16    => visitor.op_store16(pos),
-			// Jump       => visitor.op_jump(pos),
-			// FalseJump  => visitor.op_false_jump(pos),
-			// TrueJump   => visitor.op_true_jump(pos),
+			Jump       => visitor.op_jump(pos),
+			FalseJump  => visitor.op_false_jump(pos),
+			TrueJump   => visitor.op_true_jump(pos),
 			Return     => visitor.op_return(pos),
 			Const      => visitor.op_const(pos),
 			Const16    => visitor.op_const_16(pos),
@@ -74,9 +74,9 @@ pub trait OpCodeVisitor<T> {
 	fn op_load16(&mut self, _pos: SourcePos) -> T;
 	fn op_store16(&mut self, _pos: SourcePos) -> T;
 	
-	// fn op_jump(&mut self, _pos: SourcePos) -> T;
-	// fn op_false_jump(&mut self, _pos: SourcePos) -> T;
-	// fn op_true_jump(&mut self, _pos: SourcePos) -> T;
+	fn op_jump(&mut self, _pos: SourcePos) -> T;
+	fn op_false_jump(&mut self, _pos: SourcePos) -> T;
+	fn op_true_jump(&mut self, _pos: SourcePos) -> T;
 	fn op_return(&mut self, _pos: SourcePos) -> T;
 	
 	fn op_const(&mut self, _pos: SourcePos) -> T;

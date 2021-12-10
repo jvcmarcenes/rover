@@ -40,6 +40,13 @@ impl VM {
 		)
 	}
 
+	fn peek(&self) -> (Box<dyn Value>, SourcePos) {
+		(
+			self.stack.last().expect("No value on the stack to peep").clone(),
+			self.src_info_stack.last().expect("No value on the stack to peep").clone(),
+		)
+	}
+
 	fn constant(&self, i: usize) -> Box<dyn Value> {
 		self.chunk.constant(i)
 	}
@@ -154,17 +161,23 @@ impl OpCodeVisitor<Result<()>> for VM {
 		Ok(())
 	}
 
-	// fn op_jump(&mut self, _pos: SourcePos) -> Result<()> {
-	// 	Ok(())
-	// }
+	fn op_jump(&mut self, _pos: SourcePos) -> Result<()> {
+		let offset = self.chunk.read16();
+		self.chunk.jump(offset);
+		Ok(())
+	}
 
-	// fn op_false_jump(&mut self, _pos: SourcePos) -> Result<()> {
-	// 	Ok(())
-	// }
+	fn op_false_jump(&mut self, _pos: SourcePos) -> Result<()> {
+		let offset = self.chunk.read16();
+		if !self.peek().0.truthy() { self.chunk.jump(offset); }
+		Ok(())
+	}
 
-	// fn op_true_jump(&mut self, _pos: SourcePos) -> Result<()> {
-	// 	Ok(())
-	// }
+	fn op_true_jump(&mut self, _pos: SourcePos) -> Result<()> {
+		let offset = self.chunk.read16();
+		if self.peek().0.truthy() { self.chunk.jump(offset); }
+		Ok(())
+	}
 
 	fn op_return(&mut self, _pos: SourcePos) -> Result<()> {
 		todo!()

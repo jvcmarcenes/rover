@@ -1,6 +1,12 @@
 
-let a = 23
-let b = 42
-a = 16
-let c = a + b
-c += a
+let buf
+
+let x = 16
+
+if x mod 2 == 0 {
+	buf = '#{x} is even'
+} else {
+	buf = '#{x} is odd'
+}
+
+buf
