@@ -1,0 +1,27 @@
+
+write("How many fibonaccy numbers to calculate? ")
+
+let n = read()
+
+if !n.is_num() {
+	writeline("That isn't a number!")
+	exit()
+} else {
+	n = n.to_num()
+}
+
+let a = 1
+let b = 1
+let c = 2
+
+loop {
+	if n <= 0 { break }
+
+	writeline(a)
+
+	a = b
+	b = c
+	c = a + b
+
+	n -= 1
+}

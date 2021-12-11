@@ -1,0 +1,14 @@
+
+let list = range(0, 20)
+
+for n in list {
+	write('#{n} ')
+}
+
+let doubled = list.map(function(n) => 2 * n)
+writeline('doubled list: #{doubled}')
+
+let evens = list.filter(function(n) => n mod 2 == 0)
+writeline('only evens: #{evens}') 
+
+list.iter(writeline)

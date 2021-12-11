@@ -1,0 +1,14 @@
+
+let factorial = function(n) {
+	if n <= 1 {
+		return 1
+	}
+
+	return n * factorial(n - 1)
+}
+
+write("Enter a number: ")
+
+let n = read().to_num()! # the '!' operator will panic if 'to_num' returns an error
+
+writeline('#{n}! = #{factorial(n)}')

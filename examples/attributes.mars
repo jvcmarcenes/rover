@@ -1,0 +1,55 @@
+
+(#
+	Attributes are how you do object orientation in mars
+	They allow you define shared behaviour through a set of methods
+#)
+
+attr Animal {
+	
+	sleep() {
+		writeline('#{self.name} is sleeping')
+	}
+
+	eat() {
+		writeline('#{self.name} is sleeping')
+	}
+
+}
+
+attr Dog {
+	is Animal
+
+	# this function will return an object with the attribute 'Dog', and a property 'name'
+	static new = function(name) => { is Dog; name }
+
+	chase() {
+		writeline('#{self.name} is chasing the ball')
+	}
+}
+
+attr Cat {
+	is Animal
+
+	static new = function(name) => { is Cat; name }
+
+	purr() {
+		writeline('#{self.name} is purring')
+	}
+}
+
+let cat = Cat.new('Yako')
+cat.purr()
+cat.sleep()
+
+let dog = Dog.new('Spot')
+dog.chase()
+dog.eat()
+
+let catdog = {
+	is Dog
+	is Cat
+	name = 'CatDog'
+}
+
+catdog.purr()
+catdog.chase()
