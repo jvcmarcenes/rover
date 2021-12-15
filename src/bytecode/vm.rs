@@ -24,10 +24,6 @@ impl VM {
 		}
 	}
 
-	// fn next(&mut self) -> (u8, SourcePos) {
-	// 	self.chunk.next().expect("expected a byte")
-	// }
-
 	fn push(&mut self, val: Box<dyn Value>, pos: SourcePos) {
 		self.stack.push(val);
 		self.src_info_stack.push(pos);
@@ -187,9 +183,20 @@ impl OpCodeVisitor<Result<()>> for VM {
 	}
 
 	fn op_return(&mut self,) -> Result<()> {
-		todo!()
-	}
+		let ret = self.pop();
+		
+		let (back, pos) = self.pop();
+		let back = back.as_num(pos)?.data as usize;
+		
+		self.env.pop();
+		self.env.pop();
+
+		self.push(ret.0, ret.1);
 	
+		self.chunk.set_offset(back);
+		Ok(())
+	}
+
 	fn op_const(&mut self) -> Result<()> {
 		let c = self.chunk.read8() as usize;
 		self.push(self.constant(c), self.chunk.get_src_info());
@@ -244,10 +251,6 @@ impl OpCodeVisitor<Result<()>> for VM {
 		Ok(())
 	}
 	
-	fn op_identity(&mut self,) -> Result<()> {
-		Ok(())
-	}
-	
 	fn op_add(&mut self) -> Result<()> {
 		self.binary(|(a, apos), (b, bpos), pos| if b.is_string() { Str::new(a.display()?).add(b, apos, bpos, pos) } else { a.add(b, apos, bpos, pos) })
 	}
@@ -291,5 +294,27 @@ impl OpCodeVisitor<Result<()>> for VM {
 	fn op_lessereq(&mut self) -> Result<()> {
 		self.binary(|(a, apos), (b, bpos), pos| Bool::create(a.cmp(b, apos, bpos, pos)? <= 0).wrap())
 	}
-	
+
+	fn op_call(&mut self) -> Result<()> {
+		
+		let (calee, pos) = self.pop();
+		let calee = calee.as_function(pos)?;
+
+		self.env.push_new();
+
+		for param in calee.params {
+			let arg = self.pop().0;
+			self.env.define(param, arg);
+		}
+
+		self.env.push_new();
+
+		let back = Number::create(self.chunk.offset() as f64 + 1.0);
+		self.push(back, pos);
+
+		self.chunk.set_offset(calee.ptr);
+
+		Ok(())
+	}
+
 }

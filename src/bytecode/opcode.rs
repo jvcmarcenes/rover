@@ -13,9 +13,11 @@ pub enum OpCode {
 	Const, Const16, ConstFalse, ConstTrue, ConstNone,
 	StrTemplate,
 	
-	Negate, Identity, Not,
+	Negate, Not,
 	Add, Subtract, Multiply, Divide, Remainder,
 	Equals, NotEquals, Greater, Lesser, GreaterEq, LesserEq,
+
+	Call,
 }
 
 impl From<u8> for OpCode {
@@ -46,7 +48,6 @@ impl OpCode {
 			ConstNone  => visitor.op_none(),
 			StrTemplate => visitor.op_template(),
 			Negate     => visitor.op_negate(),
-			Identity   => visitor.op_identity(),
 			Not        => visitor.op_not(),
 			Add        => visitor.op_add(),
 			Subtract   => visitor.op_subtract(),
@@ -59,6 +60,7 @@ impl OpCode {
 			Lesser     => visitor.op_lesser(),
 			GreaterEq  => visitor.op_greatereq(),
 			LesserEq   => visitor.op_lessereq(),
+			Call       => visitor.op_call(),
 		}
 	}
 }
@@ -87,7 +89,6 @@ pub trait OpCodeVisitor<T> {
 	fn op_template(&mut self) -> T;
 	
 	fn op_negate(&mut self) -> T;
-	fn op_identity(&mut self) -> T;
 	fn op_not(&mut self) -> T;
 	
 	fn op_add(&mut self) -> T;
@@ -101,4 +102,6 @@ pub trait OpCodeVisitor<T> {
 	fn op_lesser(&mut self) -> T;
 	fn op_greatereq(&mut self) -> T;
 	fn op_lessereq(&mut self) -> T;
+
+	fn op_call(&mut self) -> T;
 }

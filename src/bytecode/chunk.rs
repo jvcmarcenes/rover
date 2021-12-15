@@ -1,5 +1,5 @@
 
-use crate::utils::source_pos::SourcePos;
+use crate::utils::{result::{Result, ErrorList}, source_pos::SourcePos};
 
 use super::{opcode::OpCode, value::Value};
 
@@ -44,28 +44,36 @@ impl Chunk {
 		}
 	}
 
-	pub fn anchor(&self) -> u16 {
-		self.code.len() as u16
+	pub fn anchor(&self) -> usize {
+		self.code.len() as usize
 	}
 
-	pub fn write_jump(&mut self, instr: OpCode, src_info: SourcePos) -> u16 {
+	pub fn write_jump(&mut self, instr: OpCode, src_info: SourcePos) -> usize {
 		self.write_instr(instr, src_info);
 		let anchor = self.anchor();
 		self.write_u16(0xffff, src_info);
 		anchor
 	}
 
-	pub fn patch_jump(&mut self, anchor: u16) {
+	pub fn patch_jump(&mut self, anchor: usize, src_info: SourcePos) -> Result<()> {
 		let anchor = anchor as usize;
-		let offset = self.code.len() - anchor - 2;
+		let offset = self.anchor() - anchor - 2;
+		if offset > u16::MAX as usize {
+			return ErrorList::comp("Cannot jump that far!".to_owned(), src_info).err();
+		}
 		*self.code.get_mut(anchor).unwrap() = (offset >> 8) as u8;
 		*self.code.get_mut(anchor + 1).unwrap() = offset as u8;
+		Ok(())
 	}
-
-	pub fn write_jump_back(&mut self, anchor: u16, src_info: SourcePos) {
+	
+	pub fn write_jump_back(&mut self, anchor: usize, src_info: SourcePos) -> Result<()> {
 		self.write_instr(OpCode::JumpBack, src_info);
 		let offset = self.anchor() - anchor + 2;
-		self.write_u16(offset, src_info);
+		if offset > u16::MAX as usize {
+			return ErrorList::comp("Cannot jump that far!".to_owned(), src_info).err();
+		}
+		self.write_u16(offset as u16, src_info);
+		Ok(())
 	}
 
 	fn add_const(&mut self, value: Box<dyn Value>) -> usize {
@@ -108,6 +116,10 @@ impl Chunk {
 
 	pub fn offset(&self) -> usize {
 		self.offset.0
+	}
+
+	pub fn set_offset(&mut self, offset: usize) {
+		self.offset.1 = offset;
 	}
 
 	pub fn jump(&mut self, offset: u16) {

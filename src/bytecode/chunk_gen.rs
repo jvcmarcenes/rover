@@ -3,12 +3,12 @@
 
 use crate::{utils::{result::{Result, ErrorList}, wrap::Wrap, source_pos::SourcePos}, ast::{statement::*, expression::*, identifier::Identifier}};
 
-use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::{number::Number, string::Str}};
+use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::{number::Number, string::Str, function::Function, none::ValNone}};
 
 #[derive(Default)]
 struct Context {
-	loop_stack: Vec<u16>,
-	break_stack: Vec<Vec<u16>>,
+	loop_stack: Vec<usize>,
+	break_stack: Vec<Vec<usize>>,
 }
 
 pub struct ChunkGen {
@@ -46,15 +46,15 @@ impl ChunkGen {
 		if id > u8::MAX as usize {
 			if id > u16::MAX as usize { panic!("not enough space to store variable id") }
 			match instr {
-				OpCode::Define => self.chunk.write_instr(OpCode::Define16, pos),
-				OpCode::Load   => self.chunk.write_instr(OpCode::Load16, pos),
-				OpCode::Store  => self.chunk.write_instr(OpCode::Store, pos),
+				OpCode::Define => self.chunk().write_instr(OpCode::Define16, pos),
+				OpCode::Load   => self.chunk().write_instr(OpCode::Load16, pos),
+				OpCode::Store  => self.chunk().write_instr(OpCode::Store, pos),
 				_ => panic!("invalid instruction for variable"),
 			}
-			self.chunk.write_u16(id as u16, pos);
+			self.chunk().write_u16(id as u16, pos);
 		} else {
-			self.chunk.write_instr(instr, pos);
-			self.chunk.write_u8(id as u8, pos);
+			self.chunk().write_instr(instr, pos);
+			self.chunk().write_u8(id as u8, pos);
 		}
 		Ok(())
 	}
@@ -74,8 +74,8 @@ impl ExprVisitor<()> for ChunkGen {
 					return ErrorList::comp("Template string had over 255 elements".to_owned(), pos).err()
 				}
 				for expr in exprs.clone() { expr.accept(self)?; }
-				self.chunk.write_instr(OpCode::StrTemplate, pos);
-				self.chunk.write_u8(exprs.len() as u8, pos);
+				self.chunk().write_instr(OpCode::StrTemplate, pos);
+				self.chunk().write_u8(exprs.len() as u8, pos);
 			},
 			LiteralData::List(_) => todo!(),
 			LiteralData::Object(_, _) => todo!(),
@@ -108,7 +108,7 @@ impl ExprVisitor<()> for ChunkGen {
 		data.expr.accept(self)?;
 		match data.op {
 			UnaryOperator::Not => self.chunk().write_instr(OpCode::Not, pos),
-			UnaryOperator::Pos => self.chunk().write_instr(OpCode::Identity, pos),
+			UnaryOperator::Pos => (),
 			UnaryOperator::Neg => self.chunk().write_instr(OpCode::Negate, pos),
 		}
 		Ok(())
@@ -117,12 +117,12 @@ impl ExprVisitor<()> for ChunkGen {
 	fn logic(&mut self, data: LogicData, pos: SourcePos) -> Result<()> {
 		data.lhs.accept(self)?;
 		let end_anchor = match data.op {
-			LogicOperator::And => self.chunk.write_jump(OpCode::FalseJump, pos),
-			LogicOperator::Or => self.chunk.write_jump(OpCode::TrueJump, pos),
+			LogicOperator::And => self.chunk().write_jump(OpCode::FalseJump, pos),
+			LogicOperator::Or => self.chunk().write_jump(OpCode::TrueJump, pos),
 		};
-		self.chunk.write_instr(OpCode::Pop, pos);
+		self.chunk().write_instr(OpCode::Pop, pos);
 		data.rhs.accept(self)?;
-		self.chunk.patch_jump(end_anchor);
+		self.chunk().patch_jump(end_anchor, pos)?;
 		Ok(())
 	}
 	
@@ -135,11 +135,33 @@ impl ExprVisitor<()> for ChunkGen {
 	}
 	
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<()> {
-		todo!()
+		let body_anchor = self.chunk.write_jump(OpCode::Jump, pos);
+		
+		let function_anchor = self.chunk.anchor();
+
+		self.generate_block(data.body)?;
+
+		self.chunk.write_const(ValNone::create(), pos);
+		self.chunk.write_instr(OpCode::Return, pos);
+
+		self.chunk.patch_jump(body_anchor, pos)?;
+
+		let function = Function::create(function_anchor, data.params.iter().map(|i| i.get_id()).collect());
+
+		self.chunk.write_const(function, pos);
+		Ok(())
 	}
 	
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<()> {
-		todo!()
+
+		let arity = data.args.len();
+
+		for arg in data.args { arg.accept(self)?; }
+		data.calee.accept(self)?;
+
+		self.chunk.write_instr(OpCode::Call, pos);
+
+		Ok(())
 	}
 	
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<()> {
@@ -155,7 +177,7 @@ impl ExprVisitor<()> for ChunkGen {
 	}
 	
 	fn do_expr(&mut self, block: Block, pos: SourcePos) -> Result<()> {
-		todo!(); // self.generate_block(block)
+		todo!();
 	}
 	
 	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<()> {
@@ -168,7 +190,7 @@ impl StmtVisitor<()> for ChunkGen {
 	
 	fn expr(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
 		expr.accept(self)?;
-		self.chunk.write_instr(OpCode::Pop, pos);
+		self.chunk().write_instr(OpCode::Pop, pos);
 		Ok(())
 	}
 	
@@ -194,38 +216,38 @@ impl StmtVisitor<()> for ChunkGen {
 	
 	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<()> {
 		data.cond.accept(self)?;
-		let else_anchor = self.chunk.write_jump(OpCode::FalseJump, pos);
-		self.chunk.write_instr(OpCode::Pop, pos);
+		let else_anchor = self.chunk().write_jump(OpCode::FalseJump, pos);
+		self.chunk().write_instr(OpCode::Pop, pos);
 		self.generate_block(data.then_block)?;
-		let end_anchor = self.chunk.write_jump(OpCode::Jump, pos);
-		self.chunk.patch_jump(else_anchor);
-		self.chunk.write_instr(OpCode::Pop, pos);
+		let end_anchor = self.chunk().write_jump(OpCode::Jump, pos);
+		self.chunk().patch_jump(else_anchor, pos)?;
+		self.chunk().write_instr(OpCode::Pop, pos);
 		self.generate_block(data.else_block)?;
-		self.chunk.patch_jump(end_anchor);
+		self.chunk().patch_jump(end_anchor, pos)?;
 		Ok(())
 	}
 	
 	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<()> {
-		let anchor = self.chunk.anchor();
+		let anchor = self.chunk().anchor();
 		self.ctx.loop_stack.push(anchor);
 		self.ctx.break_stack.push(Vec::new());
 		self.generate_block(block)?;
-		self.chunk.write_jump_back(anchor, pos);
+		self.chunk().write_jump_back(anchor, pos)?;
 		for break_stmt in self.ctx.break_stack.pop().unwrap() {
-			self.chunk.patch_jump(break_stmt);
+			self.chunk().patch_jump(break_stmt, pos)?;
 		}
 		Ok(())
 	}
 	
 	fn break_stmt(&mut self, pos: SourcePos) -> Result<()> {
-		let break_anchor = self.chunk.write_jump(OpCode::Jump, pos);
+		let break_anchor = self.chunk().write_jump(OpCode::Jump, pos);
 		self.ctx.break_stack.last_mut().unwrap().push(break_anchor);
 		Ok(())
 	}
 	
 	fn continue_stmt(&mut self, pos: SourcePos) -> Result<()> {
 		let loop_anchor = *self.ctx.loop_stack.last().unwrap();
-		self.chunk.write_jump_back(loop_anchor, pos);
+		self.chunk().write_jump_back(loop_anchor, pos)?;
 		Ok(())
 	}
 	

@@ -3,12 +3,13 @@ pub mod number;
 pub mod bool;
 pub mod none;
 pub mod string;
+pub mod function;
 
 use std::fmt::Debug;
 
 use crate::utils::{wrap::Wrap, result::{Result, ErrorList}, source_pos::SourcePos};
 
-use self::{number::Number, bool::Bool, string::Str};
+use self::{number::Number, bool::Bool, string::Str, function::Function};
 
 pub trait Value : Debug {
 	
@@ -23,6 +24,8 @@ pub trait Value : Debug {
 	fn as_bool(&self, pos: SourcePos) -> Result<Bool> { ErrorList::run("Could not convert to bool".to_owned(), pos).err() }
 	fn is_string(&self) -> bool { false }
 	fn as_string(&self, pos: SourcePos) -> Result<Str> { ErrorList::run("Could not convert to string".to_owned(), pos).err() }
+	fn is_function(&self) -> bool { false }
+	fn as_function(&self, pos: SourcePos) -> Result<Function> { ErrorList::run("Could not convert to function".to_owned(), pos).err() }
 	
 	fn truthy(&self) -> bool { true }
 	fn add(&self, _other: Box<dyn Value>, _spos: SourcePos, _opos: SourcePos, pos: SourcePos) -> Result<Box<dyn Value>> { ErrorList::run("Operation add is not defined".to_owned(), pos).err() }

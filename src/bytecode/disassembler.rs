@@ -12,7 +12,7 @@ pub struct Disassembler {
 }
 
 impl Disassembler {
-	
+
 	pub fn new(chunk: Chunk) -> Self {
 		Self { chunk }
 	}
@@ -20,17 +20,17 @@ impl Disassembler {
 	// fn next(&mut self) -> (u8, SourcePos) {
 	// 	self.chunk.next().expect("expected a byte")
 	// }
-	
+
 	fn read_const_8(&mut self) -> (usize, Box<dyn Value>) {
 		let c = self.chunk.read8() as usize;
 		(c, self.chunk.constant(c))
 	}
-	
+
 	fn read_const_16(&mut self) -> (usize, Box<dyn Value>) {
 		let c = self.chunk.read16() as usize;
 		(c, self.chunk.constant(c))
 	}
-	
+
 	pub fn disassemble(&mut self, name: &str) {
 		println!("== {} ==", name);
 		
@@ -38,13 +38,13 @@ impl Disassembler {
 			self.disassemble_instr(code, self.chunk.get_src_info());
 		}
 	}
-	
+
 	pub fn disassemble_instr(&mut self, code: u8, pos: SourcePos) {
 		print!("{:04} ", self.chunk.offset());
 		print!("[{:04}:{:04}] ", pos.lin, pos.col);
 		OpCode::from(code).accept(self);
 	}
-	
+
 }
 
 impl OpCodeVisitor<()> for Disassembler {
@@ -84,23 +84,23 @@ impl OpCodeVisitor<()> for Disassembler {
 	}
 
 	fn op_jump(&mut self) {
-		let offset = self.chunk.read16();
-		println!("{:-16} {:4}", "JUMP", offset + 3); // we add 3 to jump to represent the 2 jump offset bytes, and the skipped instructin we jump to
+		let offset = self.chunk.read16() as usize;
+		println!("{:-16} {:04}", "JUMP", self.chunk.offset() + 1 + offset);
 	}
 
 	fn op_false_jump(&mut self) {
-		let offset = self.chunk.read16();
-		println!("{:-16} {:4}", "FALSE_JUMP", offset + 3);
+		let offset = self.chunk.read16() as usize;
+		println!("{:-16} {:04}", "FALSE_JUMP", self.chunk.offset() + 1 + offset);
 	}
 
 	fn op_true_jump(&mut self) {
-		let offset = self.chunk.read16();
-		println!("{:-16} {:4}", "TRUE_JUMP", offset + 3);
+		let offset = self.chunk.read16() as usize;
+		println!("{:-16} {:04}", "TRUE_JUMP", self.chunk.offset() + 1 + offset);
 	}
 
 	fn op_jump_back(&mut self) -> () {
-		let offset = self.chunk.read16();
-		println!("{:-16} {:4}", "JUMP_BACK", offset - 3);
+		let offset = self.chunk.read16() as usize;
+		println!("{:-16} {:04}", "JUMP_BACK", self.chunk.offset() + 1 - offset);
 	}
 
 	fn op_return(&mut self) {
@@ -136,10 +136,6 @@ impl OpCodeVisitor<()> for Disassembler {
 	
 	fn op_negate(&mut self) {
 		simple_instr("NEGATE");
-	}
-	
-	fn op_identity(&mut self) {
-		simple_instr("IDENTITY");
 	}
 	
 	fn op_not(&mut self) {
@@ -190,4 +186,8 @@ impl OpCodeVisitor<()> for Disassembler {
 		simple_instr("LESSER_EQUALS");
 	}
 	
+	fn op_call(&mut self) {
+		simple_instr("CALL");
+	}
+
 }

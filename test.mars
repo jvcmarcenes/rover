@@ -1,8 +1,10 @@
 
-let i = 0
+let factorial = function(n) {
+	if n <= 1 {
+		return 1
+	}
 
-loop {
-	if i > 10 { break }
-	if i mod 2 == 0 { i += 1; continue }
-	i += 1
+	return n * factorial(n - 1)
 }
+
+factorial(10)
