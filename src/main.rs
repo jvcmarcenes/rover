@@ -3,8 +3,8 @@ mod utils;
 mod lexer;
 mod ast;
 mod parser;
-mod resolver;
 mod environment;
+mod semantics;
 mod interpreter;
 mod bytecode;
 
@@ -16,7 +16,7 @@ use utils::result::Result;
 use ast::statement::Block;
 use lexer::Lexer;
 use parser::Parser;
-use resolver::Resolver;
+use semantics::{resolver::Resolver, optimizer::Optimizer};
 use interpreter::Interpreter;
 use bytecode::{vm::VM, chunk_gen::ChunkGen};
 
@@ -54,6 +54,8 @@ fn run_file(path: &str) -> Result<()> {
 	
 	if !lexer_err.is_empty() { process::exit(1); }
 	
+	let ast = Optimizer.optimize(ast)?;
+
 	if cfg!(feature = "ast_interpreter") {
 		run_ast(ast, path)?;
 	} else {
