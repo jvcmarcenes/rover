@@ -1,0 +1,31 @@
+
+let factorial = function(n) {
+	if n < 0 {
+		return error 'cannot calculate factorial for negative numbers'
+	}
+
+	if n <= 1 { return n }
+
+	return n * factorial(n - 1)
+}
+
+let permutation = function(n, r) {
+	return factorial(n)? / factorial(n - r)?
+	(#
+		simple error handling in mars: '?' will early return if it's value is an error, and won't do anything instead
+
+		in practice, 'expression?' desugars to:
+		do {
+			let res = expression
+			if res is Error {
+				return res
+			}
+			res
+		}
+	#)
+}
+
+let result = permutation(2, 3)
+# this won't throw the error, or cause a runtime exception, it merely stores the error value in 'result'
+
+writeline(result)

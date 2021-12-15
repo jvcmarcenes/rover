@@ -1,0 +1,70 @@
+
+# primitive types in mars
+let num = 9.2
+let str = "John"
+let template_str = 'Hello #{str}!'
+let flag = false
+let empty = none # akin to null or undefined
+let list = [num, str, template_str, flag, empty]
+
+let person = {
+	name = "John"
+	age = 23
+	job = "developer"
+}
+
+let err = error "oops"
+
+let do_stuff = function() {
+	writeline('Doing stuff...')
+}
+
+# constants
+let const immutable = 101010
+
+# arithmetic operations
+let add = 23 + 42
+let sub = 23 - 42
+let mul = 23 * 42
+let div = 23 / 42
+let modulus = 42 mod 23
+
+# comparison
+23 < 42
+23 <= 42
+42 > 23
+42 >= 23
+42 == 23
+23 != 42
+
+# logic operations
+let in_range = 23 <= num and num <= 42
+let out_range = num < 23 or 42 < num
+let not_in_range = !in_range
+
+# function call
+do_stuff()
+
+# list (and string) indexing, 0 indexed
+list[2]
+str[3]
+
+# property access
+person.name
+
+# error operations
+
+let possible_error = function() {
+	if rand() > 0.5 {
+		return error 'oh no'
+	} else {
+		return 'okay'
+	}
+}
+
+let try_okay = function() {
+	possible_error()? # will early return if possible_error returns an error
+	return true
+}
+
+try_okay()! # will abort execution and log the error
