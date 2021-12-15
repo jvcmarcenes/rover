@@ -1,2 +1,176 @@
 
+attr Token {
 
+	static type = {
+		number = 'number'
+		symbol = 'symbol'
+		eof = 'eof'
+	}
+
+	static symbols = ['+', '-', '*', '/', '(', ')']
+
+	static eof = 'eof'
+
+	static new = function(type, data) => {
+		is Token
+		type, data
+	}
+
+	to_string() => '(#{self.type}: #{self.data})'
+
+}
+
+attr Iterator {
+	peek() => self.data[self.idx + 1]
+
+	next() {
+		self.idx += 1
+		return self.data[self.idx]
+	}
+
+	finished() => self.idx + 1 >= self.data.size()
+}
+
+attr Lexer {
+	is Iterator
+
+	static new = function(data) => {
+		is Lexer
+		data, idx = -1
+	}
+
+	num() {
+		let str = self.next()
+		loop {
+			if self.finished() { return str.to_num()! }
+			let c = self.peek()
+			if c == ' ' or !c.is_num() and (c != '.' or str.contains('.')) {
+				return str.to_num()!
+			}
+			str += self.next()
+		}
+	}
+
+	tokenize() {
+		let tokens = [];
+		loop {
+			if self.finished() {
+				tokens.push(Token.new(Token.type.eof, none))
+				return tokens
+			}
+
+			let c = self.peek();
+
+			if c == ' ' {
+				self.next()
+			} else if c.is_num() {
+				let n = self.num()
+				tokens.push(Token.new(Token.type.number, n))
+			} else if Token.symbols.contains(c) {
+				self.next()
+				tokens.push(Token.new(Token.type.symbol, c))
+			} else {
+				return error 'Unknow token: #{c}'
+			}
+		}
+	}
+
+}
+
+attr Expression {
+
+	static new = function(type, data) => {
+		is Expression
+		type, data
+	}
+
+	static number = function(n) => Expression.new('number', n)
+
+	static unary = function(op, expr) => Expression('unary', { op, expr, to_string = function() => '(#{self.op} #{self.expr})' })
+
+	static binary = function(lhs, op, rhs) => Expression.new('binary', { lhs, op, rhs, to_string = function() => '(#{self.op} #{self.lhs}, #{self.rhs})' })
+
+	to_string() => '(#{self.type}: #{self.data})'
+
+}
+
+attr Parser {
+	is Iterator
+
+	static new = function(data) => {
+		is Parser
+		data, idx = -1
+	}
+
+	expression() => self.term()
+
+	term() {
+		let left = self.factor()?
+		loop {
+			let token = self.peek()
+			if ['+', '-'].contains(token.data) {
+				self.next()
+				let op = token.data
+				let right = self.factor()?
+				left = Expression.binary(left, op, right)
+			} else {
+				return left
+			}
+		}
+	}
+
+	factor() {
+		let left = self.unary()?
+		loop {
+			let token = self.peek()
+			if ['*', '/'].contains(token.data) {
+				self.next()
+				let op = token.data
+				let right = self.unary()?
+				left = Expression.binary(left, op, right)
+			} else {
+				return left
+			}
+		}
+	}
+
+	unary() {
+		let token = self.peek();
+		if ['+', '-'].contains(token.data) {
+			self.next()
+			let op = token.data
+			let expr = self.unary()?
+			return Expression.unary(op, expr)
+		} else {
+			return self.primary()
+		}
+	}
+
+	primary() {
+		let token = self.next()
+		if token.type == Token.type.number {
+			return Expression.number(token.data)
+		} else if token.data == '(' {
+			let expr = self.expression()?
+			let token = self.next()
+			if token.data != ')' { return error 'Expected #{"')'"}, found #{token}' }
+			return expr
+		} else {
+			return error 'Expected expression, found #{token}'
+		}
+	}
+
+}
+
+let src = '2 + 3 * 4 + 5'
+
+let lexer = Lexer.new(src)
+
+let tokens = lexer.tokenize()!
+
+let parser = Parser.new(tokens)
+
+let expr = parser.expression()!
+
+writeline(expr)
+>>>>>>> Stashed changes

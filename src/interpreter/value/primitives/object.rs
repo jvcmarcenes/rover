@@ -20,10 +20,17 @@ impl Object {
 	
 	fn method_call(&self, method: &str, interpreter: &mut Interpreter, pos: SourcePos, args: Vec<(Box<dyn Value>, SourcePos)>, default: Result<Box<dyn Value>>) -> Result<Box<dyn Value>> {
 		if let Ok(field) = self.get_field(method, interpreter, pos) {
-			let callable = field.borrow().clone().to_callable(pos)?;
-			callable.borrow_mut().bind(self.cloned());
-			let res = callable.borrow_mut().call(pos, interpreter, args);
-			res
+			// let callable = field.borrow().clone().to_callable(pos)?;
+			// callable.borrow_mut().bind(self.cloned());
+			// let res = callable.borrow_mut().call(pos, interpreter, args);
+			// res
+			unsafe {
+				let callable = field.borrow().to_callable(pos)?.as_ptr();
+				callable.as_ref().unwrap().check_arity(args.len(), pos)?;
+				callable.as_mut().unwrap().bind(self.cloned());
+				let ret = callable.as_mut().unwrap().call(pos, interpreter, args);
+				ret
+			}
 		} else {
 			default
 		}
