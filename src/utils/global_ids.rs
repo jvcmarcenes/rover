@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::resolver::IdentifierData;
+use crate::semantics::resolver::IdentifierData;
 
 pub static GLOBAL_IDS: &[&str] = &[
 	// io

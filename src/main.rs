@@ -5,7 +5,7 @@ mod utils;
 mod lexer;
 mod ast;
 mod parser;
-mod resolver;
+mod semantics;
 mod interpreter;
 
 use std::{path::Path, process};
@@ -13,7 +13,7 @@ use std::{path::Path, process};
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
-use resolver::Resolver;
+use semantics::{resolver::Resolver, optimizer::Optimizer};
 
 fn main() {
 	let mut args = std::env::args().skip(1);
@@ -49,6 +49,8 @@ fn run_file(path: &str) {
 
 	if !lexer_err.is_empty() { process::exit(1); }
 	
+	let ast = Optimizer.optimize(ast).unwrap();
+
 	let mut pathbuf = Path::new(path).to_path_buf();
 	pathbuf.pop();
 
