@@ -1,37 +1,4 @@
 
-let assert = function(a, b) {
-	if a == b {
-		writeline('#{a} = #{b}')
-	} else {
-		writeline('#{a} != #{b}')
-		abort('assertion failed')
-	}
-}
+let x = 2
 
-let x = 'a'
-
-assert(x, 'a')
-
-function() {
-
-	assert(x, 'a')
-
-	function() {
-
-		assert(x, 'a')
-
-		let x = 'b'
-
-		assert(x, 'b')
-
-	}()
-
-	assert(x, 'a')
-
-}()
-
-assert(x, 'a')
-
-let x = 'c'
-
-assert(x, 'c')
+let y = 2 + 3 + x

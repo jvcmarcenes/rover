@@ -48,10 +48,10 @@ impl ExprVisitor<Expression> for Optimizer {
 		ExprType::Literal(data).to_expr(pos).wrap()
 	}
 	
-	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<Expression> {
-		let lhs = data.lhs.clone().accept(self)?;
-		let rhs = data.rhs.clone().accept(self)?;
-		if let (ExprType::Literal(lhs), ExprType::Literal(rhs)) = (lhs.typ, rhs.typ) {
+	fn binary(&mut self, mut data: BinaryData, pos: SourcePos) -> Result<Expression> {
+		data.lhs = data.lhs.clone().accept(self)?.wrap();
+		data.rhs = data.rhs.clone().accept(self)?.wrap();
+		if let (ExprType::Literal(lhs), ExprType::Literal(rhs)) = (data.lhs.clone().typ, data.clone().rhs.typ) {
 			match (lhs, rhs) {
 				(LiteralData::Num(l), LiteralData::Num(r)) => match data.op {
 					BinaryOperator::Add => return ExprType::Literal(LiteralData::Num(l + r)).to_expr(pos).wrap(),
@@ -73,10 +73,10 @@ impl ExprVisitor<Expression> for Optimizer {
 		ExprType::Binary(data).to_expr(pos).wrap()
 	}
 	
-	fn unary(&mut self, data: UnaryData, pos: SourcePos) -> Result<Expression> {
-		let expr = data.expr.clone().accept(self)?;
+	fn unary(&mut self, mut data: UnaryData, pos: SourcePos) -> Result<Expression> {
+		data.expr = data.expr.clone().accept(self)?.wrap();
 		
-		if let ExprType::Literal(lit) = expr.typ {
+		if let ExprType::Literal(lit) = data.expr.clone().typ {
 			match lit {
 				LiteralData::Num(n) => match data.op {
 					UnaryOperator::Pos => return ExprType::Literal(LiteralData::Num(n)).to_expr(pos).wrap(),
@@ -111,7 +111,8 @@ impl ExprVisitor<Expression> for Optimizer {
 		ExprType::Variable(data).to_expr(pos).wrap()
 	}
 	
-	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<Expression> {
+	fn lambda(&mut self, mut data: LambdaData, pos: SourcePos) -> Result<Expression> {
+		data.body = self.optimize(data.body)?;
 		ExprType::Lambda(data).to_expr(pos).wrap()
 	}
 	
