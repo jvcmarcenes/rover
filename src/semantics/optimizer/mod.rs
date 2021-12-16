@@ -99,7 +99,12 @@ impl ExprVisitor<Expression> for Optimizer {
 	}
 	
 	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<Expression> {
-		ExprType::Grouping(data.accept(self)?.wrap()).to_expr(pos).wrap()
+		let expr = data.accept(self)?;
+		if let ExprType::Literal(_) = expr.typ {
+			expr.wrap()
+		} else {
+			ExprType::Grouping(expr.wrap()).to_expr(pos).wrap()
+		}
 	}
 	
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<Expression> {
