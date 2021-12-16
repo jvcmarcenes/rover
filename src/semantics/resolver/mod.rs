@@ -99,6 +99,7 @@ impl Resolver {
 	}
 	
 	fn pop_scope(&mut self) {
+		self.last_id -= self.tables.last().unwrap().len();
 		self.tables.pop();
 	}
 	
