@@ -1,2 +1,37 @@
 
-writeline(2 + 3 * 8)
+let assert = function(a, b) {
+	if a == b {
+		writeline('#{a} = #{b}')
+	} else {
+		writeline('#{a} != #{b}')
+		abort('assertion failed')
+	}
+}
+
+let x = 'a'
+
+assert(x, 'a')
+
+function() {
+
+	assert(x, 'a')
+
+	function() {
+
+		assert(x, 'a')
+
+		let x = 'b'
+
+		assert(x, 'b')
+
+	}()
+
+	assert(x, 'a')
+
+}()
+
+assert(x, 'a')
+
+let x = 'c'
+
+assert(x, 'c')
