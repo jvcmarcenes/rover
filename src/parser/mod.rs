@@ -1,6 +1,7 @@
 
 pub mod expression;
 pub mod statement;
+pub mod types;
 
 use std::{iter::Peekable, vec::IntoIter};
 

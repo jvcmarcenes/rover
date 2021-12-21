@@ -21,6 +21,8 @@ pub enum Keyword {
 	For, In,
 	Function, Return,
 	_Self, Attr, Static, Is,
+
+	StringT, NumberT, BoolT, AnyT
 }
 
 impl Keyword {
@@ -49,6 +51,10 @@ impl Keyword {
 			"attr" => Attr,
 			"static" => Static,
 			"is" => Is,
+			"string" => StringT,
+			"number" => NumberT,
+			"bool" => BoolT,
+			"any" => AnyT,
 			_ => return None,
 		}.wrap()
 	}

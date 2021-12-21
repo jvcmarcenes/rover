@@ -25,6 +25,11 @@ impl<T> Wrap<Box<T>> for T {
 	fn wrap(self) -> Box<T> { Box::new(self) }
 }
 
+// impl<T, E> Wrap<Result<(), E>> for Result<T, E> {
+// 	fn wrap(self) -> Result<(), E> { self?; Ok(()) }
+// }
+
 // impl<T> Wrap<T> for T {
 // 	fn wrap(self) -> T { self }
 // }
+	

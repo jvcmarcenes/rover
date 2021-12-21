@@ -1,4 +1,7 @@
 
-let x = 2
+let x: string = "hello"
 
-let y = 2 + 3 + x
+let y: number = 3 + 5
+
+let z: any = "string"
+z = 23

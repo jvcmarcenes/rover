@@ -102,10 +102,15 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 	
 	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let (l_pos, r_pos) = (data.lhs.pos, data.rhs.pos);
-		let lhs = pass_msg!(data.lhs.accept(self)?);
+		let mut lhs = pass_msg!(data.lhs.accept(self)?);
 		let rhs = pass_msg!(data.rhs.accept(self)?);
 		match data.op {
-			BinaryOperator::Add => lhs.add(rhs, r_pos, self, pos)?.wrap(),
+			BinaryOperator::Add => {
+				if lhs.get_type() != ValueType::Str && rhs.get_type() == ValueType::Str {
+					lhs = Str::new(lhs.to_string(self, r_pos)?);
+				}
+				lhs.add(rhs, r_pos, self, pos)?.wrap()
+			},
 			BinaryOperator::Sub => lhs.sub(rhs, r_pos, self, pos)?.wrap(),
 			BinaryOperator::Mul => lhs.mul(rhs, r_pos, self, pos)?.wrap(),
 			BinaryOperator::Div => lhs.div(rhs, r_pos, self, pos)?.wrap(),

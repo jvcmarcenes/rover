@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}, types::{TypePrim, Type}};
 
 use super::Parser;
 
@@ -108,13 +108,16 @@ impl Parser {
 			TokenType::Identifier(name) => Identifier::new(name),
 			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
 		};
+
+		let type_restriction = self.type_restriction()?;
+
 		let expr = match self.optional(Symbol(Equals)) {
 			Some(_) => append!(self.expression(); to errors),
 			None => ExprType::Literal(LiteralData::None).to_expr(next.pos),
 		};
 		errors.try_append(self.expect_eol());
 		errors.if_empty(
-			StmtType::Declaration(DeclarationData { constant, name, expr: Box::new(expr) }).to_stmt(pos)
+			StmtType::Declaration(DeclarationData { constant, name, type_restriction, expr: Box::new(expr) }).to_stmt(pos)
 		)
 	}
 
@@ -198,10 +201,11 @@ impl Parser {
 			let body = append!(self.block(); to errors);
 
 			StmtType::Scoped(vec![
-				StmtType::Declaration(DeclarationData { constant: false, name: Identifier::new("$i".to_owned()), expr: ExprType::Literal(LiteralData::Num(-1.0)).to_expr(pos).wrap() }).to_stmt(pos),
-				StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$list".to_owned()), expr: list.wrap() }).to_stmt(pos),
+				StmtType::Declaration(DeclarationData { constant: false, name: Identifier::new("$i".to_owned()), type_restriction: Type::Primitive(TypePrim::Num), expr: ExprType::Literal(LiteralData::Num(-1.0)).to_expr(pos).wrap() }).to_stmt(pos),
+				StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$list".to_owned()), type_restriction: Type::Primitive(TypePrim::Any), expr: list.wrap() }).to_stmt(pos),
 				StmtType::Declaration(DeclarationData {
 					constant: true, name: Identifier::new("$len".to_owned()),
+					type_restriction: Type::Primitive(TypePrim::Num),
 					expr: ExprType::Call(CallData {
 						calee: ExprType::FieldGet(FieldData {
 							head: ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos).wrap(),
@@ -231,6 +235,7 @@ impl Parser {
 					}).to_stmt(pos),
 					StmtType::Declaration(DeclarationData {
 						constant: false, name: Identifier::new(name),
+						type_restriction: Type::Primitive(TypePrim::Any), 
 						expr: ExprType::Index(IndexData {
 							head: ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos).wrap(),
 							index: ExprType::Variable(Identifier::new("$i".to_owned())).to_expr(pos).wrap(),
@@ -255,7 +260,7 @@ impl Parser {
 		let Token { pos, .. } = self.next();
 		StmtType::Continue.to_stmt(pos).wrap()
 	}
-	
+
 	fn return_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
 		let expr = self.expression_or_none()?;

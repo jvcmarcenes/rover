@@ -5,6 +5,7 @@ mod utils;
 mod lexer;
 mod ast;
 mod parser;
+mod types;
 mod semantics;
 mod interpreter;
 
@@ -13,7 +14,7 @@ use std::{path::Path, process};
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
-use semantics::{resolver::Resolver, optimizer::Optimizer};
+use semantics::{resolver::Resolver, optimizer::Optimizer, type_checker::TypeChecker};
 
 fn main() {
 	let mut args = std::env::args().skip(1);
@@ -43,6 +44,11 @@ fn run_file(path: &str) {
 	});
 
 	Resolver::new().resolve(&ast).unwrap_or_else(|errors| {
+		errors.report(&path);
+		process::exit(1);
+	});
+	
+	TypeChecker::new().check(&ast).unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);
 	});
