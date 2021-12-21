@@ -20,16 +20,14 @@ impl Parser {
 	}
 
 	fn or_type(&mut self) -> TypeResult {
-		let mut types = vec![self.type_primitive()?];
+		let first = self.type_primitive()?;
+		if !self.next_match(Keyword(Keyword::Or)) { return first.wrap(); }
+		let mut types = vec![first];
 		while let Keyword(Keyword::Or) = self.peek().typ {
 			self.next();
 			types.push(self.type_primitive()?);
 		}
-		if types.len() == 1 {
-			types.swap_remove(0)
-		} else {
-			Type::Or(types)
-		}.wrap()
+		Type::Or(types).wrap()
 	}
 	
 	fn type_primitive(&mut self) -> TypeResult {
