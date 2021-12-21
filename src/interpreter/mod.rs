@@ -25,6 +25,7 @@ pub enum Message {
 	Continue,
 	Return(Box<dyn Value>),
 	Eval(Box<dyn Value>),
+	Halt,
 }
 
 pub struct Interpreter {
@@ -41,16 +42,10 @@ impl Interpreter {
 		}
 	}
 	
-	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
-		for stmt in statements.clone() { stmt.accept(self)?; }
-		Ok(())
-	}
-	
 	fn execute_block(&mut self, block: Block) -> Result<Message> {
 		self.env.push_new();
 		
 		let mut last_eval = Message::None;
-		
 		for stmt in block {
 			match stmt.accept(self)? {
 				Message::None => continue,
@@ -64,6 +59,12 @@ impl Interpreter {
 		self.env.pop();
 		last_eval.wrap()
 	}
+
+	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
+		for stmt in statements.clone() { if matches!(stmt.accept(self)?, Message::Halt) { break } }
+		Ok(())
+	}
+	
 	
 }
 

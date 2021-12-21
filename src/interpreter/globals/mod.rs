@@ -3,13 +3,13 @@ mod math;
 mod fs;
 pub mod attributes;
 
-use std::{collections::{HashMap, HashSet}, io::Write, process, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::{HashMap, HashSet}, io::Write, time::{SystemTime, UNIX_EPOCH}};
 
 use ansi_term::Color;
 use rand::{SeedableRng, prelude::StdRng};
 use text_io::try_read;
 
-use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}}}, utils::{result::*, source_pos::SourcePos, wrap::Wrap, global_ids::{global_id}}};
+use crate::{interpreter::{Interpreter, globals::{fs::fs, math::math}, value::{ValueType, macros::{cast, castf}, primitives::{callable::{Callable, nativefn::NativeFn}, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}, messenger::Messenger}, Message}, utils::{result::*, source_pos::SourcePos, wrap::Wrap, global_ids::{global_id}}};
 
 use self::attributes::{string::string, list::list, error::error};
 
@@ -153,7 +153,7 @@ fn exit() -> Box<dyn Value> {
 		fn arity(&self) -> usize { 0 }
 
     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, _args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			process::exit(0)
+			Messenger::new(Message::Halt).wrap()
     }
 	}
 
@@ -173,7 +173,7 @@ fn abort() -> Box<dyn Value> {
 				_ => v0.to_string(interpreter, p0)?,
 			};
 			eprintln!("{}: {}", Color::Red.paint("error"), str);
-			process::exit(0)
+			Messenger::new(Message::Halt).wrap()
     }
 	}
 
