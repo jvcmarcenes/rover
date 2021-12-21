@@ -1,7 +1,4 @@
 
-let x: string = "hello"
+let x: string = 3 + "hello"
 
-let y: number = 3 + 5
-
-let z: any = "string"
-z = 23
+writeline(x)

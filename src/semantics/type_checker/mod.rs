@@ -71,6 +71,7 @@ impl ExprVisitor<Type> for TypeChecker {
 		};
 		let typ = if expect.accepts(&lhs_typ)? && expect.accepts(&rhs_typ)? {
 			if let Some(typ) = typ { typ }
+			else if rhs_typ == Type::Primitive(TypePrim::Str) { rhs_typ }
 			else { lhs_typ }
 		} else {
 			errors.add_comp(format!("Illegal operation for types '{}' and '{}' expected '{}'", lhs_typ, rhs_typ, expect), pos);
