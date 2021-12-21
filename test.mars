@@ -1,4 +1,14 @@
 
-let x = 2
+let bar = function() {
+	exit()
+}
 
-let y = 2 + 3 + x
+let foo = function() {
+	bar()
+}
+
+writeline("Hello")
+
+foo()
+
+writeline("Bye")

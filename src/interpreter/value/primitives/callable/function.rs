@@ -1,5 +1,5 @@
 
-use crate::{ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment, value::{Value, primitives::none::ValNone}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment, value::{Value, primitives::none::ValNone, messenger::Messenger}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Callable;
 
@@ -44,6 +44,7 @@ impl Callable for Function {
 		
 		let ret = match interpreter.execute_block(self.body.clone())? {
 			Message::Return(val) => val,
+			Message::Halt => Messenger::new(Message::Halt),
 			_ => ValNone.wrap()
 		};
 		
