@@ -1,2 +1,26 @@
 
+# the bellow example does not work as expected
 
+let a = 'a'
+
+let foo = function() {
+
+	let b = 'b'
+
+	let bar = function() {
+
+		let c = 'c'
+
+		a + b + c
+
+	}
+
+	let x = 'x'
+
+	bar()
+
+}
+
+let y = 'y'
+
+foo()

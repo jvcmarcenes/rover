@@ -6,8 +6,8 @@ use self::OpCode::*;
 
 #[derive(Copy, PartialEq, Eq, Debug, Clone, FromPrimitive)]
 pub enum OpCode {
-	Pop,
-	Define, Load, Store, Define16, Load16, Store16,
+	Pop, PopScope,
+	Load, Store, Load16, Store16,
 	Jump, FalseJump, TrueJump, JumpBack, Return,
 
 	Const, Const16, ConstFalse, ConstTrue, ConstNone,
@@ -30,10 +30,9 @@ impl OpCode {
 	pub fn accept<T>(&self, visitor: &mut dyn OpCodeVisitor<T>) -> T {
 		match self {
 			Pop        => visitor.op_pop(),
-			Define     => visitor.op_define(),
+			PopScope   => visitor.op_pop_scope(),
 			Load       => visitor.op_load(),
 			Store      => visitor.op_store(),
-			Define16   => visitor.op_define16(),
 			Load16     => visitor.op_load16(),
 			Store16    => visitor.op_store16(),
 			Jump       => visitor.op_jump(),
@@ -67,11 +66,10 @@ impl OpCode {
 
 pub trait OpCodeVisitor<T> {
 	fn op_pop(&mut self) -> T;
+	fn op_pop_scope(&mut self) -> T;
 	
-	fn op_define(&mut self) -> T;
 	fn op_load(&mut self) -> T;
 	fn op_store(&mut self) -> T;
-	fn op_define16(&mut self) -> T;
 	fn op_load16(&mut self) -> T;
 	fn op_store16(&mut self) -> T;
 	

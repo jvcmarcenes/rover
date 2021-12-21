@@ -6,17 +6,17 @@ use super::Value;
 #[derive(Clone, Debug)]
 pub struct Function {
 	pub ptr: usize,
-	// pub arity: u8,
+	pub stack_at: usize,
 	pub params: Vec<usize>,
 }
 
 impl Function {
-	pub fn new(ptr: usize, params: Vec<usize>) -> Self {
-		Self { ptr, params }
+	pub fn new(ptr: usize, stack_at: usize, params: Vec<usize>) -> Self {
+		Self { ptr, stack_at, params }
 	}
 
-	pub fn create(ptr: usize, params: Vec<usize>) -> Box<dyn Value> {
-		Self::new(ptr, params).wrap()
+	pub fn create(ptr: usize, stack_at: usize, params: Vec<usize>) -> Box<dyn Value> {
+		Self::new(ptr, stack_at, params).wrap()
 	}
 }
 

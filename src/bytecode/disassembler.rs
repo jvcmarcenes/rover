@@ -53,10 +53,15 @@ impl OpCodeVisitor<()> for Disassembler {
 		simple_instr("POP");
 	}
 
-	fn op_define(&mut self) {
-		let id = self.chunk.read8();
-		println!("{:-16} {:4}", "DEFINE", id);
+	fn op_pop_scope(&mut self) -> () {
+		let count = self.chunk.read8();
+		println!("{:-16} {:4}", "POP_SCOPE", count);
 	}
+
+	// fn op_define(&mut self) {
+	// 	let id = self.chunk.read8();
+	// 	println!("{:-16} {:4}", "DEFINE", id);
+	// }
 
 	fn op_load(&mut self) {
 		let id = self.chunk.read8();
@@ -68,10 +73,10 @@ impl OpCodeVisitor<()> for Disassembler {
 		println!("{:-16} {:4}", "STORE", id);
 	}
 
-	fn op_define16(&mut self) {
-		let id = self.chunk.read16();
-		println!("{:-16} {:4}", "DEFINE_16", id);
-	}
+	// fn op_define16(&mut self) {
+	// 	let id = self.chunk.read16();
+	// 	println!("{:-16} {:4}", "DEFINE_16", id);
+	// }
 
 	fn op_load16(&mut self) {
 		let id = self.chunk.read16();

@@ -1,5 +1,5 @@
 
-use crate::{utils::{result::Result, source_pos::SourcePos, wrap::Wrap}, environment::{Environment, ValueMap}};
+use crate::{utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 use super::{chunk::Chunk, opcode::{OpCodeVisitor, OpCode}, value::{Value, number::Number, bool::Bool, none::ValNone, string::Str}};
 
@@ -10,7 +10,7 @@ pub struct VM {
 	chunk: Chunk,
 	stack: Vec<Box<dyn Value>>,
 	src_info_stack: Vec<SourcePos>,
-	env: Environment<Box<dyn Value>>
+	call_stack: Vec<(usize, usize)>,
 }
 
 impl VM {
@@ -20,7 +20,7 @@ impl VM {
 			chunk,
 			stack: Vec::new(),
 			src_info_stack: Vec::new(),
-			env: Environment::new(ValueMap::new()),
+			call_stack: Vec::new(),
 		}
 	}
 
@@ -38,9 +38,26 @@ impl VM {
 
 	fn peek(&self) -> (Box<dyn Value>, SourcePos) {
 		(
-			self.stack.last().expect("No value on the stack to peep").clone(),
-			self.src_info_stack.last().expect("No value on the stack to peep").clone(),
+			self.stack.last().expect("No value on the stack to peek").clone(),
+			self.src_info_stack.last().expect("No value on the stack to peek").clone(),
 		)
+	}
+
+	fn get_stack_index(&self, mut idx: usize) -> usize {
+		if !self.call_stack.is_empty() {
+			let (stop, start) = *self.call_stack.last().unwrap();
+			if idx > stop { idx += start - stop; }
+		}
+		idx
+	}
+
+	fn load(&self, idx: usize) -> Box<dyn Value> {
+		self.stack.get(self.get_stack_index(idx)).expect("Value not on the stack").clone()
+	}
+
+	fn store(&mut self, idx: usize, val: Box<dyn Value>) {
+		let idx = self.get_stack_index(idx);
+		*self.stack.get_mut(idx).unwrap() = val;
 	}
 
 	fn constant(&self, i: usize) -> Box<dyn Value> {
@@ -67,13 +84,11 @@ impl VM {
 
 	// #[cfg(feature = "trace_exec")]
 	// fn run_chunk(&mut self, chunk: &mut Chunk) -> Result<()> {
-	// 	self.env.push_new();
 	// 	while let Some((code, pos)) = chunk.next() {
 	// 		self.print_stack();
 	// 		Disassembler::new(self.chunk.clone()).disassemble_instr(code, pos);
 	// 		OpCode::from(code).accept(self, pos)?;
 	// 	}
-	// 	self.env.pop();
 	// 	self.print_stack();
 	// 	Ok(())
 	// }
@@ -91,11 +106,9 @@ impl VM {
 
 	// #[cfg(not(feature = "trace_exec"))]
 	// fn run_chunk(&mut self, chunk: &mut Chunk) -> Result<()> {
-	// 	self.env.push_new();
 	// 	while let Some((code, pos)) = chunk.next() {
 	// 		OpCode::from(code).accept(self, pos)?;
 	// 	}
-	// 	self.env.pop();
 	// 	Ok(())
 	// }
 
@@ -116,16 +129,17 @@ impl OpCodeVisitor<Result<()>> for VM {
 		Ok(())
 	}
 	
-	fn op_define(&mut self) -> Result<()> {
-		let id = self.chunk.read8() as usize;
-		let val = self.pop().0;
-		self.env.define(id, val);
+	fn op_pop_scope(&mut self) -> Result<()> {
+		let count = self.chunk.read8();
+		let save = self.pop();
+		for _ in 0..count { self.pop(); }
+		self.push(save.0, save.1);
 		Ok(())
 	}
 
 	fn op_load(&mut self) -> Result<()> {
 		let id = self.chunk.read8() as usize;
-		let val = self.env.get(id);
+		let val = self.load(id);
 		self.push(val, self.chunk.get_src_info());
 		Ok(())
 	}
@@ -133,20 +147,13 @@ impl OpCodeVisitor<Result<()>> for VM {
 	fn op_store(&mut self) -> Result<()> {
 		let id = self.chunk.read8() as usize;
 		let val = self.pop().0;
-		self.env.assign(id, val);
-		Ok(())
-	}
-
-	fn op_define16(&mut self) -> Result<()> {
-		let id = self.chunk.read16() as usize;
-		let val = self.pop().0;
-		self.env.define(id, val);
+		self.store(id, val);
 		Ok(())
 	}
 
 	fn op_load16(&mut self) -> Result<()> {
 		let id = self.chunk.read16() as usize;
-		let val = self.env.get(id);
+		let val = self.load(id);
 		self.push(val, self.chunk.get_src_info());
 		Ok(())
 	}
@@ -154,7 +161,7 @@ impl OpCodeVisitor<Result<()>> for VM {
 	fn op_store16(&mut self) -> Result<()> {
 		let id = self.chunk.read16() as usize;
 		let val = self.pop().0;
-		self.env.assign(id, val);
+		self.store(id, val);
 		Ok(())
 	}
 
@@ -188,10 +195,9 @@ impl OpCodeVisitor<Result<()>> for VM {
 		let (back, pos) = self.pop();
 		let back = back.as_num(pos)?.data as usize;
 		
-		self.env.pop();
-		self.env.pop();
-
 		self.push(ret.0, ret.1);
+
+		self.call_stack.pop();
 	
 		self.chunk.set_offset(back);
 		Ok(())
@@ -300,17 +306,16 @@ impl OpCodeVisitor<Result<()>> for VM {
 		let (calee, pos) = self.pop();
 		let calee = calee.as_function(pos)?;
 
-		self.env.push_new();
-
-		for param in calee.params {
-			let arg = self.pop().0;
-			self.env.define(param, arg);
-		}
-
-		self.env.push_new();
-
+		let mut args = Vec::new();
+		for _ in calee.params { args.push(self.pop().0) }
+		
+		
 		let back = Number::create(self.chunk.offset() as f64 + 1.0);
 		self.push(back, pos);
+		
+		self.call_stack.push((calee.stack_at, self.stack.len() - 1));
+		
+		for arg in args { self.push(arg, pos) }
 
 		self.chunk.set_offset(calee.ptr);
 

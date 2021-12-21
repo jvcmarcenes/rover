@@ -8,15 +8,13 @@ mod semantics;
 mod interpreter;
 mod bytecode;
 
-use std::process;
-use std::path::Path;
-
-use utils::result::Result;
+use std::{path::Path, process};
+use utils::{result::Result, global_ids::get_global_identifiers};
 
 use ast::statement::Block;
 use lexer::Lexer;
 use parser::Parser;
-use semantics::{resolver::Resolver, optimizer::Optimizer};
+use semantics::{resolver::{Resolver, SymbolTable}, optimizer::Optimizer};
 use interpreter::Interpreter;
 use bytecode::{vm::VM, chunk_gen::ChunkGen};
 
@@ -50,18 +48,27 @@ fn run_file(path: &str) -> Result<()> {
 	
 	let ast = Parser::new(tokens).program()?;
 	
-	Resolver::new().resolve(&ast)?;
+	let ast_int = cfg!(feature = "ast_interpreter");
+
+	let globals = if ast_int { get_global_identifiers() } else { SymbolTable::new() };
+
+	Resolver::new(globals, ast_int).resolve(&ast)?;
 	
 	if !lexer_err.is_empty() { process::exit(1); }
 	
 	let ast = Optimizer.optimize(ast)?;
 
-	if cfg!(feature = "ast_interpreter") {
+	// let start = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs_f64();
+	
+	if ast_int {
 		run_ast(ast, path)?;
 	} else {
 		run_bytecode(ast)?;
 	}
 
+	// let end = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs_f64();
+	// eprintln!("time: {}", end - start);
+	
 	Ok(())
 }
 

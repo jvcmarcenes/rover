@@ -9,6 +9,7 @@ use super::{chunk::Chunk, opcode::OpCode, disassembler::Disassembler, value::{nu
 struct Context {
 	loop_stack: Vec<usize>,
 	break_stack: Vec<Vec<usize>>,
+	local_count: Vec<(u8, bool)>,
 }
 
 pub struct ChunkGen {
@@ -29,13 +30,21 @@ impl ChunkGen {
 		&mut self.chunk
 	}
 	
-	fn generate_block(&mut self, block: Block) -> Result<()> {
+	fn generate_block(&mut self, block: Block, start_count: usize) -> Result<()> {
+		self.ctx.local_count.push((start_count as u8, start_count > 0));
+
 		for stmt in block { stmt.accept(self)?; }
+
+		self.chunk.write_instr(OpCode::ConstNone, SourcePos::new(0, 0));
+		self.chunk.write_instr(OpCode::PopScope, SourcePos::new(0, 0));
+		self.chunk.write_u8(self.ctx.local_count.pop().unwrap().0, SourcePos::new(0, 0));
+		self.chunk.write_instr(OpCode::Pop, SourcePos::new(0, 0));
+
 		Ok(())
 	}
 	
 	pub fn generate(mut self, code: Block) -> Result<Chunk> {
-		self.generate_block(code)?;
+		self.generate_block(code, 0)?;
 		if cfg!(feature = "print_code") {
 			Disassembler::new(self.chunk.clone()).disassemble("code");
 		}
@@ -46,7 +55,6 @@ impl ChunkGen {
 		if id > u8::MAX as usize {
 			if id > u16::MAX as usize { panic!("not enough space to store variable id") }
 			match instr {
-				OpCode::Define => self.chunk().write_instr(OpCode::Define16, pos),
 				OpCode::Load   => self.chunk().write_instr(OpCode::Load16, pos),
 				OpCode::Store  => self.chunk().write_instr(OpCode::Store, pos),
 				_ => panic!("invalid instruction for variable"),
@@ -135,18 +143,19 @@ impl ExprVisitor<()> for ChunkGen {
 	}
 	
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<()> {
+		let stack_at = self.ctx.local_count.iter().fold(0, |a, (b, _)| a + b) as usize;
 		let body_anchor = self.chunk.write_jump(OpCode::Jump, pos);
 		
 		let function_anchor = self.chunk.anchor();
 
-		self.generate_block(data.body)?;
+		self.generate_block(data.body, data.params.len())?;
 
 		self.chunk.write_const(ValNone::create(), pos);
 		self.chunk.write_instr(OpCode::Return, pos);
 
 		self.chunk.patch_jump(body_anchor, pos)?;
 
-		let function = Function::create(function_anchor, data.params.iter().map(|i| i.get_id()).collect());
+		let function = Function::create(function_anchor, stack_at, data.params.iter().map(|i| i.get_id()).collect());
 
 		self.chunk.write_const(function, pos);
 		Ok(())
@@ -196,7 +205,8 @@ impl StmtVisitor<()> for ChunkGen {
 	
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		data.expr.accept(self)?;
-		self.write_var(OpCode::Define, data.name.get_id(), pos)?;
+
+		self.ctx.local_count.last_mut().unwrap().0 += 1;
 		Ok(())
 	}
 	
@@ -218,11 +228,11 @@ impl StmtVisitor<()> for ChunkGen {
 		data.cond.accept(self)?;
 		let else_anchor = self.chunk().write_jump(OpCode::FalseJump, pos);
 		self.chunk().write_instr(OpCode::Pop, pos);
-		self.generate_block(data.then_block)?;
+		self.generate_block(data.then_block, 0)?;
 		let end_anchor = self.chunk().write_jump(OpCode::Jump, pos);
 		self.chunk().patch_jump(else_anchor, pos)?;
 		self.chunk().write_instr(OpCode::Pop, pos);
-		self.generate_block(data.else_block)?;
+		self.generate_block(data.else_block, 0)?;
 		self.chunk().patch_jump(end_anchor, pos)?;
 		Ok(())
 	}
@@ -231,7 +241,7 @@ impl StmtVisitor<()> for ChunkGen {
 		let anchor = self.chunk().anchor();
 		self.ctx.loop_stack.push(anchor);
 		self.ctx.break_stack.push(Vec::new());
-		self.generate_block(block)?;
+		self.generate_block(block, 0)?;
 		self.chunk().write_jump_back(anchor, pos)?;
 		for break_stmt in self.ctx.break_stack.pop().unwrap() {
 			self.chunk().patch_jump(break_stmt, pos)?;
@@ -253,12 +263,14 @@ impl StmtVisitor<()> for ChunkGen {
 	
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
 		expr.accept(self)?;
+		self.chunk.write_instr(OpCode::PopScope, pos);
+		self.chunk.write_u8(self.ctx.local_count.iter().filter(|(_, f)| *f).last().unwrap().0, pos);
 		self.chunk().write_instr(OpCode::Return, pos);
 		Ok(())
 	}
 	
 	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<()> {
-		self.generate_block(block)
+		self.generate_block(block, 0)
 	}
 	
 }

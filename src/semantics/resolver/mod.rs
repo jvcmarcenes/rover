@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos}};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -31,7 +31,7 @@ impl IdentifierData {
 	}
 }
 
-type SymbolTable = HashMap<String, IdentifierData>;
+pub type SymbolTable = HashMap<String, IdentifierData>;
 
 fn allowed(cond: bool, msg: &str, pos: SourcePos) -> Result<()> {
 	if cond { Ok(()) }
@@ -57,11 +57,10 @@ pub struct Resolver {
 
 impl Resolver {
 	
-	pub fn new() -> Self {
-		let globals = get_global_identifiers();
+	pub fn new(globals: SymbolTable, self_offset: bool) -> Self {
 
 		Resolver {
-			last_id: globals.len() + 1,
+			last_id: globals.len() + if self_offset { 1 } else { 0 },
 			globals: globals.clone(),
 			tables: vec![globals],
 			ctx: Context::default(),
