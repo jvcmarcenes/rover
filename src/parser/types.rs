@@ -7,11 +7,11 @@ type TypeResult = Result<Type>;
 
 impl Parser {
 
-	pub fn type_restriction(&mut self) -> TypeResult {
+	pub fn type_restriction(&mut self) -> Result<Option<Type>> {
 		if self.optional(Symbol(Symbol::Colon)).is_some() {
-			self.types()
+			self.types().wrap()
 		} else {
-			Type::Primitive(TypePrim::Any).wrap()
+			None.wrap()
 		}
 	}
 

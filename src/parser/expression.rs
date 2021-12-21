@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}, types::{Type, TypePrim}};
+use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Parser;
 
@@ -44,7 +44,7 @@ fn lg_operator_for_token(token: &Token) -> LogicOperator {
 
 fn err_handler(expr: Expression, handler: Block, pos: SourcePos) -> Expression {
 	ExprType::DoExpr(vec![
-		StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), type_restriction: Type::Primitive(TypePrim::Any), expr: expr.wrap() }).to_stmt(pos),
+		StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$res".to_owned()), type_restriction: None, expr: expr.wrap() }).to_stmt(pos),
 		StmtType::If(IfData {
 			cond: ExprType::Binary(BinaryData { 
 				lhs: ExprType::Variable(Identifier::new("$res".to_owned())).to_expr(pos).wrap(),

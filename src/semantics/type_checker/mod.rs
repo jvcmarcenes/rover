@@ -7,13 +7,15 @@ use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::{
 
 pub struct TypeChecker {
 	type_map: HashMap<usize, Type>,
+	infer: bool,
 }
 
 impl TypeChecker {
 	
-	pub fn new() -> Self {
+	pub fn new(infer: bool,) -> Self {
 		Self {
-			type_map: HashMap::new()
+			type_map: HashMap::new(),
+			infer,
 		}
 	}
 	
@@ -41,11 +43,11 @@ impl ExprVisitor<Type> for TypeChecker {
 	
 	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<Type> {
 		match data {
-			LiteralData::None => Type::Void,
+			LiteralData::None => Type::Primitive(TypePrim::None),
 			LiteralData::Str(_) => Type::Primitive(TypePrim::Str),
 			LiteralData::Num(_) => Type::Primitive(TypePrim::Num),
 			LiteralData::Bool(_) => Type::Primitive(TypePrim::Bool),
-			_ => Type::Primitive(TypePrim::Any),
+			_ => todo!(),
 		}.wrap()
 	}
 	
@@ -157,12 +159,15 @@ impl StmtVisitor<Type> for TypeChecker {
 	
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<Type> {
 		let expr_typ = data.expr.accept(self)?;
-		if data.type_restriction.accepts(&expr_typ)? {
-			self.type_map.insert(data.name.get_id(), data.type_restriction);
-			Type::Void.wrap()
+		if let Some(typ) = data.type_restriction {
+			self.type_map.insert(data.name.get_id(), typ.clone());
+			if !typ.accepts(&expr_typ)? {
+				return ErrorList::comp(format!("Cannot assign '{}' to '{}'", expr_typ, typ), pos).err();
+			}
 		} else {
-			ErrorList::comp(format!("Cannot assign '{}' to '{}'", expr_typ, data.type_restriction), pos).err()
+			self.type_map.insert(data.name.get_id(), if self.infer { expr_typ } else { Type::Primitive(TypePrim::Any) });
 		}
+		Type::Void.wrap()
 	}
 	
 	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<Type> {

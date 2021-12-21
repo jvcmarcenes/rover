@@ -30,12 +30,12 @@ fn main() {
 }
 
 fn run_file(path: &str) {
-	let mut lexer = Lexer::from_file(&path).unwrap_or_else(|err| {
+	let lexer = Lexer::from_file(&path).unwrap_or_else(|err| {
 		eprintln!("{}: {}", ansi_term::Color::Red.paint("system error"), err);
 		process::exit(1);
 	});
 
-	let (tokens, lexer_err) = lexer.scan_tokens();
+	let (tokens, directives, lexer_err) = lexer.scan_tokens();
 	lexer_err.report(&path);
 
 	let ast = Parser::new(tokens).program().unwrap_or_else(|errors| {
@@ -48,7 +48,7 @@ fn run_file(path: &str) {
 		process::exit(1);
 	});
 	
-	TypeChecker::new().check(&ast).unwrap_or_else(|errors| {
+	TypeChecker::new(directives.contains("infer")).check(&ast).unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);
 	});

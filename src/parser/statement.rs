@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}, types::{TypePrim, Type}};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -201,11 +201,11 @@ impl Parser {
 			let body = append!(self.block(); to errors);
 
 			StmtType::Scoped(vec![
-				StmtType::Declaration(DeclarationData { constant: false, name: Identifier::new("$i".to_owned()), type_restriction: Type::Primitive(TypePrim::Num), expr: ExprType::Literal(LiteralData::Num(-1.0)).to_expr(pos).wrap() }).to_stmt(pos),
-				StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$list".to_owned()), type_restriction: Type::Primitive(TypePrim::Any), expr: list.wrap() }).to_stmt(pos),
+				StmtType::Declaration(DeclarationData { constant: false, name: Identifier::new("$i".to_owned()), type_restriction: None, expr: ExprType::Literal(LiteralData::Num(-1.0)).to_expr(pos).wrap() }).to_stmt(pos),
+				StmtType::Declaration(DeclarationData { constant: true, name: Identifier::new("$list".to_owned()), type_restriction: None, expr: list.wrap() }).to_stmt(pos),
 				StmtType::Declaration(DeclarationData {
 					constant: true, name: Identifier::new("$len".to_owned()),
-					type_restriction: Type::Primitive(TypePrim::Num),
+					type_restriction: None,
 					expr: ExprType::Call(CallData {
 						calee: ExprType::FieldGet(FieldData {
 							head: ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos).wrap(),
@@ -235,7 +235,7 @@ impl Parser {
 					}).to_stmt(pos),
 					StmtType::Declaration(DeclarationData {
 						constant: false, name: Identifier::new(name),
-						type_restriction: Type::Primitive(TypePrim::Any), 
+						type_restriction: None,
 						expr: ExprType::Index(IndexData {
 							head: ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos).wrap(),
 							index: ExprType::Variable(Identifier::new("$i".to_owned())).to_expr(pos).wrap(),

@@ -1,4 +1,8 @@
 
-let x: string = 3 + "hello"
+#! infer
+
+let x: string
+
+x = "hello"
 
 writeline(x)

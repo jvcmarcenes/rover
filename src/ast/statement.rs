@@ -10,7 +10,7 @@ use self::StmtType::*;
 pub type Block = Vec<Statement>;
 
 #[derive(Debug, Clone)]
-pub struct DeclarationData { pub constant: bool, pub name: Identifier, pub type_restriction: Type, pub expr: Box<Expression> }
+pub struct DeclarationData { pub constant: bool, pub name: Identifier, pub type_restriction: Option<Type>, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct MethodData { pub name: String, pub params: Vec<Identifier>, pub body: Block }
 #[derive(Debug, Clone)]
