@@ -1,7 +1,7 @@
 
-#! infer
+#!infer
 
-let x: string
+let x: string?
 
 x = "hello"
 

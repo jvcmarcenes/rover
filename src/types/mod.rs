@@ -22,7 +22,7 @@ impl Type {
 		match self {
 			Void => false,
 			Primitive(t) => match t {
-				TypePrim::None => false,
+				TypePrim::None => other == Primitive(TypePrim::None),
 				TypePrim::Num => other == Primitive(TypePrim::Num),
 				TypePrim::Str => other == Primitive(TypePrim::Str),
 				TypePrim::Bool => other == Primitive(TypePrim::Bool),

@@ -20,14 +20,22 @@ impl Parser {
 	}
 
 	fn or_type(&mut self) -> TypeResult {
-		let first = self.type_primitive()?;
+		let first = self.type_optional()?;
 		if !self.next_match(Keyword(Keyword::Or)) { return first.wrap(); }
 		let mut types = vec![first];
 		while let Keyword(Keyword::Or) = self.peek().typ {
 			self.next();
-			types.push(self.type_primitive()?);
+			types.push(self.type_optional()?);
 		}
 		Type::Or(types).wrap()
+	}
+
+	fn type_optional(&mut self) -> TypeResult {
+		let mut typ = self.type_primitive()?;
+		if self.optional(Symbol(Symbol::Question)).is_some() {
+			typ = Type::Or(vec![typ, Type::Primitive(TypePrim::None)])
+		}
+		typ.wrap()
 	}
 	
 	fn type_primitive(&mut self) -> TypeResult {
