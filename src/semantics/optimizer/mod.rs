@@ -35,7 +35,7 @@ impl ExprVisitor<Expression> for Optimizer {
 			LiteralData::List(exprs) => {
 				let mut oexprs = Vec::new();
 				for expr in exprs { oexprs.push(expr.accept(self)?); }
-				data = LiteralData::Template(oexprs);
+				data = LiteralData::List(oexprs);
 			},
 			LiteralData::Object(ref fields, _) => {
 				let mut ofields = HashMap::new();
