@@ -45,7 +45,7 @@ impl Environment {
 			}
 			cur = rest;
 		}
-		panic!("use of unresolved variable");
+		panic!("use of unresolved variable '{}'", key);
 	}
 	
 	pub fn assign(&mut self, key: usize, value: Box<dyn Value>) {
@@ -57,7 +57,7 @@ impl Environment {
 			}
 			cur = rest;
 		}
-		panic!("use of unresolved variable");
+		panic!("use of unresolved variable '{}'", key);
 	}
 
 	pub fn cloned(&self) -> Environment {

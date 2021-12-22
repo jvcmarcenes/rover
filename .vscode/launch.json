@@ -1,0 +1,55 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug run",
+			"cargo": {
+				"args": ["run"]
+			},
+			"args": ["./test.mars"],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'rover'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=rover",
+					"--package=rover"
+				],
+				"filter": {
+					"name": "rover",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'rover'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=rover",
+					"--package=rover"
+				],
+				"filter": {
+					"name": "rover",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}

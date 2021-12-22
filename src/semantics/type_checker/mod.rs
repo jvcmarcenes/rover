@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::Type, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw}, wrap::Wrap}};
+use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::Type, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw, append}, wrap::Wrap}};
 
 pub struct TypeChecker {
 	type_map: HashMap<usize, Type>,
@@ -11,14 +11,14 @@ pub struct TypeChecker {
 }
 
 impl TypeChecker {
-	
+
 	pub fn new(infer: bool,) -> Self {
 		Self {
 			type_map: HashMap::new(),
 			infer,
 		}
 	}
-	
+
 	fn check_block(&mut self, block: &Block) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		let mut typ = Type::Void;
@@ -31,21 +31,16 @@ impl TypeChecker {
 		}
 		errors.if_empty(typ)
 	}
-	
+
 	pub fn check(&mut self, block: &Block) -> Result<()> {
 		self.check_block(&block)?;
 		Ok(())
-	}
-	
-	fn declare(&mut self, id: usize, typ: Type) {
-		let typ = typ.simplified(&self.type_map);
-		self.type_map.insert(id, typ);
 	}
 
 }
 
 impl ExprVisitor<Type> for TypeChecker {
-	
+
 	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		let typ = match data {
@@ -53,34 +48,42 @@ impl ExprVisitor<Type> for TypeChecker {
 			LiteralData::Str(_) => Type::STR,
 			LiteralData::Num(_) => Type::NUM,
 			LiteralData::Bool(_) => Type::BOOL,
-			LiteralData::Template(_) => Type::STR,
+			LiteralData::Template(exprs) => {
+				let mut errors = ErrorList::new();
+				for expr in exprs { errors.try_append(expr.accept(self)); }
+				Type::STR
+			}
 			LiteralData::List(exprs) => {
 				let mut types = Vec::new();
 				let mut is_any = false;
 				for expr in exprs {
 					match expr.accept(self) {
 						Ok(Type::Any) => { is_any = true; break; }
-						// Ok(Type::Named(name)) => {
-						// 	let typ = self.type_map.get(&name.get_id()).unwrap().clone();
-						// 	if !types.contains(&typ) { types.push(typ); }
-						// },
 						Ok(typ) => if !types.contains(&typ) { types.push(typ); },
 						Err(err) => errors.append(err),
 					}
 				}
 				let typ = match types.len() {
 					_ if is_any => Type::Any,
-					0 => Type::Void,
+					0 => Type::Unknow,
 					1 => types[0].clone(),
 					_ => Type::Or(types),
 				};
 				Type::List(typ.wrap())
 			}
+			LiteralData::Object(map, _) => {
+				let mut typ_map = HashMap::new();
+				for (key, expr) in map {
+					let typ = append!(expr.accept(self); to errors; dummy Type::Void);
+					typ_map.insert(key.clone(), typ);
+				}
+				Type::Object(typ_map)
+			}
 			_ => todo!(),
 		};
 		errors.if_empty(typ)
 	}
-	
+
 	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		let mut typ = None;
@@ -111,7 +114,7 @@ impl ExprVisitor<Type> for TypeChecker {
 		};
 		errors.if_empty(typ)
 	}
-	
+
 	fn unary(&mut self, data: UnaryData, pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		let mut typ = Type::Void;
@@ -132,32 +135,33 @@ impl ExprVisitor<Type> for TypeChecker {
 		}
 		errors.if_empty(typ)
 	}
-	
+
 	fn logic(&mut self, data: LogicData, pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		errors.try_append(data.lhs.accept(self));
 		errors.try_append(data.rhs.accept(self));
 		errors.if_empty(Type::BOOL)
 	}
-	
+
 	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<Type> {
 		data.accept(self)
 	}
-	
+
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<Type> {
 		self.type_map.get(&data.get_id()).unwrap().clone().wrap()
 	}
-	
+
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
-	
+
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Type> {
 		Type::Any.wrap()
 	}
-	
+
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<Type> {
-		let typ = data.head.accept(self)?;
+		let mut typ = data.head.accept(self)?;
+		while let Type::Named(name) = typ { typ = self.type_map.get(&name.get_id()).unwrap().clone(); }
 		match typ {
 			Type::Any => Type::Any,
 			Type::List(typ) => *typ,
@@ -165,35 +169,46 @@ impl ExprVisitor<Type> for TypeChecker {
 			_ => return ErrorList::comp(format!("Cannot index '{}'", typ), pos).err(),
 		}.wrap()
 	}
-	
+
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Type> {
-		todo!()
+		let mut typ = data.head.accept(self)?;
+		while let Type::Named(name) = typ { typ = self.type_map.get(&name.get_id()).unwrap().clone(); }
+		dbg!(&typ);
+		match &typ {
+			Type::Any => Type::Any,
+			Type::Object(map) => if let Some(typ) = map.get(&data.field) { typ.clone() } else { return ErrorList::comp(format!("Property '{}' does not exist on '{}'", data.field, typ), pos).err(); },
+			_ => return ErrorList::comp(format!("Type '{}' does not exposes fields", typ), pos).err(),
+		}.wrap()
 	}
-	
+
 	fn self_ref(&mut self, pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
-	
+
 	fn do_expr(&mut self, block: Block, pos: SourcePos) -> Result<Type> {
 		match self.check_block(&block)? {
 			Type::Void => ErrorList::comp("do block did not evaluate to a value".to_owned(), pos).err(),
 			typ => typ.wrap()
 		}
 	}
-	
+
 	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
-	
+
 }
 
 impl StmtVisitor<Type> for TypeChecker {
-	
+
 	fn expr(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<Type> {
 		expr.accept(self)
 	}
-	
+
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<Type> {
+		if matches!(data.expr.typ, ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _))) {
+			self.type_map.insert(data.name.get_id(), Type::None);
+		}
+
 		let expr_typ = data.expr.accept(self)?;
 		if let Some(typ) = data.type_restriction {
 			self.type_map.insert(data.name.get_id(), typ.clone());
@@ -201,16 +216,16 @@ impl StmtVisitor<Type> for TypeChecker {
 				return ErrorList::comp(format!("Cannot assign '{}' to '{}'", expr_typ, typ), pos).err();
 			}
 		} else {
-			// self.type_map.insert(data.name.get_id(), if self.infer { expr_typ } else { Type::Any });
-			self.declare(data.name.get_id(), if self.infer { expr_typ } else { Type::Any });
+			self.type_map.insert(data.name.get_id(), if self.infer { expr_typ } else { Type::Any });
 		}
+
 		Type::Void.wrap()
 	}
-	
+
 	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
-	
+
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> Result<Type> {
 		let head_type = data.head.accept(self)?;
 		let expr_typ = data.expr.accept(self)?;
@@ -220,7 +235,7 @@ impl StmtVisitor<Type> for TypeChecker {
 			ErrorList::comp(format!("Cannot assign '{}' to '{}'", expr_typ, head_type), pos).err()
 		}
 	}
-	
+
 	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		errors.try_append(data.cond.accept(self));
@@ -228,31 +243,31 @@ impl StmtVisitor<Type> for TypeChecker {
 		errors.try_append(self.check_block(&data.else_block));
 		errors.if_empty(Type::Void)
 	}
-	
+
 	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<Type> {
 		self.check_block(&block)
 	}
-	
+
 	fn break_stmt(&mut self, pos: SourcePos) -> Result<Type> {
 		Type::Void.wrap()
 	}
-	
+
 	fn continue_stmt(&mut self, pos: SourcePos) -> Result<Type> {
 		Type::Void.wrap()
 	}
-	
+
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
-	
+
 	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<Type> {
 		self.check_block(&block)
 	}
-	
+
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<Type> {
-		// self.type_map.insert(data.alias.get_id(), data.typ);
-		self.declare(data.alias.get_id(), data.typ);
+		self.type_map.insert(data.alias.get_id(), Type::Unknow);
+		self.type_map.insert(data.alias.get_id(), data.typ.clone());
 		Type::Void.wrap()
 	}
-	
+
 }

@@ -1,11 +1,36 @@
 
 #!infer
 
-type foo = number or string
-type bar = bool or foo
+type person = {
+	name: string
+	age: number
+	friends: [person]
+}
 
-let y: foo = 23
+let john: person = {
+	name = "john"
+	age = 23
+	friends = []
+}
 
-let x: bar = y
+let jane: person = {
+	name = "jane"
+	age = 21
+	friends = []
+}
 
-writeline(x)
+let mike: person = {
+	name = "mike"
+	age = 22
+	friends = []
+}
+
+john.friends.push(jane)
+jane.friends.push(john)
+
+jane.friends.push(mike)
+mike.friends.push(jane)
+
+writeline('#{john.name} is #{john.age} and is friends with #{john.friends.map(function(f) => f.name)}')
+writeline('#{jane.name} is #{jane.age} and is friends with #{jane.friends.map(function(f) => f.name)}')
+writeline('#{mike.name} is #{mike.age} and is friends with #{mike.friends.map(function(f) => f.name)}')

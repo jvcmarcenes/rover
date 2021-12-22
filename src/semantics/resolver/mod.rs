@@ -125,6 +125,7 @@ impl Resolver {
 				}
 			},
 			Type::List(typ) => errors.try_append(self.resolve_type(*typ, pos)),
+			Type::Object(map) => for (_, typ) in map { errors.try_append(self.resolve_type(typ, pos)); }
 			Type::Or(types) => for typ in types { errors.try_append(self.resolve_type(typ, pos)) },
 			_ => (),
 		}
@@ -341,8 +342,8 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
-		errors.try_append(self.resolve_type(data.typ, pos));
 		errors.try_append(self.add(data.alias, true, pos));
+		errors.try_append(self.resolve_type(data.typ, pos));
 		errors.if_empty(())
 	}
 	

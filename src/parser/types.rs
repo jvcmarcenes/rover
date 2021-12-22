@@ -1,5 +1,7 @@
 
-use crate::{utils::{result::{Result, ErrorList, Stage}, wrap::Wrap}, types::Type, lexer::token::{TokenType::*, Keyword, Symbol, Token}, ast::identifier::Identifier};
+use std::collections::HashMap;
+
+use crate::{utils::{result::{Result, ErrorList, Stage, throw, append}, wrap::Wrap}, types::Type, lexer::token::{TokenType::*, Keyword, Symbol, Token}, ast::identifier::Identifier};
 
 use super::Parser;
 
@@ -52,6 +54,28 @@ impl Parser {
 				let typ = self.types()?;
 				self.expect_or_sync(Symbol(Symbol::CloseSqr))?;
 				Type::List(typ.wrap())
+			},
+			Symbol(Symbol::OpenBracket) => {
+				let mut errors = ErrorList::new();
+				let mut map = HashMap::new();
+				loop {
+					self.skip_new_lines();
+					let peek = self.peek();
+					match peek.typ {
+						Symbol(Symbol::CloseBracket) => { self.next(); break; }
+						Identifier(name) => {
+							self.next();
+							errors.try_append(self.expect(Symbol(Symbol::Colon)));
+							let typ = append!(self.types(); to errors; dummy Type::Void);
+							map.insert(name, typ);
+							if self.next_match(Symbol(Symbol::CloseBracket)) { continue; }
+							errors.try_append(self.expect_any_or_sync(&[Symbol(Symbol::Comma), EOL]));
+						},
+						typ => { self.next(); append!(ret comp format!("Expected identifier, found {}", typ), peek.pos; to errors) },
+					}
+				}
+				throw!(errors);
+				Type::Object(map)
 			},
 			Identifier(name) => Type::Named(Identifier::new(name)),
 			_ => return ErrorList::comp(format!("Expected type, found {}", token), token.pos).err()

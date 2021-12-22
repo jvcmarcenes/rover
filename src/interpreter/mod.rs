@@ -256,6 +256,9 @@ impl StmtVisitor<Message> for Interpreter {
 		// this crashes with objects that try to 'statically' access the variable they're being declared to
 		// the resolver allows it (and it should), but here the name is only defined after the r-value is evaluated
 		// self.env.define(data.name.get_id(), ValNone.wrap()) // <- this could be a solution, assign none to the symbol, and after evaluating the r-value we re-assign it
+		if matches!(data.expr.typ, ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _))) {
+			self.env.define(data.name.get_id(), ValNone::new());
+		}
 		let val = unwrap_msg!(data.expr.accept(self)?);
 		self.env.define(data.name.get_id(), val);
 		Message::None.wrap()
