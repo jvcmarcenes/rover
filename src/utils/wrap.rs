@@ -25,15 +25,15 @@ impl<T> Wrap<Box<T>> for T {
 	fn wrap(self) -> Box<T> { Box::new(self) }
 }
 
-impl <T, E> Wrap<Result<Option<T>, E>> for Result<T, E> {
-	fn wrap(self) -> Result<Option<T>, E> { Ok(Some(self?)) }
-}
+// impl <T, E> Wrap<Result<Option<T>, E>> for Result<T, E> {
+// 	fn wrap(self) -> Result<Option<T>, E> { Ok(Some(self?)) }
+// }
 
 // impl<T, E> Wrap<Result<(), E>> for Result<T, E> {
-	// 	fn wrap(self) -> Result<(), E> { self?; Ok(()) }
-	// }
+// 	fn wrap(self) -> Result<(), E> { self?; Ok(()) }
+// }
 	
-	// impl<T> Wrap<T> for T {
-		// 	fn wrap(self) -> T { self }
-		// }
+// impl<T> Wrap<T> for T {
+// 	fn wrap(self) -> T { self }
+// }
 		

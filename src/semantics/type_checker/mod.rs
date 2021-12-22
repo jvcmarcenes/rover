@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::{Type, TypePrim}, utils::{source_pos::SourcePos, result::{Result, ErrorList}, wrap::Wrap}};
+use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::Type, utils::{source_pos::SourcePos, result::{Result, ErrorList}, wrap::Wrap}};
 
 pub struct TypeChecker {
 	type_map: HashMap<usize, Type>,
@@ -42,13 +42,34 @@ impl TypeChecker {
 impl ExprVisitor<Type> for TypeChecker {
 	
 	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<Type> {
-		match data {
-			LiteralData::None => Type::Primitive(TypePrim::None),
-			LiteralData::Str(_) => Type::Primitive(TypePrim::Str),
-			LiteralData::Num(_) => Type::Primitive(TypePrim::Num),
-			LiteralData::Bool(_) => Type::Primitive(TypePrim::Bool),
+		let mut errors = ErrorList::new();
+		let typ = match data {
+			LiteralData::None => Type::None,
+			LiteralData::Str(_) => Type::STR,
+			LiteralData::Num(_) => Type::NUM,
+			LiteralData::Bool(_) => Type::BOOL,
+			LiteralData::Template(_) => Type::STR,
+			LiteralData::List(exprs) => {
+				let mut types = Vec::new();
+				let mut is_any = false;
+				for expr in exprs {
+					match expr.accept(self) {
+						Ok(Type::Any) => { is_any = true; break; }
+						Ok(typ) => if !types.contains(&typ) { types.push(typ); },
+						Err(err) => errors.append(err),
+					}
+				}
+				let typ = match types.len() {
+					_ if is_any => Type::Any,
+					0 => Type::Void,
+					1 => types[0].clone(),
+					_ => Type::Or(types),
+				};
+				Type::List(typ.wrap())
+			}
 			_ => todo!(),
-		}.wrap()
+		};
+		errors.if_empty(typ)
 	}
 	
 	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<Type> {
@@ -58,22 +79,22 @@ impl ExprVisitor<Type> for TypeChecker {
 		let rhs_typ = match data.rhs.accept(self) { Ok(typ) => typ, Err(err) => { errors.append(err); Type::Void } };
 		if !errors.is_empty() { return errors.err(); }
 		let expect = match data.op {
-			BinaryOperator::Add => Type::Or(vec![Type::Primitive(TypePrim::Num), Type::Primitive(TypePrim::Str)]),
-			BinaryOperator::Sub => Type::Primitive(TypePrim::Num),
-			BinaryOperator::Mul => Type::Primitive(TypePrim::Num),
-			BinaryOperator::Div => Type::Primitive(TypePrim::Num),
-			BinaryOperator::Rem => Type::Primitive(TypePrim::Num),
-			BinaryOperator::Equ => { typ = Some(Type::Primitive(TypePrim::Bool)); Type::Primitive(TypePrim::Any) },
-			BinaryOperator::Neq => { typ = Some(Type::Primitive(TypePrim::Bool)); Type::Primitive(TypePrim::Any) },
-			BinaryOperator::Lst => { typ = Some(Type::Primitive(TypePrim::Bool)); Type::Primitive(TypePrim::Num) },
-			BinaryOperator::Lse => { typ = Some(Type::Primitive(TypePrim::Bool)); Type::Primitive(TypePrim::Num) },
-			BinaryOperator::Grt => { typ = Some(Type::Primitive(TypePrim::Bool)); Type::Primitive(TypePrim::Num) },
-			BinaryOperator::Gre => { typ = Some(Type::Primitive(TypePrim::Bool)); Type::Primitive(TypePrim::Num) },
+			BinaryOperator::Add => Type::Or(vec![Type::NUM, Type::STR]),
+			BinaryOperator::Sub => Type::NUM,
+			BinaryOperator::Mul => Type::NUM,
+			BinaryOperator::Div => Type::NUM,
+			BinaryOperator::Rem => Type::NUM,
+			BinaryOperator::Equ => { typ = Some(Type::BOOL); Type::Any },
+			BinaryOperator::Neq => { typ = Some(Type::BOOL); Type::Any },
+			BinaryOperator::Lst => { typ = Some(Type::BOOL); Type::NUM },
+			BinaryOperator::Lse => { typ = Some(Type::BOOL); Type::NUM },
+			BinaryOperator::Grt => { typ = Some(Type::BOOL); Type::NUM },
+			BinaryOperator::Gre => { typ = Some(Type::BOOL); Type::NUM },
 			BinaryOperator::Typ => todo!(),
 		};
-		let typ = if expect.accepts(&lhs_typ)? && expect.accepts(&rhs_typ)? {
+		let typ = if lhs_typ == Type::Any || rhs_typ == Type::Any || expect.accepts(&lhs_typ)? && expect.accepts(&rhs_typ)? {
 			if let Some(typ) = typ { typ }
-			else if rhs_typ == Type::Primitive(TypePrim::Str) { rhs_typ }
+			else if rhs_typ == Type::STR { rhs_typ }
 			else { lhs_typ }
 		} else {
 			errors.add_comp(format!("Illegal operation for types '{}' and '{}' expected '{}'", lhs_typ, rhs_typ, expect), pos);
@@ -87,13 +108,13 @@ impl ExprVisitor<Type> for TypeChecker {
 		let mut typ = Type::Void;
 		match data.expr.accept(self) {
 			Ok(expr_typ) => {
-				let expect = match data.op {
-					UnaryOperator::Not => Type::Primitive(TypePrim::Any),
-					UnaryOperator::Pos => Type::Primitive(TypePrim::Num),
-					UnaryOperator::Neg => Type::Primitive(TypePrim::Num),
+				let (expect, ret) = match data.op {
+					UnaryOperator::Not => (Type::Any, Type::BOOL),
+					UnaryOperator::Pos => (Type::NUM, Type::NUM),
+					UnaryOperator::Neg => (Type::NUM, Type::NUM),
 				};
-				if expect.accepts(&expr_typ)? {
-					typ = expect;
+				if expr_typ == Type::Any || expect.accepts(&expr_typ)? {
+					typ = ret;
 				} else {
 					errors.add_comp(format!("Illegal operation for '{}', expected '{}'", expr_typ, expect), pos);
 				}
@@ -107,7 +128,7 @@ impl ExprVisitor<Type> for TypeChecker {
 		let mut errors = ErrorList::new();
 		errors.try_append(data.lhs.accept(self));
 		errors.try_append(data.rhs.accept(self));
-		errors.if_empty(Type::Primitive(TypePrim::Bool))
+		errors.if_empty(Type::BOOL)
 	}
 	
 	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<Type> {
@@ -123,11 +144,17 @@ impl ExprVisitor<Type> for TypeChecker {
 	}
 	
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Type> {
-		Ok(Type::Primitive(TypePrim::Any))
+		Type::Any.wrap()
 	}
 	
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<Type> {
-		todo!()
+		let typ = data.head.accept(self)?;
+		match typ {
+			Type::Any => Type::Any,
+			Type::List(typ) => *typ,
+			Type::STR => Type::STR,
+			_ => return ErrorList::comp(format!("Cannot index '{}'", typ), pos).err(),
+		}.wrap()
 	}
 	
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Type> {
@@ -165,7 +192,7 @@ impl StmtVisitor<Type> for TypeChecker {
 				return ErrorList::comp(format!("Cannot assign '{}' to '{}'", expr_typ, typ), pos).err();
 			}
 		} else {
-			self.type_map.insert(data.name.get_id(), if self.infer { expr_typ } else { Type::Primitive(TypePrim::Any) });
+			self.type_map.insert(data.name.get_id(), if self.infer { expr_typ } else { Type::Any });
 		}
 		Type::Void.wrap()
 	}

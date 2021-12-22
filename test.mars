@@ -1,8 +1,19 @@
 
 #!infer
 
-let x: string?
+let x = 9
 
-x = "hello"
+let list: [number] = [2, 3, x]
 
-writeline(x)
+let y: number = list[0]
+
+writeline(list)
+writeline(y)
+
+let name: string = "John"
+
+let hello = 'Hello #{name}'
+
+let j = hello[6]
+
+writeline(j)
