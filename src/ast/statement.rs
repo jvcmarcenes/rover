@@ -19,6 +19,8 @@ pub struct AttrDeclarationData { pub name: Identifier, pub fields: HashMap<Strin
 pub struct AssignData { pub head: Box<Expression>, pub l_pos: SourcePos, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct IfData { pub cond: Box<Expression>, pub then_block: Block, pub else_block: Block }
+#[derive(Debug, Clone)]
+pub struct AliasData { pub alias: Identifier, pub typ: Type }
 
 #[derive(Debug, Clone)]
 pub enum StmtType {
@@ -31,6 +33,7 @@ pub enum StmtType {
 	Break, Continue,
 	Return(Box<Expression>),
 	Scoped(Block),
+	TypeAlias(AliasData)
 }
 
 impl StmtType {
@@ -64,6 +67,7 @@ impl Statement {
 			Continue => visitor.continue_stmt(self.pos),
 			Return(expr) => visitor.return_stmt(expr, self.pos),
 			Scoped(block) => visitor.scoped_stmt(block, self.pos),
+			TypeAlias(data) => visitor.type_alias(data, self.pos),
 		}
 	}
 }
@@ -79,4 +83,5 @@ pub trait StmtVisitor<T> {
 	fn continue_stmt(&mut self, pos: SourcePos) -> Result<T>;
 	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<T>;
 	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<T>;
+	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<T>;
 }

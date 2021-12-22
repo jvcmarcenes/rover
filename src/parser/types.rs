@@ -1,5 +1,5 @@
 
-use crate::{utils::{result::{Result, ErrorList, Stage}, wrap::Wrap}, types::Type, lexer::token::{TokenType::*, Keyword, Symbol, Token}};
+use crate::{utils::{result::{Result, ErrorList, Stage}, wrap::Wrap}, types::Type, lexer::token::{TokenType::*, Keyword, Symbol, Token}, ast::identifier::Identifier};
 
 use super::Parser;
 
@@ -17,7 +17,7 @@ impl Parser {
 		}
 	}
 
-	fn types(&mut self) -> TypeResult {
+	pub fn types(&mut self) -> TypeResult {
 		self.or_type()
 	}
 
@@ -52,7 +52,8 @@ impl Parser {
 				let typ = self.types()?;
 				self.expect_or_sync(Symbol(Symbol::CloseSqr))?;
 				Type::List(typ.wrap())
-			}
+			},
+			Identifier(name) => Type::Named(Identifier::new(name)),
 			_ => return ErrorList::comp(format!("Expected type, found {}", token), token.pos).err()
 		}.wrap()
 	}

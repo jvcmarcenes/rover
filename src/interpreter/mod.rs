@@ -59,7 +59,7 @@ impl Interpreter {
 		self.env.pop();
 		last_eval.wrap()
 	}
-
+	
 	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
 		for stmt in statements.clone() { if matches!(stmt.accept(self)?, Message::Halt) { break } }
 		Ok(())
@@ -350,6 +350,10 @@ impl StmtVisitor<Message> for Interpreter {
 	
 	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
 		self.execute_block(block)
+	}
+	
+	fn type_alias(&mut self, _data: AliasData, _pos: SourcePos) -> Result<Message> {
+		Message::None.wrap()
 	}
 	
 }

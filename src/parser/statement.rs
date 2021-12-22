@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData, AliasData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
 
 use super::Parser;
 
@@ -63,6 +63,7 @@ impl Parser {
 			Keyword(Continue) => self.continue_stmt(),
 			Keyword(Return) => self.return_stmt(),
 			Keyword(Attr) => self.attr_declaration(),
+			Keyword(Type) => self.type_alias(),
 			_ => self.assignment_or_expression(),
 		}
 	}
@@ -265,6 +266,20 @@ impl Parser {
 		let Token { pos, .. } = self.next();
 		let expr = self.expression_or_none()?;
 		StmtType::Return(Box::new(expr)).to_stmt(pos).wrap()
+	}
+
+	fn type_alias(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		let mut errors = ErrorList::new();
+		let next = self.next();
+		let alias = match next.typ {
+			TokenType::Identifier(name) => Identifier::new(name),
+			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
+		};
+		append!(self.expect(Symbol(Equals)); to errors);
+		let typ = append!(self.types(); to errors);
+		errors.try_append(self.expect_eol());
+		errors.if_empty(StmtType::TypeAlias(AliasData { alias, typ }).to_stmt(pos))
 	}
 
 }

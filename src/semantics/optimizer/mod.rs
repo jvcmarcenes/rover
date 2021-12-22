@@ -168,14 +168,14 @@ impl StmtVisitor<Statement> for Optimizer {
 		let mut fields = HashMap::new();
 		for (key, expr) in data.fields.iter() { fields.insert(key.clone(), expr.clone().accept(self)?); }
 		data.fields = fields;
-
+		
 		let mut methods = Vec::new();
 		for mut method in data.methods.clone() {
 			method.body = self.optimize(method.body)?;
 			methods.push(method);
 		}
 		data.methods = methods;
-
+		
 		StmtType::AttrDeclaration(data).to_stmt(pos).wrap()
 	}
 	
@@ -212,6 +212,10 @@ impl StmtVisitor<Statement> for Optimizer {
 	fn scoped_stmt(&mut self, mut block: Block, pos: SourcePos) -> Result<Statement> {
 		block = self.optimize(block)?;
 		StmtType::Scoped(block).to_stmt(pos).wrap()
+	}
+	
+	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<Statement> {
+		StmtType::TypeAlias(data).to_stmt(pos).wrap()
 	}
 	
 }

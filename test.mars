@@ -1,19 +1,11 @@
 
 #!infer
 
-let x = 9
+type foo = number or string
+type bar = bool or foo
 
-let list: [number] = [2, 3, x]
+let y: foo = 23
 
-let y: number = list[0]
+let x: bar = y
 
-writeline(list)
-writeline(y)
-
-let name: string = "John"
-
-let hello = 'Hello #{name}'
-
-let j = hello[6]
-
-writeline(j)
+writeline(x)

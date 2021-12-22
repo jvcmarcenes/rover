@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::Type, utils::{source_pos::SourcePos, result::{Result, ErrorList}, wrap::Wrap}};
+use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::Type, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw}, wrap::Wrap}};
 
 pub struct TypeChecker {
 	type_map: HashMap<usize, Type>,
@@ -37,6 +37,11 @@ impl TypeChecker {
 		Ok(())
 	}
 	
+	fn declare(&mut self, id: usize, typ: Type) {
+		let typ = typ.simplified(&self.type_map);
+		self.type_map.insert(id, typ);
+	}
+
 }
 
 impl ExprVisitor<Type> for TypeChecker {
@@ -55,6 +60,10 @@ impl ExprVisitor<Type> for TypeChecker {
 				for expr in exprs {
 					match expr.accept(self) {
 						Ok(Type::Any) => { is_any = true; break; }
+						// Ok(Type::Named(name)) => {
+						// 	let typ = self.type_map.get(&name.get_id()).unwrap().clone();
+						// 	if !types.contains(&typ) { types.push(typ); }
+						// },
 						Ok(typ) => if !types.contains(&typ) { types.push(typ); },
 						Err(err) => errors.append(err),
 					}
@@ -77,7 +86,7 @@ impl ExprVisitor<Type> for TypeChecker {
 		let mut typ = None;
 		let lhs_typ = match data.lhs.accept(self) { Ok(typ) => typ, Err(err) => { errors.append(err); Type::Void } };
 		let rhs_typ = match data.rhs.accept(self) { Ok(typ) => typ, Err(err) => { errors.append(err); Type::Void } };
-		if !errors.is_empty() { return errors.err(); }
+		throw!(errors);
 		let expect = match data.op {
 			BinaryOperator::Add => Type::Or(vec![Type::NUM, Type::STR]),
 			BinaryOperator::Sub => Type::NUM,
@@ -92,7 +101,7 @@ impl ExprVisitor<Type> for TypeChecker {
 			BinaryOperator::Gre => { typ = Some(Type::BOOL); Type::NUM },
 			BinaryOperator::Typ => todo!(),
 		};
-		let typ = if lhs_typ == Type::Any || rhs_typ == Type::Any || expect.accepts(&lhs_typ)? && expect.accepts(&rhs_typ)? {
+		let typ = if lhs_typ == Type::Any || rhs_typ == Type::Any || expect.accepts(&lhs_typ, &self.type_map) && expect.accepts(&rhs_typ, &self.type_map) {
 			if let Some(typ) = typ { typ }
 			else if rhs_typ == Type::STR { rhs_typ }
 			else { lhs_typ }
@@ -113,7 +122,7 @@ impl ExprVisitor<Type> for TypeChecker {
 					UnaryOperator::Pos => (Type::NUM, Type::NUM),
 					UnaryOperator::Neg => (Type::NUM, Type::NUM),
 				};
-				if expr_typ == Type::Any || expect.accepts(&expr_typ)? {
+				if expr_typ == Type::Any || expect.accepts(&expr_typ, &self.type_map) {
 					typ = ret;
 				} else {
 					errors.add_comp(format!("Illegal operation for '{}', expected '{}'", expr_typ, expect), pos);
@@ -188,11 +197,12 @@ impl StmtVisitor<Type> for TypeChecker {
 		let expr_typ = data.expr.accept(self)?;
 		if let Some(typ) = data.type_restriction {
 			self.type_map.insert(data.name.get_id(), typ.clone());
-			if !typ.accepts(&expr_typ)? {
+			if !typ.accepts(&expr_typ, &self.type_map) {
 				return ErrorList::comp(format!("Cannot assign '{}' to '{}'", expr_typ, typ), pos).err();
 			}
 		} else {
-			self.type_map.insert(data.name.get_id(), if self.infer { expr_typ } else { Type::Any });
+			// self.type_map.insert(data.name.get_id(), if self.infer { expr_typ } else { Type::Any });
+			self.declare(data.name.get_id(), if self.infer { expr_typ } else { Type::Any });
 		}
 		Type::Void.wrap()
 	}
@@ -204,7 +214,7 @@ impl StmtVisitor<Type> for TypeChecker {
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> Result<Type> {
 		let head_type = data.head.accept(self)?;
 		let expr_typ = data.expr.accept(self)?;
-		if head_type.accepts(&expr_typ)? {
+		if head_type.accepts(&expr_typ, &self.type_map) {
 			Type::Void.wrap()
 		} else {
 			ErrorList::comp(format!("Cannot assign '{}' to '{}'", expr_typ, head_type), pos).err()
@@ -237,6 +247,12 @@ impl StmtVisitor<Type> for TypeChecker {
 	
 	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<Type> {
 		self.check_block(&block)
+	}
+	
+	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<Type> {
+		// self.type_map.insert(data.alias.get_id(), data.typ);
+		self.declare(data.alias.get_id(), data.typ);
+		Type::Void.wrap()
 	}
 	
 }

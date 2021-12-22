@@ -22,6 +22,7 @@ pub enum Keyword {
 	Function, Return,
 	_Self, Attr, Static, Is,
 
+	Type,
 	StringT, NumberT, BoolT, AnyT
 }
 
@@ -51,6 +52,7 @@ impl Keyword {
 			"attr" => Attr,
 			"static" => Static,
 			"is" => Is,
+			"type" => Type,
 			"string" => StringT,
 			"number" => NumberT,
 			"bool" => BoolT,

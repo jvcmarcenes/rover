@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData, AliasData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}, types::Type};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -59,7 +59,7 @@ impl Resolver {
 	
 	pub fn new() -> Self {
 		let globals = get_global_identifiers();
-
+		
 		Resolver {
 			last_id: globals.len() + 1,
 			globals: globals.clone(),
@@ -112,6 +112,23 @@ impl Resolver {
 			}
 		}
 		None
+	}
+	
+	fn resolve_type(&mut self, typ: Type, pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::new();
+		match typ {
+			Type::Named(name) => {
+				if let Some(var) = self.get_var(&name.get_name()) {
+					*name.id.borrow_mut() = var.id;
+				} else {
+					errors.add_comp(format!("Use of undefined alias '{}'", name.get_name()), pos);
+				}
+			},
+			Type::List(typ) => errors.try_append(self.resolve_type(*typ, pos)),
+			Type::Or(types) => for typ in types { errors.try_append(self.resolve_type(typ, pos)) },
+			_ => (),
+		}
+		errors.if_empty(())
 	}
 	
 }
@@ -232,7 +249,7 @@ impl ExprVisitor<()> for Resolver {
 		errors.try_append(data.method.accept(self));
 		errors.if_empty(())
 	}
-
+	
 }
 
 impl StmtVisitor<()> for Resolver {
@@ -243,6 +260,9 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
+		if let Some(typ) = data.type_restriction {
+			errors.try_append(self.resolve_type(typ, pos));
+		}
 		match data.expr.typ.clone() {
 			ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _)) => {
 				errors.try_append(self.add(data.name, data.constant, pos));
@@ -317,6 +337,13 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<()> {
 		self.resolve(&block)
+	}
+	
+	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::new();
+		errors.try_append(self.resolve_type(data.typ, pos));
+		errors.try_append(self.add(data.alias, true, pos));
+		errors.if_empty(())
 	}
 	
 }
