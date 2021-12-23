@@ -1,31 +1,10 @@
 
 #!infer
 
-type person = {
-	name: string
-	age: number
-}
+let foo = 9
 
-type student = {
-	courses: [string]
-	grades: [number]
-}
+let bar: foo = 23
 
-type teacher = {
-	classes: [string]
-}
+type foo = number?
 
-type user = person and (student or teacher)
-
-let bob: user = {
-	name = "bob"
-	age = 16
-	courses = []
-	grades = []
-}
-
-let mike: user = {
-	name = "mike"
-	age = 31
-	classes = []
-}
+let a = foo

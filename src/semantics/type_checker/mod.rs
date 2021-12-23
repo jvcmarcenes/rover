@@ -1,9 +1,11 @@
 
-#![allow(unused_variables)]
+// #![allow(unused_variables)]
 
 use std::collections::HashMap;
 
 use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::Type, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw, append}, wrap::Wrap}};
+
+// Need to differentiate the type map from the type aliases
 
 pub struct TypeChecker {
 	type_map: HashMap<usize, Type>,
@@ -12,7 +14,7 @@ pub struct TypeChecker {
 
 impl TypeChecker {
 
-	pub fn new(infer: bool,) -> Self {
+	pub fn new(infer: bool) -> Self {
 		Self {
 			type_map: HashMap::new(),
 			infer,
@@ -41,7 +43,7 @@ impl TypeChecker {
 
 impl ExprVisitor<Type> for TypeChecker {
 
-	fn literal(&mut self, data: LiteralData, pos: SourcePos) -> Result<Type> {
+	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		let typ = match data {
 			LiteralData::None => Type::None,
@@ -136,26 +138,26 @@ impl ExprVisitor<Type> for TypeChecker {
 		errors.if_empty(typ)
 	}
 
-	fn logic(&mut self, data: LogicData, pos: SourcePos) -> Result<Type> {
+	fn logic(&mut self, data: LogicData, _pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		errors.try_append(data.lhs.accept(self));
 		errors.try_append(data.rhs.accept(self));
 		errors.if_empty(Type::BOOL)
 	}
 
-	fn grouping(&mut self, data: Box<Expression>, pos: SourcePos) -> Result<Type> {
+	fn grouping(&mut self, data: Box<Expression>, _pos: SourcePos) -> Result<Type> {
 		data.accept(self)
 	}
 
-	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<Type> {
+	fn variable(&mut self, data: Identifier, _pos: SourcePos) -> Result<Type> {
 		self.type_map.get(&data.get_id()).unwrap().clone().wrap()
 	}
 
-	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<Type> {
+	fn lambda(&mut self, _data: LambdaData, _pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
 
-	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Type> {
+	fn call(&mut self, _data: CallData, _pos: SourcePos) -> Result<Type> {
 		Type::Any.wrap()
 	}
 
@@ -181,7 +183,7 @@ impl ExprVisitor<Type> for TypeChecker {
 		}.wrap()
 	}
 
-	fn self_ref(&mut self, pos: SourcePos) -> Result<Type> {
+	fn self_ref(&mut self, _pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
 
@@ -192,7 +194,7 @@ impl ExprVisitor<Type> for TypeChecker {
 		}
 	}
 
-	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<Type> {
+	fn bind_expr(&mut self, _data: BindData, _pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
 
@@ -200,7 +202,7 @@ impl ExprVisitor<Type> for TypeChecker {
 
 impl StmtVisitor<Type> for TypeChecker {
 
-	fn expr(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<Type> {
+	fn expr(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<Type> {
 		expr.accept(self)
 	}
 
@@ -222,7 +224,7 @@ impl StmtVisitor<Type> for TypeChecker {
 		Type::Void.wrap()
 	}
 
-	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<Type> {
+	fn attr_declaration(&mut self, _data: AttrDeclarationData, _pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
 
@@ -236,7 +238,7 @@ impl StmtVisitor<Type> for TypeChecker {
 		}
 	}
 
-	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<Type> {
+	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		errors.try_append(data.cond.accept(self));
 		errors.try_append(self.check_block(&data.then_block));
@@ -244,27 +246,27 @@ impl StmtVisitor<Type> for TypeChecker {
 		errors.if_empty(Type::Void)
 	}
 
-	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<Type> {
+	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Type> {
 		self.check_block(&block)
 	}
 
-	fn break_stmt(&mut self, pos: SourcePos) -> Result<Type> {
+	fn break_stmt(&mut self, _pos: SourcePos) -> Result<Type> {
 		Type::Void.wrap()
 	}
 
-	fn continue_stmt(&mut self, pos: SourcePos) -> Result<Type> {
+	fn continue_stmt(&mut self, _pos: SourcePos) -> Result<Type> {
 		Type::Void.wrap()
 	}
 
-	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<Type> {
+	fn return_stmt(&mut self, _expr: Box<Expression>, _pos: SourcePos) -> Result<Type> {
 		todo!()
 	}
 
-	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<Type> {
+	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Type> {
 		self.check_block(&block)
 	}
 
-	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<Type> {
+	fn type_alias(&mut self, data: AliasData, _pos: SourcePos) -> Result<Type> {
 		self.type_map.insert(data.alias.get_id(), data.typ.clone());
 		Type::Void.wrap()
 	}

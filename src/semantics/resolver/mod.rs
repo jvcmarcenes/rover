@@ -19,15 +19,19 @@ macro_rules! with_ctx {
 	}};
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum SymbolType { Var, Alias }
+
 #[derive(Clone, Debug)]
 pub struct IdentifierData {
 	id: usize,
 	constant: bool,
+	symbol_type: SymbolType,
 }
 
 impl IdentifierData {
-	pub fn new(id: usize, constant: bool) -> Self {
-		Self { id, constant }
+	pub fn new(id: usize, constant: bool, symbol_type: SymbolType) -> Self {
+		Self { id, constant, symbol_type }
 	}
 }
 
@@ -82,14 +86,14 @@ impl Resolver {
 		errors.if_empty(())
 	}
 	
-	fn add(&mut self, iden: Identifier, constant: bool, pos: SourcePos) -> Result<()> {
+	fn add(&mut self, iden: Identifier, constant: bool, symbol_type: SymbolType, pos: SourcePos) -> Result<()> {
 		if self.globals.contains_key(&iden.get_name()) {
 			return ErrorList::comp(format!("Cannot redefine global constant '{}'", iden), pos).err();
 		}
 		
 		*iden.id.borrow_mut() = self.last_id;
 		// eprintln!("DEBUG: {} > {}: {}", self.tables.len(), iden.get_name(), iden.get_id());
-		self.tables.last_mut().unwrap().insert(iden.get_name(), IdentifierData::new(iden.get_id(), constant));
+		self.tables.last_mut().unwrap().insert(iden.get_name(), IdentifierData::new(iden.get_id(), constant, symbol_type));
 		self.last_id += 1;
 		Ok(())
 	}
@@ -122,7 +126,10 @@ impl Resolver {
 					errors.add_comp(format!("Illegal recursive type '{}'", name), pos);
 				} else {
 					if let Some(var) = self.get_var(&name.get_name()) {
-						*name.id.borrow_mut() = var.id;
+						match var.symbol_type {
+							SymbolType::Var => errors.add_comp(format!("Expected type, found variable '{}'", name), pos),
+							SymbolType::Alias => *name.id.borrow_mut() = var.id,
+						}
 					} else {
 						errors.add_comp(format!("Use of undefined alias '{}'", name.get_name()), pos);
 					}
@@ -153,7 +160,10 @@ impl ExprVisitor<()> for Resolver {
 				for expr in exprs { errors.try_append(expr.accept(self)); };
 				for attr in attrs {
 					if let Some(var) = self.get_var(&attr.get_name()) {
-						*attr.id.borrow_mut() = var.id;
+						match var.symbol_type {
+							SymbolType::Var => errors.add_comp(format!("Expected atribute, found type alias '{}'", attr), pos),
+							SymbolType::Alias => *attr.id.borrow_mut() = var.id,
+						}
 					} else {
 						errors.add_comp(format!("Use of undefined attribute {}", attr.get_name()), pos);
 					}
@@ -195,6 +205,10 @@ impl ExprVisitor<()> for Resolver {
 	
 	fn variable(&mut self, data: Identifier, pos: SourcePos) -> Result<()> {
 		if let Some(var) = self.get_var(&data.name) {
+			if var.symbol_type == SymbolType::Alias {
+				return ErrorList::comp(format!("Expected expression, found type alias '{}'", data), pos).err();
+			}
+			
 			if self.ctx.overwriting {
 				if var.id < self.globals.len() {
 					return ErrorList::comp(format!("Cannot assign to global constant '{}'", data), pos).err();
@@ -214,7 +228,7 @@ impl ExprVisitor<()> for Resolver {
 		let mut errors = ErrorList::new();
 		self.push_scope();
 		for param in data.params {
-			errors.try_append(self.add(param, false, pos));
+			errors.try_append(self.add(param, false, SymbolType::Var, pos));
 		}
 		with_ctx!(self, errors.try_append(self.resolve(&data.body)), in_function: true);
 		self.pop_scope();
@@ -271,12 +285,12 @@ impl StmtVisitor<()> for Resolver {
 		}
 		match data.expr.typ.clone() {
 			ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _)) => {
-				errors.try_append(self.add(data.name, data.constant, pos));
+				errors.try_append(self.add(data.name, data.constant, SymbolType::Var, pos));
 				errors.try_append(data.expr.accept(self));
 			},
 			_ => {
 				errors.try_append(data.expr.accept(self));
-				errors.try_append(self.add(data.name, data.constant, pos));
+				errors.try_append(self.add(data.name, data.constant, SymbolType::Var, pos));
 			}
 		}
 		errors.if_empty(())
@@ -284,11 +298,11 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
-		errors.try_append(self.add(data.name, true, pos));
+		errors.try_append(self.add(data.name, true, SymbolType::Var, pos));
 		for method in data.methods {
 			self.push_scope();
 			for param in method.params {
-				errors.try_append(self.add(param, false, pos));
+				errors.try_append(self.add(param, false, SymbolType::Var, pos));
 			}
 			// with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_method: true);
 			with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_function: true);
@@ -299,7 +313,10 @@ impl StmtVisitor<()> for Resolver {
 		}
 		for attr in data.attributes {
 			if let Some(var) = self.get_var(&attr.get_name()) {
-				*attr.id.borrow_mut() = var.id;
+				match var.symbol_type {
+					SymbolType::Var => errors.add_comp(format!("Expected atribute, found type alias '{}'", attr), pos),
+					SymbolType::Alias => *attr.id.borrow_mut() = var.id,
+				}
 			} else {
 				errors.add_comp(format!("Use of undefined attribute {}", attr.get_name()), pos);
 			}
@@ -348,7 +365,7 @@ impl StmtVisitor<()> for Resolver {
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		let name = data.alias.get_name();
-		errors.try_append(self.add(data.alias, true, pos));
+		errors.try_append(self.add(data.alias, true, SymbolType::Alias, pos));
 		errors.try_append(self.resolve_type(data.typ, name.wrap(), false, pos));
 		errors.if_empty(())
 	}

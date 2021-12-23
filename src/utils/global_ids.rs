@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::semantics::resolver::IdentifierData;
+use crate::semantics::resolver::{IdentifierData, SymbolType};
 
 pub static GLOBAL_IDS: &[&str] = &[
 	// io
@@ -41,6 +41,6 @@ pub fn get_global_identifiers() -> HashMap<String, IdentifierData> {
 	GLOBAL_IDS
 		.iter()
 		.enumerate()
-		.map(|(i, &key)| (key.to_owned(), IdentifierData::new(i + 1, true)))
+		.map(|(i, &key)| (key.to_owned(), IdentifierData::new(i + 1, true, SymbolType::Var)))
 		.collect()
 }
