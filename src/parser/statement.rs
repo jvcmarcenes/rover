@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData, AliasData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}, types::Type};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData, AliasData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw, Stage}, wrap::Wrap}, types::Type};
 
 use super::Parser;
 
@@ -278,6 +278,7 @@ impl Parser {
 		};
 		append!(self.expect(Symbol(Equals)); to errors);
 		let typ = append!(self.types(); to errors);
+		let typ = append!(typ.validate(Stage::Compile, pos); to errors);
 		errors.try_append(self.expect_eol());
 		errors.if_empty(StmtType::TypeAlias(AliasData { alias, typ }).to_stmt(pos))
 	}

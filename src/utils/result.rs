@@ -76,7 +76,7 @@ pub(crate) use throw;
 
 pub type Result<T> = std::result::Result<T, ErrorList>;
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Stage { Compile, Run }
 
 impl Display for Stage {

@@ -79,7 +79,7 @@ impl ExprVisitor<Type> for TypeChecker {
 				}
 				Type::Object(typ_map)
 			}
-			_ => todo!(),
+			LiteralData::Error(_) => todo!(),
 		};
 		errors.if_empty(typ)
 	}
@@ -265,7 +265,6 @@ impl StmtVisitor<Type> for TypeChecker {
 	}
 
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<Type> {
-		self.type_map.insert(data.alias.get_id(), Type::Unknow);
 		self.type_map.insert(data.alias.get_id(), data.typ.clone());
 		Type::Void.wrap()
 	}

@@ -1,7 +1,7 @@
 
 use std::{fmt::Display, collections::HashMap};
 
-use crate::{utils::{result::{Result, Stage, ErrorList}, source_pos::SourcePos}, ast::identifier::Identifier};
+use crate::{utils::{result::{Result, Stage, ErrorList, append}, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
 
 use self::Type::*;
 
@@ -15,52 +15,89 @@ pub enum Type {
 	List(Box<Type>),
 	Object(HashMap<String, Type>),
 	Or(Vec<Type>),
-	Named(Identifier)
+	And(Vec<Type>),
+	Named(Identifier),
 }
 
 impl Type {
-	
+
 	pub const NUM: Type = Type::Primitive(TypePrim::Num);
 	pub const STR: Type = Type::Primitive(TypePrim::Str);
 	pub const BOOL: Type = Type::Primitive(TypePrim::Bool);
-	
+
 	pub fn accepts(&self, other: &Type, type_map: &HashMap<usize, Type>) -> bool {
+		// this should return a result with the error clarifying why type 0 does not accept type 1
+
 		match (self, other) {
 			(Void, _) | (_, Void) => false,
 			(Type::Any, _) => true,
 			(Unknow, _) | (_, Unknow) => true,
+
 			(t0, t1) if t0 == t1 => true,
+
 			(Named(n0), Named(n1)) => n0.get_id() == n1.get_id(),
 			(t0, Named(name)) => t0.accepts(type_map.get(&name.get_id()).unwrap(), type_map),
+
 			(Primitive(t0), Primitive(t1)) => t0 == t1,
+
 			(List(t0), List(t1)) => t0.accepts(t1, type_map),
+
 			(Object(m0), Object(m1)) => m0.iter().all(|(k, t0)| m1.get(k).map_or(false, |t1| t0.accepts(t1, type_map))),
+
 			(t0, Or(t1)) => t1.iter().all(|typ1| t0.accepts(typ1, type_map)),
 			(Or(types), other) => types.iter().any(|typ| typ.accepts(other, type_map)),
+
+			(t0, And(t1)) => t1.iter().any(|typ1| t0.accepts(typ1, type_map)),
+			(And(types), other) => types.iter().all(|typ| typ.accepts(other, type_map)),
+
 			(Named(name), t1) => type_map.get(&name.get_id()).unwrap().accepts(t1, type_map),
+
 			_ => false,
 		}
 	}
-	
-	pub fn validate(&self, stage: Stage, pos: SourcePos) -> Result<()> {
-		match self {
-			List(typ) => typ.validate(stage, pos),
+
+	pub fn validate(&self, stage: Stage, pos: SourcePos) -> Result<Type> {
+		let mut errors = ErrorList::new();
+		let typ = match self {
+			List(typ) => List(append!(typ.validate(stage, pos); to errors; dummy Type::Void).wrap()),
 			Object(map) => {
-				map.iter()
-					.map(|(_, t)| t.validate(stage.clone(), pos))
-					.filter_map(|v| if let Err(err) = v { Some(err) } else { Option::None })
-					.fold(ErrorList::new(), |mut errors, err| { errors.append(err); errors})
-					.if_empty(())
+				let map = map.iter().map(|(k, t)| (k.clone(), append!(t.validate(stage, pos); to errors; dummy Type::Void))).collect();
+				Object(map)
 			}
 			Or(types) => {
 				if types.len() < 2 { panic!("Cannot build 'or' type with less than 2 variants") }
-				if types.contains(&Type::Any) { return ErrorList::from("A type cannot be 'any' or something else".to_owned(), pos, stage).err() }
-				Ok(())
+				let mut new_types = Vec::new();
+				for typ in types {
+					let typ = append!(typ.validate(stage, pos); to errors; dummy Type::Void);
+					if typ == Type::Any { errors.add("A type cannot be 'any' or something else".to_owned(), pos, stage) }
+					else if let Or(types) = typ { for typ in types { new_types.push(append!(typ.validate(stage, pos); to errors; dummy Type::Void)) } }
+					else { new_types.push(append!(typ.validate(stage, pos); to errors; dummy Type::Void)) }
+				}
+				Or(new_types)
 			}
-			_ => Ok(())
-		}
+			And(types) => {
+				if types.len() < 2 { panic!("Cannot build 'and' type with less than 2 variants") }
+				let mut new_types = Vec::new();
+				for typ in types {
+					let typ = append!(typ.validate(stage, pos); to errors; dummy Type::Void);
+					if typ == Type::Any { errors.add("A type cannot be 'any' and something else".to_owned(), pos, stage) }
+					else if typ == Type::None { errors.add("A type cannot be 'none' and something else".to_owned(), pos, stage) }
+					else if matches!(typ, Type::Primitive(_)) { errors.add("A type cannot be a 'primitive' and something else".to_owned(), pos, stage) }
+					else if matches!(typ, Type::List(_)) { errors.add("A type cannot be a 'list' and something else".to_owned(), pos, stage) }
+					else if let Or(ref types) = typ {
+						if types.contains(&Type::None) { errors.add("A type cannot be 'none' and something else".to_owned(), pos, stage) }
+						else if types.iter().any(|typ| matches!(typ, Type::Primitive(_))) { errors.add("A type cannot be a 'primitive' and something else".to_owned(), pos, stage) }
+						else { new_types.push(typ) }
+					} else if let And(types) = typ { for typ in types { new_types.push(append!(typ.validate(stage, pos); to errors; dummy Type::Void)) } }
+					else { new_types.push(append!(typ.validate(stage, pos); to errors; dummy Type::Void)) }
+				}
+				And(new_types)
+			}
+			typ => typ.clone()
+		};
+		errors.if_empty(typ)
 	}
-	
+
 }
 
 impl Display for Type {
@@ -94,6 +131,15 @@ impl Display for Type {
 				while let Some(typ) = types.next() {
 					str.push_str(&typ.to_string());
 					if let Some(_) = types.peek() { str.push_str(" or "); }
+				}
+				write!(f, "{}", str)
+			}
+			And(types) => {
+				let mut str = String::new();
+				let mut types = types.iter().peekable();
+				while let Some(typ) = types.next() {
+					str.push_str(&typ.to_string());
+					if let Some(_) = types.peek() { str.push_str(" and "); }
 				}
 				write!(f, "{}", str)
 			}

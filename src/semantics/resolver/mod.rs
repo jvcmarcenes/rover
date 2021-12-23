@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData, AliasData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}, types::Type};
+use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData, AliasData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers, wrap::Wrap}, types::Type};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -114,19 +114,24 @@ impl Resolver {
 		None
 	}
 	
-	fn resolve_type(&mut self, typ: Type, pos: SourcePos) -> Result<()> {
+	fn resolve_type(&mut self, typ: Type, alias: Option<String>, in_obj: bool, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		match typ {
 			Type::Named(name) => {
-				if let Some(var) = self.get_var(&name.get_name()) {
-					*name.id.borrow_mut() = var.id;
+				if alias.is_some() && alias.unwrap() == name.get_name() && !in_obj {
+					errors.add_comp(format!("Illegal recursive type '{}'", name), pos);
 				} else {
-					errors.add_comp(format!("Use of undefined alias '{}'", name.get_name()), pos);
+					if let Some(var) = self.get_var(&name.get_name()) {
+						*name.id.borrow_mut() = var.id;
+					} else {
+						errors.add_comp(format!("Use of undefined alias '{}'", name.get_name()), pos);
+					}
 				}
 			},
-			Type::List(typ) => errors.try_append(self.resolve_type(*typ, pos)),
-			Type::Object(map) => for (_, typ) in map { errors.try_append(self.resolve_type(typ, pos)); }
-			Type::Or(types) => for typ in types { errors.try_append(self.resolve_type(typ, pos)) },
+			Type::List(typ) => errors.try_append(self.resolve_type(*typ, alias, in_obj, pos)),
+			Type::Object(map) => for (_, typ) in map { errors.try_append(self.resolve_type(typ, alias.clone(), true, pos)); }
+			Type::Or(types) => for typ in types { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)) },
+			Type::And(types) => for typ in types { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)) },
 			_ => (),
 		}
 		errors.if_empty(())
@@ -262,7 +267,7 @@ impl StmtVisitor<()> for Resolver {
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		if let Some(typ) = data.type_restriction {
-			errors.try_append(self.resolve_type(typ, pos));
+			errors.try_append(self.resolve_type(typ, None, false, pos));
 		}
 		match data.expr.typ.clone() {
 			ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _)) => {
@@ -342,8 +347,9 @@ impl StmtVisitor<()> for Resolver {
 	
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
+		let name = data.alias.get_name();
 		errors.try_append(self.add(data.alias, true, pos));
-		errors.try_append(self.resolve_type(data.typ, pos));
+		errors.try_append(self.resolve_type(data.typ, name.wrap(), false, pos));
 		errors.if_empty(())
 	}
 	

@@ -11,8 +11,7 @@ impl Parser {
 
 	pub fn type_restriction(&mut self) -> Result<Option<Type>> {
 		if let Some(Token { pos, .. }) = self.optional(Symbol(Symbol::Colon)) {
-			let typ = self.types()?;
-			typ.validate(Stage::Compile, pos)?;
+			let typ = self.types()?.validate(Stage::Compile, pos)?;
 			typ.wrap()
 		} else {
 			None.wrap()
@@ -24,15 +23,27 @@ impl Parser {
 	}
 
 	fn or_type(&mut self) -> TypeResult {
-		let first = self.type_optional()?;
+		let first = self.and_type()?;
 		if !self.next_match(Keyword(Keyword::Or)) { return first.wrap(); }
 		let mut types = vec![first];
 		while let Keyword(Keyword::Or) = self.peek().typ {
 			self.next();
-			let typ = self.type_optional()?;
+			let typ = self.and_type()?;
 			if !types.contains(&typ) { types.push(typ); }
 		}
 		Type::Or(types).wrap()
+	}
+
+	fn and_type(&mut self) -> TypeResult {
+		let first = self.type_optional()?;
+		if !self.next_match(Keyword(Keyword::And)) { return first.wrap(); }
+		let mut types = vec![first];
+		while let Keyword(Keyword::And) = self.peek().typ {
+			self.next();
+			let typ = self.type_optional()?;
+			if !types.contains(&typ) { types.push(typ); }
+		}
+		Type::And(types).wrap()
 	}
 
 	fn type_optional(&mut self) -> TypeResult {
@@ -54,7 +65,7 @@ impl Parser {
 				let typ = self.types()?;
 				self.expect_or_sync(Symbol(Symbol::CloseSqr))?;
 				Type::List(typ.wrap())
-			},
+			}
 			Symbol(Symbol::OpenBracket) => {
 				let mut errors = ErrorList::new();
 				let mut map = HashMap::new();
@@ -76,7 +87,12 @@ impl Parser {
 				}
 				throw!(errors);
 				Type::Object(map)
-			},
+			}
+			Symbol(Symbol::OpenPar) => {
+				let typ = self.types()?;
+				self.expect(Symbol(Symbol::ClosePar))?;
+				typ
+			}
 			Identifier(name) => Type::Named(Identifier::new(name)),
 			_ => return ErrorList::comp(format!("Expected type, found {}", token), token.pos).err()
 		}.wrap()
