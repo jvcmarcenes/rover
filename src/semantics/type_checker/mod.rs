@@ -1,23 +1,21 @@
 
-// #![allow(unused_variables)]
-
 use std::collections::HashMap;
 
-use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::Type, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw, append}, wrap::Wrap}};
-
-// Need to differentiate the type map from the type aliases
+use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::{Type, global_types::global_types}, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw, append}, wrap::Wrap}};
 
 pub struct TypeChecker {
-	type_map: HashMap<usize, Type>,
 	infer: bool,
+	type_map: HashMap<usize, Type>,
+	return_stack: Vec<Type>,
 }
 
 impl TypeChecker {
 
 	pub fn new(infer: bool) -> Self {
 		Self {
-			type_map: HashMap::new(),
 			infer,
+			type_map: global_types(),
+			return_stack: Vec::new(),
 		}
 	}
 
@@ -37,6 +35,10 @@ impl TypeChecker {
 	pub fn check(&mut self, block: &Block) -> Result<()> {
 		self.check_block(&block)?;
 		Ok(())
+	}
+
+	fn allowed_ret(&self) -> &Type {
+		self.return_stack.last().unwrap()
 	}
 
 }
@@ -150,15 +152,46 @@ impl ExprVisitor<Type> for TypeChecker {
 	}
 
 	fn variable(&mut self, data: Identifier, _pos: SourcePos) -> Result<Type> {
-		self.type_map.get(&data.get_id()).unwrap().clone().wrap()
+		self.type_map.get(&data.get_id()).expect(&format!("use of unresolved symbol '{}'", data)).clone().wrap()
 	}
 
-	fn lambda(&mut self, _data: LambdaData, _pos: SourcePos) -> Result<Type> {
-		todo!()
+	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Type> {
+		let param_types = data.types.iter().map(|typ| typ.clone().unwrap_or(Type::Any)).collect::<Vec<_>>();
+		let returns = data.returns.unwrap_or(if self.infer { Type::Void } else { Type::Any });
+
+		for (key, typ) in data.params.iter().zip(param_types.iter()) {
+			self.type_map.insert(key.get_id(), typ.clone());
+		}
+
+		self.return_stack.push(returns.clone());
+
+		self.check_block(&data.body)?;
+
+		Type::Function { params: param_types, returns: returns.wrap() }.wrap()
 	}
 
-	fn call(&mut self, _data: CallData, _pos: SourcePos) -> Result<Type> {
-		Type::Any.wrap()
+	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Type> {
+		let mut errors = ErrorList::new();
+		let mut typ = data.calee.accept(self)?;
+
+		if typ == Type::Any { return Type::Any.wrap(); }
+
+		while let Type::Named(name) = typ { typ = self.type_map.get(&name.get_id()).unwrap().clone(); }
+
+		if let Type::Function { params, returns } = typ {
+			if params.len() != data.args.len() {
+				errors.add_comp(format!("Expected {} arguments, got {}", params.len(), data.args.len()), pos);
+			}
+			for (t0, arg) in params.iter().zip(data.args.iter().cloned()) {
+				match arg.accept(self) {
+					Ok(t1) => if !t0.accepts(&t1, &self.type_map) { errors.add_comp(format!("Cannot pass argument of type '{}' to '{}'", t1, t0), pos); },
+					Err(err) => errors.append(err),
+				}
+			}
+			errors.if_empty(*returns)
+		} else {
+			ErrorList::comp(format!("Type '{}' cannot be called", typ), pos).err()
+		}
 	}
 
 	fn index(&mut self, data: IndexData, pos: SourcePos) -> Result<Type> {
@@ -175,7 +208,6 @@ impl ExprVisitor<Type> for TypeChecker {
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Type> {
 		let mut typ = data.head.accept(self)?;
 		while let Type::Named(name) = typ { typ = self.type_map.get(&name.get_id()).unwrap().clone(); }
-		dbg!(&typ);
 		match &typ {
 			Type::Any => Type::Any,
 			Type::Object(map) => if let Some(typ) = map.get(&data.field) { typ.clone() } else { return ErrorList::comp(format!("Property '{}' does not exist on '{}'", data.field, typ), pos).err(); },
@@ -207,11 +239,24 @@ impl StmtVisitor<Type> for TypeChecker {
 	}
 
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<Type> {
-		if matches!(data.expr.typ, ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _))) {
-			self.type_map.insert(data.name.get_id(), Type::None);
+		match data.expr.typ {
+			ExprType::Literal(LiteralData::Object(_, _)) => {
+				self.type_map.insert(data.name.get_id(), Type::Unknow);
+			},
+			ExprType::Lambda(LambdaData { params: _, ref types, ref returns, body: _ }) => {
+				let params = types.iter().map(|typ| typ.clone().unwrap_or(Type::Any)).collect();
+				let returns = returns.clone().unwrap_or(if self.infer { Type::Void } else { Type::Any }).wrap();
+				let typ = Type::Function { params, returns };
+				self.type_map.insert(data.name.get_id(), typ);
+			}
+			_ => (),
 		}
 
 		let expr_typ = data.expr.accept(self)?;
+		if expr_typ == Type::Void {
+			return ErrorList::comp("Cannot declare a variable as void".to_owned(), pos).err();
+		}
+
 		if let Some(typ) = data.type_restriction {
 			self.type_map.insert(data.name.get_id(), typ.clone());
 			if !typ.accepts(&expr_typ, &self.type_map) {
@@ -258,8 +303,14 @@ impl StmtVisitor<Type> for TypeChecker {
 		Type::Void.wrap()
 	}
 
-	fn return_stmt(&mut self, _expr: Box<Expression>, _pos: SourcePos) -> Result<Type> {
-		todo!()
+	fn return_stmt(&mut self, expr: Option<Box<Expression>>, pos: SourcePos) -> Result<Type> {
+		let typ = expr.map_or(Type::Void.wrap(), |expr| expr.accept(self))?;
+		let expected = self.allowed_ret();
+		if Type::Void == *expected && Type::Void == typ || expected.accepts(&typ, &self.type_map) {
+			typ.wrap()
+		} else {
+			ErrorList::comp(format!("Invalid return type '{}', function must return '{}'", typ, expected), pos).err()
+		}
 	}
 
 	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Type> {

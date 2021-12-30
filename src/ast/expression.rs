@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::utils::{result::*, source_pos::*};
+use crate::{utils::{result::*, source_pos::*}, types::Type};
 
 use self::ExprType::*;
 
@@ -52,7 +52,7 @@ pub struct IndexData { pub head: Box<Expression>, pub index: Box<Expression> }
 #[derive(Debug, Clone)]
 pub struct FieldData { pub head: Box<Expression>, pub field: String }
 #[derive(Debug, Clone)]
-pub struct LambdaData { pub params: Vec<Identifier>, pub body: Block }
+pub struct LambdaData { pub params: Vec<Identifier>, pub types: Vec<Option<Type>>, pub returns: Option<Type>, pub body: Block }
 
 #[derive(Debug, Clone)]
 pub enum ExprType {

@@ -20,10 +20,10 @@ pub enum Keyword {
 	Loop, Break, Continue,
 	For, In,
 	Function, Return,
-	_Self, Attr, Static, Is,
-
-	Type,
-	StringT, NumberT, BoolT, AnyT
+	_Self, Attr, Static,
+	
+	Type, TypeOf, Is, As, To,
+	StringT, NumberT, BoolT, AnyT, Void,
 }
 
 impl Keyword {
@@ -51,12 +51,16 @@ impl Keyword {
 			"error" => Error,
 			"attr" => Attr,
 			"static" => Static,
-			"is" => Is,
 			"type" => Type,
+			"typeof" => TypeOf,
+			"is" => Is,
+			"as" => As,
+			"to" => To,
 			"string" => StringT,
 			"number" => NumberT,
 			"bool" => BoolT,
 			"any" => AnyT,
+			"void" => Void,
 			_ => return None,
 		}.wrap()
 	}
@@ -67,10 +71,9 @@ pub enum Symbol {
 	OpenPar, ClosePar, OpenSqr, CloseSqr, OpenBracket, CloseBracket, OpenAng, CloseAng,
 	Dot, Comma, Colon, DoubleColon,
 	Plus, Minus, Star, Slash, Exclam,
-	Equals, PlusEquals, MinusEquals, StarEquals, SlashEquals,
+	Equals, PlusEquals, MinusEquals, StarEquals, SlashEquals, Question,
 	DoubleEquals, ExclamEquals, OpenAngEquals, CloseAngEquals,
-	HashtagOpenBracket, EqualsCloseAng, BarCloseAng,
-	Question,
+	HashtagOpenBracket, EqualsCloseAng, BarCloseAng, MinusCloseAng,
 }
 
 #[derive(Debug, Clone, PartialEq)]

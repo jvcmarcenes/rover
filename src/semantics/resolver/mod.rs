@@ -139,6 +139,10 @@ impl Resolver {
 			Type::Object(map) => for (_, typ) in map { errors.try_append(self.resolve_type(typ, alias.clone(), true, pos)); }
 			Type::Or(types) => for typ in types { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)) },
 			Type::And(types) => for typ in types { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)) },
+			Type::Function { params, returns } => {
+				for typ in params { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)); }
+				errors.try_append(self.resolve_type(*returns, alias, in_obj, pos));
+			}
 			_ => (),
 		}
 		errors.if_empty(())
@@ -227,9 +231,11 @@ impl ExprVisitor<()> for Resolver {
 	fn lambda(&mut self, data: LambdaData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		self.push_scope();
-		for param in data.params {
-			errors.try_append(self.add(param, false, SymbolType::Var, pos));
-		}
+		for param in data.params { errors.try_append(self.add(param, false, SymbolType::Var, pos)); }
+		data.types.iter().cloned()
+			.filter_map(|t| t)
+			.for_each(|typ| errors.try_append(self.resolve_type(typ, None, false, pos)));
+		if let Some(typ) = data.returns { errors.try_append(self.resolve_type(typ, None, false, pos)); }
 		with_ctx!(self, errors.try_append(self.resolve(&data.body)), in_function: true);
 		self.pop_scope();
 		errors.if_empty(())
@@ -351,10 +357,12 @@ impl StmtVisitor<()> for Resolver {
 		allowed(self.ctx.in_loop, "Invalid continue statement", pos)
 	}
 	
-	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<()> {
+	fn return_stmt(&mut self, expr: Option<Box<Expression>>, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		errors.try_append(allowed(self.ctx.in_function, "Invalid return statement", pos));
-		errors.try_append(expr.accept(self));
+		if let Some(expr) = expr {
+			errors.try_append(expr.accept(self));
+		}
 		errors.if_empty(())
 	}
 	

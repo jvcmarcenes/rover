@@ -31,7 +31,7 @@ pub enum StmtType {
 	If(IfData),
 	Loop(Block),
 	Break, Continue,
-	Return(Box<Expression>),
+	Return(Option<Box<Expression>>),
 	Scoped(Block),
 	TypeAlias(AliasData)
 }
@@ -81,7 +81,7 @@ pub trait StmtVisitor<T> {
 	fn loop_stmt(&mut self, block: Block, pos: SourcePos) -> Result<T>;
 	fn break_stmt(&mut self, pos: SourcePos) -> Result<T>;
 	fn continue_stmt(&mut self, pos: SourcePos) -> Result<T>;
-	fn return_stmt(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<T>;
+	fn return_stmt(&mut self, expr: Option<Box<Expression>>, pos: SourcePos) -> Result<T>;
 	fn scoped_stmt(&mut self, block: Block, pos: SourcePos) -> Result<T>;
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<T>;
 }

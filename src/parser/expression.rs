@@ -60,11 +60,11 @@ fn err_handler(expr: Expression, handler: Block, pos: SourcePos) -> Expression {
 	
 impl Parser {
 	
-	pub fn expression_or_none(&mut self) -> ExprResult {
+	pub fn expression_or_none(&mut self) -> Result<Option<Expression>> {
 		let peek = self.peek();
 		match peek.typ {
-			EOL | EOF | Symbol(CloseBracket) => ExprType::Literal(LiteralData::None).to_expr(peek.pos).wrap(),
-			_ => self.expression()
+			EOL | EOF | Symbol(CloseBracket) => None.wrap(),
+			_ => self.expression()?.wrap()
 		}
 	}
 	
@@ -241,7 +241,7 @@ impl Parser {
 			Keyword(Function) => self.lambda()?,
 			Keyword(_Self) => SelfRef,
 			Keyword(Do) => DoExpr(self.block()?),
-			Keyword(Error) => ExprType::Literal(LiteralData::Error(Box::new(self.expression_or_none()?))),
+			Keyword(Error) => ExprType::Literal(LiteralData::Error(self.expression()?.wrap())),
 			TokenType::Literal(lit) => match lit {
 				LiteralType::Num(n) => ExprType::Literal(LiteralData::Num(n)),
 				LiteralType::Str(s) => ExprType::Literal(LiteralData::Str(s)),
@@ -350,6 +350,7 @@ impl Parser {
 	pub(super) fn lambda_data(&mut self) -> Result<LambdaData> {
 		self.expect_or_sync(Symbol(OpenPar))?;
 		let mut params = Vec::new();
+		let mut types = Vec::new();
 		let mut errors = ErrorList::new();
 		loop {
 			let peek = self.peek();
@@ -359,13 +360,18 @@ impl Parser {
 					return errors.err();
 				},
 				Symbol(ClosePar) => { self.next(); break; }
-				Identifier(name) if params.is_empty() => { self.next(); params.push(Identifier::new(name)); },
+				Identifier(name) if params.is_empty() => {
+					self.next();
+					params.push(Identifier::new(name));
+					types.push(append!(self.type_restriction(); to errors; dummy None))
+				},
 				Symbol(Comma) => {
 					self.next();
 					self.skip_new_lines();
 					let next = self.next();
 					if let Identifier(name) = next.typ {
-						params.push(Identifier::new(name))
+						params.push(Identifier::new(name));
+						types.push(append!(self.type_restriction(); to errors; dummy None))
 					} else {
 						errors.add_comp(format!("Expected identifier, found {}", next), next.pos);
 						self.synchronize_until_any(&[Symbol(Comma), Symbol(ClosePar)]);
@@ -381,15 +387,17 @@ impl Parser {
 				}
 			}
 		}
+
+		let returns = append!(self.type_restriction(); to errors; dummy None);
 		
 		let body = if let Some(Token { pos, .. }) = self.optional(Symbol(EqualsCloseAng)) {
 			let expr = append!(self.expression(); to errors);
-			Block::from([StmtType::Return(Box::new(expr)).to_stmt(pos)])
+			Block::from([StmtType::Return(expr.wrap()).to_stmt(pos)])
 		} else {
 			append!(self.block(); to errors)
 		};
 		
-		errors.if_empty(LambdaData { params, body })
+		errors.if_empty(LambdaData { params, types, returns, body })
 	}
 	
 	fn lambda(&mut self) -> Result<ExprType> {

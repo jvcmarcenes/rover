@@ -157,7 +157,7 @@ impl Parser {
 					errors.try_append(self.expect_eol());
 				}
 				Identifier(name) => {
-					let LambdaData { params, body } = self.lambda_data()?;
+					let LambdaData { params, body, .. } = self.lambda_data()?;
 					methods.push(MethodData { name, params, body });
 					errors.try_append(self.expect_eol());
 				},
@@ -265,7 +265,7 @@ impl Parser {
 	fn return_stmt(&mut self) -> StmtResult {
 		let Token { pos, .. } = self.next();
 		let expr = self.expression_or_none()?;
-		StmtType::Return(Box::new(expr)).to_stmt(pos).wrap()
+		StmtType::Return(expr.wrap()).to_stmt(pos).wrap()
 	}
 
 	fn type_alias(&mut self) -> StmtResult {

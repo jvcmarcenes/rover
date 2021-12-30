@@ -1,4 +1,6 @@
 
+pub mod global_types;
+
 use std::{fmt::Display, collections::HashMap};
 
 use crate::{utils::{result::{Result, Stage, ErrorList, append}, source_pos::SourcePos, wrap::Wrap}, ast::identifier::Identifier};
@@ -17,6 +19,7 @@ pub enum Type {
 	Or(Vec<Type>),
 	And(Vec<Type>),
 	Named(Identifier),
+	Function { params: Vec<Type>, returns: Box<Type> },
 }
 
 impl Type {
@@ -35,8 +38,8 @@ impl Type {
 
 			(t0, t1) if t0 == t1 => true,
 
-			(Named(n0), Named(n1)) => n0.get_id() == n1.get_id(),
 			(t0, Named(name)) => t0.accepts(type_map.get(&name.get_id()).unwrap(), type_map),
+			(Named(name), t1) => type_map.get(&name.get_id()).unwrap().accepts(t1, type_map),
 
 			(Primitive(t0), Primitive(t1)) => t0 == t1,
 
@@ -49,8 +52,6 @@ impl Type {
 
 			(t0, And(t1)) => t1.iter().any(|typ1| t0.accepts(typ1, type_map)),
 			(And(types), other) => types.iter().all(|typ| typ.accepts(other, type_map)),
-
-			(Named(name), t1) => type_map.get(&name.get_id()).unwrap().accepts(t1, type_map),
 
 			_ => false,
 		}
@@ -93,6 +94,12 @@ impl Type {
 				}
 				And(new_types)
 			}
+			Function { params, returns } => {
+				let mut new_params = Vec::new();
+				for param in params { new_params.push(append!(param.validate(stage, pos); to errors; dummy Type::Void)); }
+				let returns = append!(returns.validate(stage, pos); to errors; dummy Type::Void).wrap();
+				Function { params: new_params, returns }
+			}
 			typ => typ.clone()
 		};
 		errors.if_empty(typ)
@@ -105,7 +112,7 @@ impl Display for Type {
 		match self {
 			Type::None => write!(f, "none"),
 			Type::Any => write!(f, "any"),
-			Unknow => write!(f, "<unknow>"),
+			Unknow => write!(f, "unknow"),
 			Void => write!(f, "void"),
 			Primitive(t) => match t {
 				TypePrim::Num => write!(f, "number"),
@@ -126,24 +133,32 @@ impl Display for Type {
 				Ok(())
 			}
 			Or(types) => {
-				let mut str = String::new();
 				let mut types = types.iter().peekable();
 				while let Some(typ) = types.next() {
-					str.push_str(&typ.to_string());
-					if let Some(_) = types.peek() { str.push_str(" or "); }
+					write!(f, "{}", typ)?;
+					if let Some(_) = types.peek() { write!(f, " or ")?; }
 				}
-				write!(f, "{}", str)
+				Ok(())
 			}
 			And(types) => {
-				let mut str = String::new();
 				let mut types = types.iter().peekable();
 				while let Some(typ) = types.next() {
-					str.push_str(&typ.to_string());
-					if let Some(_) = types.peek() { str.push_str(" and "); }
+					write!(f, "{}", typ)?;
+					if let Some(_) = types.peek() { write!(f, " and ")?; }
 				}
-				write!(f, "{}", str)
+				Ok(())
 			}
 			Named(name) => write!(f, "{}", name.get_name()),
+			Function { params, returns } => {
+				write!(f, "function(")?;
+				let mut types = params.iter().peekable();
+				while let Some(typ) = types.next() {
+					write!(f, "{}", typ)?;
+					if let Some(_) = types.peek() { write!(f, ", ")?; }
+				}
+				write!(f, ") -> {}", returns)?;
+				Ok(())
+			}
 		}
 	}
 }

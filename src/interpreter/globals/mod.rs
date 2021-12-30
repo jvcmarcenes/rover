@@ -215,19 +215,19 @@ fn range() -> Box<dyn Value> {
 	NativeFn::create(Range.wrap())
 }
 
-fn _typeof() -> Box<dyn Value> {
-	#[derive(Clone, Debug)] struct TypeOf;
-
-	impl Callable for TypeOf {
-		fn arity(&self) -> usize { 1 }
-
-    fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
-			Str::new(args[0].0.clone().get_type().to_string()).wrap()
-    }
-	}
-
-	NativeFn::create(TypeOf.wrap())
-}
+// fn _typeof() -> Box<dyn Value> {
+// 	#[derive(Clone, Debug)] struct TypeOf;
+//
+// 	impl Callable for TypeOf {
+// 		fn arity(&self) -> usize { 1 }
+//
+//     fn call(&mut self, _pos: SourcePos, _interpreter: &mut Interpreter, args: Vec<(Box<dyn Value>, SourcePos)>) -> Result<Box<dyn Value>> {
+// 			Str::new(args[0].0.clone().get_type().to_string()).wrap()
+//     }
+// 	}
+//
+// 	NativeFn::create(TypeOf.wrap())
+// }
 
 fn _char() -> Box<dyn Value> {
 	let mut map = HashMap::new();
@@ -326,7 +326,6 @@ pub fn init_globals() -> HashMap<usize, Box<dyn Value>> {
 		// other
 		("clock", clock()),
 		("range", range()),
-		("typeof", _typeof()),
 		("random", random()),
 		("rand", rand()),
 		("char", _char()),

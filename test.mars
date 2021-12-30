@@ -1,10 +1,20 @@
 
 #!infer
 
-let foo = 9
+type MathFn = function(number) -> number
 
-let bar: foo = 23
+let factorial = function(n: number): number {
+	if n == 1 { return 1 }
+	return n * factorial(n - 1)
+}
 
-type foo = number?
+let apply = function(x: number, f: MathFn): number => f(x)
 
-let a = foo
+let main = function(): void {
+
+	let x = apply(7, factorial)
+
+	writeline(x)
+}
+
+main()

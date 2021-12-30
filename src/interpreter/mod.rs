@@ -346,8 +346,12 @@ impl StmtVisitor<Message> for Interpreter {
 		Message::Continue.wrap()
 	}
 	
-	fn return_stmt(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<Message> {
-		let val = unwrap_msg!(expr.accept(self)?);
+	fn return_stmt(&mut self, expr: Option<Box<Expression>>, _pos: SourcePos) -> Result<Message> {
+		let val = if let Some(expr) = expr {
+			unwrap_msg!(expr.accept(self)?)
+		} else {
+			ValNone::new()
+		};
 		Message::Return(val).wrap()
 	}
 	

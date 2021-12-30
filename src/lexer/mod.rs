@@ -201,6 +201,7 @@ impl Lexer {
 			':' => self.symbol(Colon),
 			'+' if self.next_match('=') => self.symbol(PlusEquals),
 			'+' => self.symbol(Plus),
+			'-' if self.next_match('>') => self.symbol(MinusCloseAng),
 			'-' if self.next_match('=') => self.symbol(MinusEquals),
 			'-' => self.symbol(Minus),
 			'*' if self.next_match('=') => self.symbol(StarEquals),

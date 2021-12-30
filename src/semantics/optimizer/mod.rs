@@ -204,8 +204,8 @@ impl StmtVisitor<Statement> for Optimizer {
 		StmtType::Break.to_stmt(pos).wrap()
 	}
 	
-	fn return_stmt(&mut self, mut expr: Box<Expression>, pos: SourcePos) -> Result<Statement> {
-		expr = expr.accept(self)?.wrap();
+	fn return_stmt(&mut self, mut expr: Option<Box<Expression>>, pos: SourcePos) -> Result<Statement> {
+		if let Some(e) = expr { expr = e.accept(self)?.wrap(); }
 		StmtType::Return(expr).to_stmt(pos).wrap()
 	}
 	

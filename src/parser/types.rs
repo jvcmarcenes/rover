@@ -61,6 +61,30 @@ impl Parser {
 			Keyword(Keyword::NumberT) => Type::NUM,
 			Keyword(Keyword::BoolT) => Type::BOOL,
 			Keyword(Keyword::AnyT) => Type::Any,
+			Keyword(Keyword::Void) => Type::Void,
+			Keyword(Keyword::Function) => {
+				let mut errors = ErrorList::new();
+				let mut params = Vec::new();
+				self.expect(Symbol(Symbol::OpenPar))?;
+				loop {
+					let peek = self.peek();
+					match peek.typ {
+						Symbol(Symbol::ClosePar) => { self.next(); break; }
+						_ => {
+							let typ = append!(self.types(); to errors; dummy Type::Void);
+							params.push(typ);
+							if self.next_match(Symbol(Symbol::ClosePar)) { continue; }
+							errors.try_append(self.expect_or_sync(Symbol(Symbol::Comma)));
+						}
+					}
+				}
+				
+				append!(self.expect(Symbol(Symbol::MinusCloseAng)); to errors);
+
+				let returns = append!(self.types(); to errors; dummy Type::Void).wrap();
+
+				Type::Function { params, returns }
+			}
 			Symbol(Symbol::OpenSqr) => {
 				let typ = self.types()?;
 				self.expect_or_sync(Symbol(Symbol::CloseSqr))?;
@@ -71,18 +95,17 @@ impl Parser {
 				let mut map = HashMap::new();
 				loop {
 					self.skip_new_lines();
-					let peek = self.peek();
-					match peek.typ {
-						Symbol(Symbol::CloseBracket) => { self.next(); break; }
+					let next = self.next();
+					match next.typ {
+						Symbol(Symbol::CloseBracket) => break,
 						Identifier(name) => {
-							self.next();
 							errors.try_append(self.expect(Symbol(Symbol::Colon)));
 							let typ = append!(self.types(); to errors; dummy Type::Void);
 							map.insert(name, typ);
 							if self.next_match(Symbol(Symbol::CloseBracket)) { continue; }
 							errors.try_append(self.expect_any_or_sync(&[Symbol(Symbol::Comma), EOL]));
 						},
-						typ => { self.next(); append!(ret comp format!("Expected identifier, found {}", typ), peek.pos; to errors) },
+						typ => append!(ret comp format!("Expected identifier, found {}", typ), next.pos; to errors),
 					}
 				}
 				throw!(errors);
