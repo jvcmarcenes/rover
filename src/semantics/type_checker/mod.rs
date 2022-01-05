@@ -152,7 +152,7 @@ impl ExprVisitor<Type> for TypeChecker {
 	}
 
 	fn variable(&mut self, data: Identifier, _pos: SourcePos) -> Result<Type> {
-		self.type_map.get(&data.get_id()).expect(&format!("use of unresolved symbol '{}'", data)).clone().wrap()
+		self.type_map.get(&data.get_id()).expect(&format!("use of unresolved symbol '{:?}'", data)).clone().wrap()
 	}
 
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Type> {
@@ -209,9 +209,10 @@ impl ExprVisitor<Type> for TypeChecker {
 		let mut typ = data.head.accept(self)?;
 		while let Type::Named(name) = typ { typ = self.type_map.get(&name.get_id()).unwrap().clone(); }
 		match &typ {
-			Type::Any => Type::Any,
 			Type::Object(map) => if let Some(typ) = map.get(&data.field) { typ.clone() } else { return ErrorList::comp(format!("Property '{}' does not exist on '{}'", data.field, typ), pos).err(); },
-			_ => return ErrorList::comp(format!("Type '{}' does not exposes fields", typ), pos).err(),
+			Type::Any => Type::Any,
+			_ => Type::Any,
+			// _ => return ErrorList::comp(format!("Type '{}' does not exposes fields", typ), pos).err(),
 		}.wrap()
 	}
 
@@ -251,8 +252,15 @@ impl StmtVisitor<Type> for TypeChecker {
 			}
 			_ => (),
 		}
+		
+		let expr_typ = match data.expr.accept(self) {
+			Ok(typ) => typ,
+			err => {
+				self.type_map.insert(data.name.get_id(), Type::Any);
+				return err;
+			}
+		};
 
-		let expr_typ = data.expr.accept(self)?;
 		if expr_typ == Type::Void {
 			return ErrorList::comp("Cannot declare a variable as void".to_owned(), pos).err();
 		}
