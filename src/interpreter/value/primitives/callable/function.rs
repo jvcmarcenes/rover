@@ -7,20 +7,29 @@ pub const SELF: usize = 0;
 
 #[derive(Debug, Clone)]
 pub struct Function {
+	pub name: Option<String>,
 	pub env: Environment,
 	pub params: Vec<Identifier>,
 	pub body: Block,
 }
 
 impl Function {
-	pub fn new(env: Environment, params: Vec<Identifier>, body: Block) -> Self {
-		Self { env, params, body }
+	pub fn new(name: Option<String>, env: Environment, params: Vec<Identifier>, body: Block) -> Self {
+		Self { name, env, params, body }
 	}
 }
 
 impl Callable for Function {
 	fn cloned(&self) -> Box<dyn Callable> {
-		Box::new(Function::new(self.env.cloned(), self.params.clone(), self.body.clone()))
+		Box::new(Function::new(self.name.clone(), self.env.cloned(), self.params.clone(), self.body.clone()))
+	}
+
+	fn display(&self) -> String {
+		if let Some(ref name) = self.name {
+			format!("<function {}>", name)	
+		} else {
+			"<lambda>".to_owned()
+		}
 	}
 
 	fn arity(&self) -> usize {

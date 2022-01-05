@@ -11,7 +11,7 @@ use self::{environment::Environment, value::{Value, primitives::{callable::{ValC
 
 pub fn get_index(mut n: f64, len: usize, pos: SourcePos) -> Result<usize> {
 	if n < 0.0 { n += len as f64; }
-	if n < 0.0 || n >= len as f64 { 
+	if n < 0.0 || n >= len as f64 {
 		ErrorList::run("Index out of bounds".to_owned(), pos).err()
 	} else {
 		(n as usize).wrap()
@@ -34,17 +34,17 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-	
+
 	pub fn new(root_path: PathBuf) -> Self {
 		Self {
 			env: Environment::new(init_globals()),
 			root_path,
 		}
 	}
-	
+
 	fn execute_block(&mut self, block: Block) -> Result<Message> {
 		self.env.push_new();
-		
+
 		let mut last_eval = Message::None;
 		for stmt in block {
 			match stmt.accept(self)? {
@@ -59,17 +59,16 @@ impl Interpreter {
 		self.env.pop();
 		last_eval.wrap()
 	}
-	
+
 	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
 		for stmt in statements.clone() { if matches!(stmt.accept(self)?, Message::Halt) { break } }
 		Ok(())
 	}
-	
-	
+
 }
 
 impl ExprVisitor<Box<dyn Value>> for Interpreter {
-	
+
 	fn literal(&mut self, data: LiteralData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		match data {
 			LiteralData::None => ValNone.wrap(),
@@ -93,14 +92,14 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 				for (key, expr) in map {
 					value_map.insert(key, expr.accept(self)?.wrap());
 				}
-				
+
 				let attributes = attrs.iter().map(|i| i.get_id()).collect::<HashSet<_>>();
 				Object::new(value_map, attributes).wrap()
 			}
 			LiteralData::Error(expr) => Error::new(pass_msg!(expr.accept(self)?)).wrap(),
 		}
 	}
-	
+
 	fn binary(&mut self, data: BinaryData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let (l_pos, r_pos) = (data.lhs.pos, data.rhs.pos);
 		let mut lhs = pass_msg!(data.lhs.accept(self)?);
@@ -125,7 +124,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			BinaryOperator::Typ => Bool::new(lhs.has_attr(rhs.to_attr(r_pos)?.get_id(), self)).wrap(),
 		}
 	}
-	
+
 	fn unary(&mut self, data: UnaryData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let pos = data.expr.pos;
 		let val = pass_msg!(data.expr.accept(self)?);
@@ -135,7 +134,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			UnaryOperator::Not => Bool::new(!val.is_truthy()).wrap(),
 		}
 	}
-	
+
 	fn logic(&mut self, data: LogicData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let left = pass_msg!(data.lhs.accept(self)?).is_truthy();
 		Bool::new(match data.op {
@@ -143,20 +142,20 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			LogicOperator::Or => if left { true } else { pass_msg!(data.rhs.accept(self)?).is_truthy() }
 		}).wrap()
 	}
-	
+
 	fn grouping(&mut self, data: Box<Expression>, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		data.accept(self)
 	}
-	
+
 	fn variable(&mut self, data: Identifier, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		self.env.get(data.get_id()).wrap()
 	}
-	
+
 	fn lambda(&mut self, data: LambdaData, _pos: SourcePos) -> Result<Box<dyn Value>> {
-		let func = Function::new(self.env.clone(), data.params, data.body);
+		let func = Function::new(None, self.env.clone(), data.params, data.body);
 		ValCallable::new(func.wrap()).wrap()
 	}
-	
+
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let calee_pos = data.calee.pos;
 		let bound = match data.calee.typ {
@@ -192,7 +191,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			ret
 		}
 	}
-	
+
 	fn index(&mut self, data: IndexData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let (head_pos, index_pos) = (data.head.pos, data.index.pos);
 		let head_val = pass_msg!(data.head.accept(self)?);
@@ -205,7 +204,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		let index = get_index(index, list.len(), index_pos)?;
 		list[index].clone().wrap()
 	}
-	
+
 	fn field(&mut self, data: FieldData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let head = pass_msg!(data.head.accept(self)?);
 		let field = head.get_field(&data.field, self, pos)?;
@@ -217,7 +216,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		};
 		field.clone().borrow().clone().wrap()
 	}
-	
+
 	fn self_ref(&mut self, pos: SourcePos) -> Result<Box<dyn Value>> {
 		if self.env.has(SELF) {
 			self.env.get(SELF).wrap()
@@ -225,7 +224,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			ErrorList::run("Unbound self".to_owned(), pos).err()
 		}
 	}
-	
+
 	fn do_expr(&mut self, block: Block, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		match self.execute_block(block)? {
 			Message::None => ValNone::new(),
@@ -233,7 +232,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 			msg => Messenger::new(msg),
 		}.wrap()
 	}
-	
+
 	fn bind_expr(&mut self, data: BindData, _pos: SourcePos) -> Result<Box<dyn Value>> {
 		let head = data.expr.accept(self)?;
 		let method_pos = data.method.pos;
@@ -242,16 +241,16 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		bound_method.bind(head);
 		ValCallable::new(bound_method.wrap()).wrap()
 	}
-	
+
 }
 
 impl StmtVisitor<Message> for Interpreter {
-	
+
 	fn expr(&mut self, expr: Box<Expression>, _pos: SourcePos) -> Result<Message> {
 		let val = unwrap_msg!(expr.accept(self)?);
 		Message::Eval(val).wrap()
 	}
-	
+
 	fn declaration(&mut self, data: DeclarationData, _pos: SourcePos) -> Result<Message> {
 		// this crashes with objects that try to 'statically' access the variable they're being declared to
 		// the resolver allows it (and it should), but here the name is only defined after the r-value is evaluated
@@ -263,25 +262,31 @@ impl StmtVisitor<Message> for Interpreter {
 		self.env.define(data.name.get_id(), val);
 		Message::None.wrap()
 	}
-	
+
+	fn func_declaration(&mut self, data: FunctionData, _pos: SourcePos) -> Result<Message> {
+		let func = Function::new(data.name.get_name().wrap(), self.env.clone(), data.params, data.body);
+		self.env.define(data.name.get_id(), ValCallable::new(func.wrap()));
+		Message::None.wrap()
+	}
+
 	fn attr_declaration(&mut self, data: AttrDeclarationData, _pos: SourcePos) -> Result<Message> {
 		let mut methods = HashMap::new();
 		for method in data.methods {
-			let func = Function::new(self.env.clone(), method.params, method.body);
-			methods.insert(method.name, ValCallable::new(func.wrap()).wrap());
+			let func = Function::new(method.name.get_name().wrap(), self.env.clone(), method.params, method.body);
+			methods.insert(method.name.get_name(), ValCallable::new(func.wrap()).wrap());
 		}
-		
+
 		let mut fields = HashMap::new();
 		for (key, expr) in data.fields {
 			fields.insert(key, expr.accept(self)?.wrap());
 		}
-		
+
 		let attrs = data.attributes.iter().map(|i| i.get_id()).collect();
-		
+
 		self.env.define(data.name.get_id(), Attribute::new(data.name, methods, fields, attrs));
 		Message::None.wrap()
 	}
-	
+
 	fn assignment(&mut self, data: AssignData, _pos: SourcePos) -> Result<Message> {
 		let val = unwrap_msg!(data.expr.accept(self)?);
 		loop {
@@ -319,7 +324,7 @@ impl StmtVisitor<Message> for Interpreter {
 			}
 		}
 	}
-	
+
 	fn if_stmt(&mut self, data: IfData, _pos: SourcePos) -> Result<Message> {
 		if unwrap_msg!(data.cond.accept(self)?).is_truthy() {
 			self.execute_block(data.then_block)
@@ -327,7 +332,7 @@ impl StmtVisitor<Message> for Interpreter {
 			self.execute_block(data.else_block)
 		}
 	}
-	
+
 	fn loop_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
 		loop {
 			match self.execute_block(block.clone())? {
@@ -337,15 +342,15 @@ impl StmtVisitor<Message> for Interpreter {
 			}
 		}
 	}
-	
+
 	fn break_stmt(&mut self, _pos: SourcePos) -> Result<Message> {
 		Message::Break.wrap()
 	}
-	
+
 	fn continue_stmt(&mut self, _pos: SourcePos) -> Result<Message> {
 		Message::Continue.wrap()
 	}
-	
+
 	fn return_stmt(&mut self, expr: Option<Box<Expression>>, _pos: SourcePos) -> Result<Message> {
 		let val = if let Some(expr) = expr {
 			unwrap_msg!(expr.accept(self)?)
@@ -354,13 +359,13 @@ impl StmtVisitor<Message> for Interpreter {
 		};
 		Message::Return(val).wrap()
 	}
-	
+
 	fn scoped_stmt(&mut self, block: Block, _pos: SourcePos) -> Result<Message> {
 		self.execute_block(block)
 	}
-	
+
 	fn type_alias(&mut self, _data: AliasData, _pos: SourcePos) -> Result<Message> {
 		Message::None.wrap()
 	}
-	
+
 }

@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, MethodData, AliasData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw, Stage}, wrap::Wrap}, types::Type};
+use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, FunctionData, AliasData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw, Stage}, wrap::Wrap}, types::Type};
 
 use super::Parser;
 
@@ -64,6 +64,7 @@ impl Parser {
 			Keyword(Return) => self.return_stmt(),
 			Keyword(Attr) => self.attr_declaration(),
 			Keyword(Type) => self.type_alias(),
+			Keyword(Function) => self.func_declaration(),
 			_ => self.assignment_or_expression(),
 		}
 	}
@@ -122,6 +123,18 @@ impl Parser {
 		)
 	}
 
+	fn func_declaration(&mut self) -> StmtResult {
+		let Token { pos, .. } = self.next();
+		let next = self.next();
+		match next.typ {
+			Identifier(name) => {
+				let LambdaData { params, types, returns, body } = self.lambda_data()?;
+				StmtType::FuncDeclaration(FunctionData { name: Identifier::new(name), params, types, returns, body }).to_stmt(pos).wrap()
+			}
+			typ => ErrorList::comp(format!("Expected function name, found {}", typ), next.pos).err()
+		}
+	}
+
 	fn attr_declaration(&mut self) -> StmtResult {
 		let mut errors = ErrorList::new();
 		let Token { pos, .. } = self.next();
@@ -157,8 +170,8 @@ impl Parser {
 					errors.try_append(self.expect_eol());
 				}
 				Identifier(name) => {
-					let LambdaData { params, body, .. } = self.lambda_data()?;
-					methods.push(MethodData { name, params, body });
+					let LambdaData { params, types, returns, body } = self.lambda_data()?;
+					methods.push(FunctionData { name: Identifier::new(name), params, types, returns, body });
 					errors.try_append(self.expect_eol());
 				},
 				typ => append!(ret comp format!("Expected Identifier or CLOSE_BRACKET, found {}", typ), pos; to errors),

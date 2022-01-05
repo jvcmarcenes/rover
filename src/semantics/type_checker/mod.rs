@@ -277,6 +277,23 @@ impl StmtVisitor<Type> for TypeChecker {
 		Type::Void.wrap()
 	}
 
+	fn func_declaration(&mut self, data: FunctionData, _pos: SourcePos) -> Result<Type> {
+		let param_types = data.types.iter().map(|typ| typ.clone().unwrap_or(Type::Any)).collect::<Vec<_>>();
+		let returns = data.returns.unwrap_or(if self.infer { Type::Void } else { Type::Any });
+
+		self.type_map.insert(data.name.get_id(), Type::Function { params: param_types.clone(), returns: returns.clone().wrap() });
+
+		for (key, typ) in data.params.iter().zip(param_types.iter()) {
+			self.type_map.insert(key.get_id(), typ.clone());
+		}
+
+		self.return_stack.push(returns);
+
+		self.check_block(&data.body)?;
+
+		Type::Void.wrap()
+	}
+
 	fn attr_declaration(&mut self, _data: AttrDeclarationData, _pos: SourcePos) -> Result<Type> {
 		todo!()
 	}

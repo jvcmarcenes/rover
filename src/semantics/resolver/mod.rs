@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData, AliasData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers, wrap::Wrap}, types::Type};
+use crate::{ast::{identifier::Identifier, expression::*, statement::*}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers, wrap::Wrap}, types::Type};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -232,10 +232,12 @@ impl ExprVisitor<()> for Resolver {
 		let mut errors = ErrorList::new();
 		self.push_scope();
 		for param in data.params { errors.try_append(self.add(param, false, SymbolType::Var, pos)); }
+		
 		data.types.iter().cloned()
 			.filter_map(|t| t)
 			.for_each(|typ| errors.try_append(self.resolve_type(typ, None, false, pos)));
 		if let Some(typ) = data.returns { errors.try_append(self.resolve_type(typ, None, false, pos)); }
+		
 		with_ctx!(self, errors.try_append(self.resolve(&data.body)), in_function: true);
 		self.pop_scope();
 		errors.if_empty(())
@@ -302,15 +304,34 @@ impl StmtVisitor<()> for Resolver {
 		errors.if_empty(())
 	}
 	
+	fn func_declaration(&mut self, data: FunctionData, pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::new();
+		errors.try_append(self.add(data.name, true, SymbolType::Var, pos));
+		self.push_scope();
+		for param in data.params { errors.try_append(self.add(param, false, SymbolType::Var, pos)); }
+		
+		data.types.iter().cloned()
+			.filter_map(|t| t)
+			.for_each(|typ| errors.try_append(self.resolve_type(typ, None, false, pos)));
+		if let Some(typ) = data.returns { errors.try_append(self.resolve_type(typ, None, false, pos)); }
+
+		with_ctx!(self, errors.try_append(self.resolve(&data.body)), in_function: true);
+		self.pop_scope();
+		errors.if_empty(())
+	}
+
 	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		errors.try_append(self.add(data.name, true, SymbolType::Var, pos));
 		for method in data.methods {
 			self.push_scope();
-			for param in method.params {
-				errors.try_append(self.add(param, false, SymbolType::Var, pos));
-			}
-			// with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_method: true);
+			for param in method.params { errors.try_append(self.add(param, false, SymbolType::Var, pos)); }
+			
+			method.types.iter().cloned()
+				.filter_map(|t| t)
+				.for_each(|typ| errors.try_append(self.resolve_type(typ, None, false, pos)));
+			if let Some(typ) = method.returns { errors.try_append(self.resolve_type(typ, None, false, pos)); }
+			
 			with_ctx!(self, errors.try_append(self.resolve(&method.body)), in_function: true);
 			self.pop_scope();
 		}

@@ -3,17 +3,15 @@
 
 type MathFn = function(number) -> number
 
-let factorial = function(n: number): number {
+function factorial(n: number): number {
 	if n == 1 { return 1 }
 	return n * factorial(n - 1)
 }
 
-let apply = function(x: number, f: MathFn): number => f(x)
+function apply(x: number, f: MathFn): number => f(x)
 
-let main = function(): void {
-
+function main(): void {
 	let x = apply(7, factorial)
-
 	writeline(x)
 }
 
