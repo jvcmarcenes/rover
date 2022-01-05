@@ -5,7 +5,7 @@ use crate::utils::{result::*, source_pos::*};
 
 use self::ExprType::*;
 
-use super::{identifier::Identifier, statement::Block};
+use super::{identifier::Identifier, Block};
 
 #[derive(Debug, Clone)]
 pub enum BinaryOperator {

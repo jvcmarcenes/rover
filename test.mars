@@ -1,6 +1,27 @@
 
-function foo(bar) {
-	writeline(bar)
+function foo() {
+	Print.new('foo').print()
+	bar()
 }
 
-foo('Hello World!')
+function bar() {
+	Print.new('bar').print()
+}
+
+function main() {
+	Print.new('Hello World!').print()
+	foo()
+}
+
+attr Print {
+
+	static new = function(val) => {
+		is Print
+		val
+	}
+
+	print() {
+		writeline(self.val)
+	}
+
+}

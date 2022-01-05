@@ -3,11 +3,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::utils::{result::Result, source_pos::SourcePos};
 
-use super::{identifier::Identifier, expression::Expression};
+use super::{identifier::Identifier, expression::Expression, Block};
 
 use self::StmtType::*;
-
-pub type Block = Vec<Statement>;
 
 #[derive(Debug, Clone)]
 pub struct DeclarationData { pub constant: bool, pub name: Identifier, pub expr: Box<Expression> }

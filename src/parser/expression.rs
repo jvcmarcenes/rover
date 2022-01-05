@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, statement::{Block, DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, expression::{*, BinaryOperator::{self, *}, ExprType::{self, *}, UnaryOperator::{self, *}}, Block, statement::{DeclarationData, IfData, StmtType}}, lexer::token::{Keyword::*, LiteralType, Symbol::*, Token, TokenType::{*, self}}, utils::{result::{ErrorList, Result, append}, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Parser;
 
@@ -322,7 +322,7 @@ impl Parser {
 		let mut exprs = Vec::new();
 		let mut errors = ErrorList::new();
 		
-		let mut template_parser = Parser::new(tokens);
+		let mut template_parser = Parser::new(tokens, false);
 		
 		loop {
 			match template_parser.peek().typ {

@@ -1,59 +1,95 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{ast::{expression::{BinaryData, BinaryOperator, CallData, ExprType, FieldData, IndexData, LiteralData, LambdaData}, identifier::Identifier, statement::{AssignData, Block, DeclarationData, IfData, Statement, StmtType, AttrDeclarationData, FunctionData}}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
+use crate::{ast::{Block, expression::*, identifier::Identifier, statement::*}, lexer::token::{Keyword::*, Token, TokenType::{self, *}, Symbol::*}, utils::{result::{ErrorList, Result, append, throw}, wrap::Wrap}};
 
 use super::Parser;
-
-pub type StmtResult = Result<Statement>;
-pub type BlockResult = Result<Block>;
 
 const ASSIGN_OPS: &[TokenType] = &[Symbol(Equals), Symbol(PlusEquals), Symbol(MinusEquals), Symbol(StarEquals), Symbol(SlashEquals)];
 
 impl Parser {
 
-	pub fn program(&mut self) -> BlockResult {
-		let mut statements = Block::new();
-		let mut errors = ErrorList::new();
-		loop {
-			self.skip_new_lines();
-			if self.is_at_end() { return errors.if_empty(statements); }
-			match self.statement() {
-				Ok(stmt) => statements.push(stmt),
-				Err(err) => {
-					errors.append(err);
-					self.synchronize();
-				}
+	pub(super) fn top_declaration(&mut self) -> Result<()> {
+		match self.peek().typ {
+			Keyword(Attr) => self.attr_declaration(),
+			Keyword(Function) => self.func_declaration(),
+			_ => if self.script {
+				self.statement().map(|_| ())
+			} else { 
+				ErrorList::comp("Expected a declaration".to_owned(), self.next().pos).err()
 			}
 		}
 	}
 
-	pub(super) fn block(&mut self) -> BlockResult {
+	fn func_declaration(&mut self) -> Result<()> {
+		let Token { pos, .. } = self.next();
+		let next = self.next();
+		match next.typ {
+			Identifier(name) => {
+				let id = Identifier::new(name);
+
+				let LambdaData { params, body } = self.lambda_data()?;
+				let decl = StmtType::FuncDeclaration(FunctionData { name: id.clone(), params, body }).to_stmt(pos);
+
+				self.module.add(id.clone(), decl, pos)?;
+
+				Ok(())
+			}
+			typ => ErrorList::comp(format!("Expected function name, found {}", typ), next.pos).err()
+		}
+	}
+
+	fn attr_declaration(&mut self) -> Result<()> {
+		let mut errors = ErrorList::new();
+		let Token { pos, .. } = self.next();
+		let next = self.next();
+		let id = match next.typ { 
+			TokenType::Identifier(name) => Identifier::new(name),
+			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
+		};
 		self.skip_new_lines();
-		let Token { pos, .. } = self.expect(Symbol(OpenBracket))?;
-
-		let mut statements = Block::new();
-		let mut errors = ErrorList::new();
-
+		errors.try_append(self.expect(Symbol(OpenBracket)));
+		let mut methods = Vec::new();
+		let mut fields = HashMap::new();
+		let mut attributes = HashSet::new();
 		loop {
 			self.skip_new_lines();
-			match self.peek().typ {
+			let next = self.next();
+			match next.typ {
 				Symbol(CloseBracket) => break,
-				EOF => append!(ret comp "Statement block not closed".to_owned(), pos; to errors),
-				_ => match self.statement() {
-					Ok(stmt) => statements.push(stmt),
-					Err(err) => {
-						errors.append(err);
-						self.synchronize();
+				Keyword(Static) => {
+					match self.obj_field() {
+						Ok((name, expr)) => { fields.insert(name, expr); },
+						Err(err) => { errors.append(err); continue },
 					}
+					errors.try_append(self.expect_eol());
 				},
+				Keyword(Is) => {
+					let next = self.next();
+					match next.typ {
+						Identifier(name) => { attributes.insert(Identifier::new(name)); },
+						typ => { errors.add_comp(format!("Expected identifier, found {}", typ), next.pos); self.synchronize() },
+					}
+					if self.next_match(Symbol(CloseBracket)) { continue; }
+					errors.try_append(self.expect_eol());
+				}
+				Identifier(name) => {
+					let LambdaData { params, body } = self.lambda_data()?;
+					methods.push(FunctionData { name: Identifier::new(name), params, body });
+					errors.try_append(self.expect_eol());
+				},
+				typ => append!(ret comp format!("Expected Identifier or CLOSE_BRACKET, found {}", typ), pos; to errors),
 			}
 		}
-		self.next();
-		errors.if_empty(statements)
+
+		let decl = StmtType::AttrDeclaration(AttrDeclarationData { name: id.clone(), fields, methods, attributes }).to_stmt(pos);
+
+		self.module.add(id.clone(), decl, pos)?;
+
+		Ok(())
 	}
 
-	pub fn statement(&mut self) -> StmtResult {
+	pub(super) fn statement(&mut self) -> Result<Statement> {
 		match self.peek().typ {
 			Keyword(Let) => self.declaration(),
 			Keyword(If) => self.if_stmt(),
@@ -62,13 +98,13 @@ impl Parser {
 			Keyword(Break) => self.break_stmt(),
 			Keyword(Continue) => self.continue_stmt(),
 			Keyword(Return) => self.return_stmt(),
-			Keyword(Attr) => self.attr_declaration(),
-			Keyword(Function) => self.func_declaration(),
+			Keyword(Attr) => ErrorList::comp("Attribute declarations are only allowed in the top level".to_owned(), self.next().pos).err(),
+			Keyword(Function) => ErrorList::comp("Function declarations are only allowed in the top level".to_owned(), self.next().pos).err(),
 			_ => self.assignment_or_expression(),
 		}
 	}
 
-	fn assignment_or_expression(&mut self) -> StmtResult {
+	fn assignment_or_expression(&mut self) -> Result<Statement> {
 		let left = self.expression()?;
 		let l_pos = left.pos;
 		if let Some(token) = self.optional_any(ASSIGN_OPS) {
@@ -100,7 +136,7 @@ impl Parser {
 		}
 	}
 
-	fn declaration(&mut self) -> StmtResult {
+	fn declaration(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		let mut errors = ErrorList::new();
 		let constant = self.optional(Keyword(Const)).is_some();
@@ -119,64 +155,7 @@ impl Parser {
 		)
 	}
 
-	fn func_declaration(&mut self) -> StmtResult {
-		let Token { pos, .. } = self.next();
-		let next = self.next();
-		match next.typ {
-			Identifier(name) => {
-				let LambdaData { params, body } = self.lambda_data()?;
-				StmtType::FuncDeclaration(FunctionData { name: Identifier::new(name), params, body }).to_stmt(pos).wrap()
-			}
-			typ => ErrorList::comp(format!("Expected function name, found {}", typ), next.pos).err()
-		}
-	}
-
-	fn attr_declaration(&mut self) -> StmtResult {
-		let mut errors = ErrorList::new();
-		let Token { pos, .. } = self.next();
-		let next = self.next();
-		let name = match next.typ { 
-			TokenType::Identifier(name) => Identifier::new(name),
-			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
-		};
-		self.skip_new_lines();
-		errors.try_append(self.expect(Symbol(OpenBracket)));
-		let mut methods = Vec::new();
-		let mut fields = HashMap::new();
-		let mut attributes = HashSet::new();
-		loop {
-			self.skip_new_lines();
-			let next = self.next();
-			match next.typ {
-				Symbol(CloseBracket) => return StmtType::AttrDeclaration(AttrDeclarationData { name, fields, methods, attributes }).to_stmt(pos).wrap(),
-				Keyword(Static) => {
-					match self.obj_field() {
-						Ok((name, expr)) => { fields.insert(name, expr); },
-						Err(err) => { errors.append(err); continue },
-					}
-					errors.try_append(self.expect_eol());
-				},
-				Keyword(Is) => {
-					let next = self.next();
-					match next.typ {
-						Identifier(name) => { attributes.insert(Identifier::new(name)); },
-						typ => { errors.add_comp(format!("Expected identifier, found {}", typ), next.pos); self.synchronize() },
-					}
-					if self.next_match(Symbol(CloseBracket)) { continue; }
-					errors.try_append(self.expect_eol());
-				}
-				Identifier(name) => {
-					let LambdaData { params, body } = self.lambda_data()?;
-					methods.push(FunctionData { name: Identifier::new(name), params, body });
-					errors.try_append(self.expect_eol());
-				},
-				typ => append!(ret comp format!("Expected Identifier or CLOSE_BRACKET, found {}", typ), pos; to errors),
-			}
-		}
-
-	}
-
-	fn if_stmt(&mut self) -> StmtResult {
+	fn if_stmt(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		let mut errors = ErrorList::new();
 		let cond = append!(self.expression(); to errors; with self.synchronize_until(Symbol(OpenBracket)); or none);
@@ -191,13 +170,13 @@ impl Parser {
 		StmtType::If(IfData { cond: Box::new(cond.unwrap()), then_block, else_block }).to_stmt(pos).wrap()
 	}
 
-	fn loop_stmt(&mut self) -> StmtResult {
+	fn loop_stmt(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		let block = self.block()?;
 		StmtType::Loop(block).to_stmt(pos).wrap()
 	}
 
-	fn for_stmt(&mut self) -> StmtResult {
+	fn for_stmt(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		let mut errors = ErrorList::new();
 
@@ -259,17 +238,17 @@ impl Parser {
 		}
 	}
 
-	fn break_stmt(&mut self) -> StmtResult {
+	fn break_stmt(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		StmtType::Break.to_stmt(pos).wrap()
 	}
 
-	fn continue_stmt(&mut self) -> StmtResult {
+	fn continue_stmt(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		StmtType::Continue.to_stmt(pos).wrap()
 	}
 	
-	fn return_stmt(&mut self) -> StmtResult {
+	fn return_stmt(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		let expr = self.expression_or_none()?;
 		StmtType::Return(Box::new(expr)).to_stmt(pos).wrap()

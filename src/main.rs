@@ -37,26 +37,26 @@ fn run_file(path: &str) {
 	let (tokens, lexer_err) = lexer.scan_tokens();
 	lexer_err.report(&path);
 
-	let ast = Parser::new(tokens).program().unwrap_or_else(|errors| {
+	let mut module = Parser::new(tokens, false).module().unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);
 	});
 
-	Resolver::new().resolve(&ast).unwrap_or_else(|errors| {
+	Resolver::new().resolve(&module).unwrap_or_else(|errors| {
 		errors.report(&path);
 		process::exit(1);
 	});
 
 	if !lexer_err.is_empty() { process::exit(1); }
 	
-	let ast = Optimizer.optimize(ast).unwrap();
+	Optimizer.optimize(&mut module).unwrap();
 
 	let mut pathbuf = Path::new(path).to_path_buf();
 	pathbuf.pop();
 
 	let mut interpreter = Interpreter::new(pathbuf);
 
-	interpreter.interpret(&ast).unwrap_or_else(|err| {
+	interpreter.interpret_and_run(module).unwrap_or_else(|err| {
 		err.report(&path);
 		process::exit(1);
 	});
