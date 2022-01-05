@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::{BinaryData, CallData, ExprType, ExprVisitor, Expression, FieldData, IndexData, LambdaData, LiteralData, LogicData, UnaryData, BindData}, statement::{AssignData, Block, DeclarationData, IfData, StmtVisitor, AttrDeclarationData}}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}};
+use crate::{ast::{identifier::Identifier, expression::*, statement::*}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -256,6 +256,18 @@ impl StmtVisitor<()> for Resolver {
 		errors.if_empty(())
 	}
 	
+	fn func_declaration(&mut self, data: FunctionData, pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::new();
+		errors.try_append(self.add(data.name, true, pos));
+		self.push_scope();
+		for param in data.params {
+			errors.try_append(self.add(param, false, pos));
+		}
+		with_ctx!(self, errors.try_append(self.resolve(&data.body)), in_function: true);
+		self.pop_scope();
+		errors.if_empty(())
+	}
+
 	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		errors.try_append(self.add(data.name, true, pos));

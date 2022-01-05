@@ -164,6 +164,11 @@ impl StmtVisitor<Statement> for Optimizer {
 		StmtType::Declaration(data).to_stmt(pos).wrap()
 	}
 	
+	fn func_declaration(&mut self, mut data: FunctionData, pos: SourcePos) -> Result<Statement> {
+		data.body = self.optimize(data.body)?;
+		StmtType::FuncDeclaration(data).to_stmt(pos).wrap()
+	}
+
 	fn attr_declaration(&mut self, mut data: AttrDeclarationData, pos: SourcePos) -> Result<Statement> {
 		let mut fields = HashMap::new();
 		for (key, expr) in data.fields.iter() { fields.insert(key.clone(), expr.clone().accept(self)?); }

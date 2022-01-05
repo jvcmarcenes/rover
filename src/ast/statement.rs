@@ -12,9 +12,9 @@ pub type Block = Vec<Statement>;
 #[derive(Debug, Clone)]
 pub struct DeclarationData { pub constant: bool, pub name: Identifier, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
-pub struct MethodData { pub name: String, pub params: Vec<Identifier>, pub body: Block }
+pub struct FunctionData { pub name: Identifier, pub params: Vec<Identifier>, pub body: Block }
 #[derive(Debug, Clone)]
-pub struct AttrDeclarationData { pub name: Identifier, pub fields: HashMap<String, Expression>, pub methods: Vec<MethodData>, pub attributes: HashSet<Identifier> }
+pub struct AttrDeclarationData { pub name: Identifier, pub fields: HashMap<String, Expression>, pub methods: Vec<FunctionData>, pub attributes: HashSet<Identifier> }
 #[derive(Debug, Clone)]
 pub struct AssignData { pub head: Box<Expression>, pub l_pos: SourcePos, pub expr: Box<Expression> }
 #[derive(Debug, Clone)]
@@ -24,6 +24,7 @@ pub struct IfData { pub cond: Box<Expression>, pub then_block: Block, pub else_b
 pub enum StmtType {
 	Expr(Box<Expression>),
 	Declaration(DeclarationData),
+	FuncDeclaration(FunctionData),
 	AttrDeclaration(AttrDeclarationData),
 	Assignment(AssignData),
 	If(IfData),
@@ -56,6 +57,7 @@ impl Statement {
 		match self.typ {
 			Expr(expr) => visitor.expr(expr, self.pos),
 			Declaration(data) => visitor.declaration(data, self.pos),
+			FuncDeclaration(data) => visitor.func_declaration(data, self.pos),
 			AttrDeclaration(data) => visitor.attr_declaration(data, self.pos),
 			Assignment(data) => { let l_pos = data.l_pos; visitor.assignment(data, l_pos) },
 			If(data) => visitor.if_stmt(data, self.pos),
@@ -71,6 +73,7 @@ impl Statement {
 pub trait StmtVisitor<T> {
 	fn expr(&mut self, expr: Box<Expression>, pos: SourcePos) -> Result<T>;
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<T>;
+	fn func_declaration(&mut self, data: FunctionData, pos: SourcePos) -> Result<T>;
 	fn attr_declaration(&mut self, data: AttrDeclarationData, pos: SourcePos) -> Result<T>;
 	fn assignment(&mut self, data: AssignData, pos: SourcePos) -> Result<T>;
 	fn if_stmt(&mut self, data: IfData, pos: SourcePos) -> Result<T>;

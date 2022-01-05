@@ -1,14 +1,6 @@
 
-let bar = function() {
-	exit()
+function foo(bar) {
+	writeline(bar)
 }
 
-let foo = function() {
-	bar()
-}
-
-writeline("Hello")
-
-foo()
-
-writeline("Bye")
+foo('Hello World!')
