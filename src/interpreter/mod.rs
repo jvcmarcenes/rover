@@ -60,11 +60,14 @@ impl Interpreter {
 		last_eval.wrap()
 	}
 
+	pub fn interpret_script(&mut self, module: Module, block: Block) -> Result<()> {
+		for stmt in module.env.values().cloned() { stmt.accept(self)?; }
+		self.execute_block(block)?;
+		Ok(())
+	}
+
 	pub fn interpret(&mut self, module: Module) -> Result<()> {
-		// for stmt in statements.clone() { if matches!(stmt.accept(self)?, Message::Halt) { break } }
-		for stmt in module.env.values().cloned() {
-			stmt.accept(self)?;
-		}
+		for stmt in module.env.values().cloned() { stmt.accept(self)?; }
 		Ok(())
 	}
 
@@ -73,9 +76,17 @@ impl Interpreter {
 			stmt.accept(self)?;
 		}
 
+		if module.main_id.borrow().is_none() {
+			return ErrorList::mod_run("Module did not contain a main function".to_owned()).err();
+		}
+
 		let main = self.env.get(module.main_id.borrow().unwrap().clone());
 
-		castf!(fun main).borrow_mut().call(SourcePos::new(1, 1), self, Vec::new())?;
+		let ret = castf!(fun main).borrow_mut().call(SourcePos::new(1, 1), self, Vec::new())?;
+
+		if let Ok(_) = ret.to_error(SourcePos::new(1, 1)) {
+			println!("{}", ret.to_string(self, SourcePos::new(1, 1)).unwrap());
+		}
 
 		Ok(())
 	}

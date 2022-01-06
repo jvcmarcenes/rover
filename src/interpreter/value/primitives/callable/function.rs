@@ -63,6 +63,5 @@ impl Callable for Function {
 		interpreter.env = prev;
 		
 		ret.wrap()
-		
 	}
 }

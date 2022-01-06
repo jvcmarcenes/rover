@@ -84,10 +84,12 @@ impl Resolver {
 			}
 		}
 
-		self.pop_scope();
-
 		errors.if_empty(())
 	}
+
+	// pub fn resolve_script(&mut self, module: &Module, block: &Block) -> Result<()> {
+	// 	self.resolv
+	// }
 
 	pub fn resolve_block(&mut self, block: &Block) -> Result<()> {
 		let mut errors = ErrorList::new();

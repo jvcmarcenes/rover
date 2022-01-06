@@ -10,16 +10,14 @@ use crate::{lexer::token::{Token, TokenType::{self, *}, Symbol}, utils::{result:
 pub struct Parser {
 	tokens: Peekable<IntoIter<Token>>,
 	module: Module,
-	script: bool,
 }
 
 impl Parser {
 	
-	pub fn new(tokens: Vec<Token>, script: bool) -> Self {
+	pub fn new(tokens: Vec<Token>) -> Self {
 		Self {
 			tokens: tokens.into_iter().peekable(),
 			module: Module::new(),
-			script,
 		}
 	}
 	
@@ -37,8 +35,29 @@ impl Parser {
 		
 		errors.if_empty(self.module)
 	}
+
+	pub fn script(mut self) -> Result<(Module, Block)> {
+		let mut errors = ErrorList::new();
+		let mut block = Block::new();
+		
+		loop {
+			self.skip_new_lines();
+			if self.is_at_end() { break; }
+			
+			match self.statement(true) {
+				Ok(Some(stmt)) => block.push(stmt),
+				Ok(None) => (),
+				Err(err) => {
+					errors.append(err);
+					self.synchronize();
+				}
+			}
+		}
+
+		errors.if_empty((self.module, block))
+	}
 	
-	pub(super) fn block(&mut self) -> Result<Block> {
+	pub fn block(&mut self) -> Result<Block> {
 		self.skip_new_lines();
 		let Token { pos, .. } = self.expect(Symbol(Symbol::OpenBracket))?;
 		
@@ -50,8 +69,9 @@ impl Parser {
 			match self.peek().typ {
 				Symbol(Symbol::CloseBracket) => break,
 				EOF => append!(ret comp "Statement block not closed".to_owned(), pos; to errors),
-				_ => match self.statement() {
-					Ok(stmt) => block.push(stmt),
+				_ => match self.statement(false) {
+					Ok(Some(stmt)) => block.push(stmt),
+					Ok(None) => (),
 					Err(err) => {
 						errors.append(err);
 						self.synchronize();

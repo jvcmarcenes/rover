@@ -1,20 +1,26 @@
 
 pub mod token;
 
-use std::{iter::Peekable, vec::IntoIter};
+use std::{iter::Peekable, vec::IntoIter, collections::HashSet};
 
 use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wrap};
 
 use self::token::{Keyword, LiteralType::*, Symbol::{self, *}, Token, TokenType::*};
 
 type TokenResult = Result<Option<Token>>;
-type LexerResult = (Vec<Token>, ErrorList);
+
+pub struct LexerResult {
+	pub tokens: Vec<Token>,
+	pub directives: HashSet<String>,
+	pub errors: ErrorList,
+}
 
 #[derive(Debug, Clone)]
 pub struct Lexer {
 	source: Peekable<IntoIter<char>>,
 	cursor: SourcePos,
 	next_cursor: SourcePos,
+	directives: HashSet<String>,
 }
 
 impl Lexer {
@@ -23,7 +29,8 @@ impl Lexer {
 		Self {
 			source: text.chars().collect::<Vec<_>>().into_iter().peekable(),
 			cursor: SourcePos::new(1, 1),
-			next_cursor: SourcePos::new(1, 1)
+			next_cursor: SourcePos::new(1, 1),
+			directives: HashSet::new(),
 		}
 	}
 
@@ -75,7 +82,12 @@ impl Lexer {
 	fn symbol(&mut self, symbol: Symbol) -> TokenResult { Token::new(Symbol(symbol), self.cursor).wrap() }
 
 	fn scan_comment(&mut self) -> TokenResult {
-		let _ = self.scan_raw_while(&mut String::new(), |c| c != '\n');
+		let mut str = String::new();
+		let dir = self.next_match('!');
+		let _ = self.scan_raw_while(&mut str, |c| c != '\n');
+		if dir {
+			for dir in str.split(',') { self.directives.insert(dir.trim().to_owned()); }
+		}
 		return Ok(None);
 	}
 
@@ -216,7 +228,7 @@ impl Lexer {
 		}
 	}
 
-	pub fn scan_tokens(&mut self) -> LexerResult {
+	pub fn scan_tokens(mut self) -> LexerResult {
 		let mut tokens = Vec::new();
 		let mut errors = ErrorList::new();
 
@@ -240,7 +252,11 @@ impl Lexer {
 
 		tokens.push(Token::new(EOF, self.cursor));
 
-		(tokens, errors)
+		LexerResult {
+			tokens,
+			directives: self.directives,
+			errors
+		}
 	}
 
 }

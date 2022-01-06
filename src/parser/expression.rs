@@ -322,7 +322,7 @@ impl Parser {
 		let mut exprs = Vec::new();
 		let mut errors = ErrorList::new();
 		
-		let mut template_parser = Parser::new(tokens, false);
+		let mut template_parser = Parser::new(tokens);
 		
 		loop {
 			match template_parser.peek().typ {

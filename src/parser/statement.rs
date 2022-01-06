@@ -13,11 +13,7 @@ impl Parser {
 		match self.peek().typ {
 			Keyword(Attr) => self.attr_declaration(),
 			Keyword(Function) => self.func_declaration(),
-			_ => if self.script {
-				self.statement().map(|_| ())
-			} else { 
-				ErrorList::comp("Expected a declaration".to_owned(), self.next().pos).err()
-			}
+			_ => ErrorList::comp("Expected a declaration".to_owned(), self.next().pos).err()
 		}
 	}
 
@@ -89,7 +85,7 @@ impl Parser {
 		Ok(())
 	}
 
-	pub(super) fn statement(&mut self) -> Result<Statement> {
+	pub(super) fn statement(&mut self, accept_decl: bool) -> Result<Option<Statement>> {
 		match self.peek().typ {
 			Keyword(Let) => self.declaration(),
 			Keyword(If) => self.if_stmt(),
@@ -98,10 +94,10 @@ impl Parser {
 			Keyword(Break) => self.break_stmt(),
 			Keyword(Continue) => self.continue_stmt(),
 			Keyword(Return) => self.return_stmt(),
-			Keyword(Attr) => ErrorList::comp("Attribute declarations are only allowed in the top level".to_owned(), self.next().pos).err(),
-			Keyword(Function) => ErrorList::comp("Function declarations are only allowed in the top level".to_owned(), self.next().pos).err(),
+			Keyword(Attr) => return if accept_decl	{ self.func_declaration()?; None.wrap() } else { ErrorList::comp("Attribute declarations are only allowed in the top level".to_owned(), self.next().pos).err() },
+			Keyword(Function) => return if accept_decl	{ self.func_declaration()?; None.wrap() } else { ErrorList::comp("Function declarations are only allowed in the top level".to_owned(), self.next().pos).err() },
 			_ => self.assignment_or_expression(),
-		}
+		}?.wrap()
 	}
 
 	fn assignment_or_expression(&mut self) -> Result<Statement> {

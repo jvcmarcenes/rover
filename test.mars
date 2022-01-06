@@ -1,27 +1,15 @@
 
+#!script
+
+writeline('hello world!')
+
 function foo() {
-	Print.new('foo').print()
-	bar()
+	writeline('hello from foo')
 }
+
+foo()
+bar() # bar is hoisted, so we can call it here
 
 function bar() {
-	Print.new('bar').print()
-}
-
-function main() {
-	Print.new('Hello World!').print()
-	foo()
-}
-
-attr Print {
-
-	static new = function(val) => {
-		is Print
-		val
-	}
-
-	print() {
-		writeline(self.val)
-	}
-
+	writeline('hello from bar')
 }
