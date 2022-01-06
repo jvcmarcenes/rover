@@ -1,5 +1,5 @@
 
-use crate::{ast::{identifier::Identifier, statement::Block}, interpreter::{Interpreter, Message, environment::Environment, value::{Value, primitives::none::ValNone, messenger::Messenger}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, Block}, interpreter::{Interpreter, Message, environment::Environment, value::{Value, primitives::none::ValNone, messenger::Messenger}}, utils::{result::Result, source_pos::SourcePos, wrap::Wrap}};
 
 use super::Callable;
 
@@ -63,6 +63,5 @@ impl Callable for Function {
 		interpreter.env = prev;
 		
 		ret.wrap()
-		
 	}
 }

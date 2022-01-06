@@ -1,18 +1,16 @@
 
 #!infer
 
-type MathFn = function(number) -> number
+# type MathFn = function(number) -> number
 
 function factorial(n: number): number {
 	if n == 1 { return 1 }
 	return n * factorial(n - 1)
 }
 
-function apply(x: number, f: MathFn): number => f(x)
+function apply(x: number, f: function(number) -> number): number => f(x)
 
-function main(): void {
+function main() {
 	let x = apply(7, factorial)
 	writeline(x)
 }
-
-main()

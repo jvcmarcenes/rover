@@ -1,7 +1,20 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{expression::*, statement::*, identifier::Identifier}, types::{Type, global_types::global_types}, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw, append}, wrap::Wrap}};
+use crate::{ast::{expression::*, statement::*, identifier::Identifier, Block, module::Module}, types::{Type, global_types::global_types}, utils::{source_pos::SourcePos, result::{Result, ErrorList, throw, append}, wrap::Wrap}};
+
+fn decl_type(stmt: &Statement, infer: bool) -> Type {
+	match stmt.typ {
+		StmtType::FuncDeclaration(FunctionData { ref name, ref types, ref returns, .. }) => {
+			let params = types.iter().cloned().map(|typ| typ.unwrap_or(Type::Any)).collect();
+			let returns = returns.clone().unwrap_or(if infer || name.get_name() == "main" { Type::Void } else { Type::Any }).wrap();
+			Type::Function { params, returns }
+		},
+		StmtType::AttrDeclaration(_) => todo!(),
+		StmtType::TypeAlias(_) => todo!(),
+		_ => panic!("decl_type should ever only be called with declaration statements"),
+	}
+}
 
 pub struct TypeChecker {
 	infer: bool,
@@ -19,7 +32,31 @@ impl TypeChecker {
 		}
 	}
 
-	fn check_block(&mut self, block: &Block) -> Result<Type> {
+	pub fn check(&mut self, module: &Module) -> Result<()> {
+		let mut errors = ErrorList::new();
+
+		for (id, stmt) in module.env.iter() {
+			self.type_map.insert(id.get_id(), decl_type(stmt, self.infer));
+		}
+
+		for stmt in module.env.values().cloned() {
+			errors.try_append(stmt.accept(self));
+		}
+
+		if let Some(main_id) = module.main_id.borrow().clone() {
+			let typ = self.type_map.get(&main_id).unwrap();
+			if let Type::Function { returns, .. } = typ.clone() {
+				match *returns {
+					Type::Void => (),
+					_ => errors.add_mod_comp(format!("Illegal return type for 'main' function {}", typ)),
+				}
+			}
+		}
+
+		errors.if_empty(())
+	}
+
+	pub fn check_block(&mut self, block: &Block) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		let mut typ = Type::Void;
 		for stmt in block.clone() {
@@ -30,11 +67,6 @@ impl TypeChecker {
 			}
 		}
 		errors.if_empty(typ)
-	}
-
-	pub fn check(&mut self, block: &Block) -> Result<()> {
-		self.check_block(&block)?;
-		Ok(())
 	}
 
 	fn allowed_ret(&self) -> &Type {
@@ -252,7 +284,7 @@ impl StmtVisitor<Type> for TypeChecker {
 			}
 			_ => (),
 		}
-		
+
 		let expr_typ = match data.expr.accept(self) {
 			Ok(typ) => typ,
 			err => {
@@ -279,7 +311,7 @@ impl StmtVisitor<Type> for TypeChecker {
 
 	fn func_declaration(&mut self, data: FunctionData, _pos: SourcePos) -> Result<Type> {
 		let param_types = data.types.iter().map(|typ| typ.clone().unwrap_or(Type::Any)).collect::<Vec<_>>();
-		let returns = data.returns.unwrap_or(if self.infer { Type::Void } else { Type::Any });
+		let returns = data.returns.unwrap_or(if self.infer || data.name.get_name() == "main" { Type::Void } else { Type::Any });
 
 		self.type_map.insert(data.name.get_id(), Type::Function { params: param_types.clone(), returns: returns.clone().wrap() });
 

@@ -5,7 +5,7 @@ pub mod globals;
 
 use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
-use crate::{ast::{identifier::Identifier, expression::*, statement::*}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
+use crate::{ast::{identifier::Identifier, expression::*, statement::*, Block, module::Module}, interpreter::value::{ValueType, macros::{castf, pass_msg, unwrap_msg}, messenger::Messenger, primitives::{bool::Bool, error::Error, none::ValNone, number::Number, object::Object, string::Str, list::List}}, utils::{result::{Result, ErrorList}, source_pos::SourcePos, wrap::Wrap}};
 
 use self::{environment::Environment, value::{Value, primitives::{callable::{ValCallable, function::{Function, SELF}}, attribute::Attribute}}, globals::init_globals};
 
@@ -60,8 +60,34 @@ impl Interpreter {
 		last_eval.wrap()
 	}
 
-	pub fn interpret(&mut self, statements: &Block) -> Result<()> {
-		for stmt in statements.clone() { if matches!(stmt.accept(self)?, Message::Halt) { break } }
+	pub fn interpret_script(&mut self, module: Module, block: Block) -> Result<()> {
+		for stmt in module.env.values().cloned() { stmt.accept(self)?; }
+		self.execute_block(block)?;
+		Ok(())
+	}
+
+	pub fn interpret(&mut self, module: Module) -> Result<()> {
+		for stmt in module.env.values().cloned() { stmt.accept(self)?; }
+		Ok(())
+	}
+
+	pub fn interpret_and_run(&mut self, module: Module) -> Result<()> {
+		for stmt in module.env.values().cloned() {
+			stmt.accept(self)?;
+		}
+
+		if module.main_id.borrow().is_none() {
+			return ErrorList::mod_run("Module did not contain a main function".to_owned()).err();
+		}
+
+		let main = self.env.get(module.main_id.borrow().unwrap().clone());
+
+		let ret = castf!(fun main).borrow_mut().call(SourcePos::new(1, 1), self, Vec::new())?;
+
+		if let Ok(_) = ret.to_error(SourcePos::new(1, 1)) {
+			println!("{}", ret.to_string(self, SourcePos::new(1, 1)).unwrap());
+		}
+
 		Ok(())
 	}
 

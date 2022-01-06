@@ -1,6 +1,8 @@
 
 use std::{cell::RefCell, fmt::{Display, Debug}, rc::Rc, hash::Hash};
 
+use crate::utils::wrap::Wrap;
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct Identifier {
 	pub name: String,
@@ -10,7 +12,14 @@ pub struct Identifier {
 impl Identifier {
 	
 	pub fn new(name: String) -> Self {
-		Self { name, id: Rc::new(RefCell::new(usize::default())) }
+		Self { name, id: usize::default().wrap() }
+	}
+
+	pub fn same(src: &Identifier) -> Self {
+		Self {
+			name: src.get_name(),
+			id: src.id.clone()
+		}
 	}
 	
 	pub fn get_name(&self) -> String {

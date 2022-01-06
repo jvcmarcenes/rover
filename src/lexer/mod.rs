@@ -8,7 +8,12 @@ use crate::utils::{result::{ErrorList, Result}, source_pos::SourcePos, wrap::Wra
 use self::token::{Keyword, LiteralType::*, Symbol::{self, *}, Token, TokenType::*};
 
 type TokenResult = Result<Option<Token>>;
-type LexerResult = (Vec<Token>, HashSet<String>, ErrorList);
+
+pub struct LexerResult {
+	pub tokens: Vec<Token>,
+	pub directives: HashSet<String>,
+	pub errors: ErrorList,
+}
 
 #[derive(Debug, Clone)]
 pub struct Lexer {
@@ -80,7 +85,9 @@ impl Lexer {
 		let mut str = String::new();
 		let dir = self.next_match('!');
 		let _ = self.scan_raw_while(&mut str, |c| c != '\n');
-		if dir { self.directives.insert(str.trim().to_owned()); }
+		if dir {
+			for dir in str.split(',') { self.directives.insert(dir.trim().to_owned()); }
+		}
 		return Ok(None);
 	}
 
@@ -246,7 +253,11 @@ impl Lexer {
 
 		tokens.push(Token::new(EOF, self.cursor));
 
-		(tokens, self.directives, errors)
+		LexerResult {
+			tokens,
+			directives: self.directives,
+			errors
+		}
 	}
 
 }

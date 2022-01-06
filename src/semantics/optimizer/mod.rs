@@ -3,13 +3,18 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{expression::*, statement::*, identifier::Identifier}, utils::{source_pos::SourcePos, result::Result, wrap::Wrap}};
+use crate::{ast::{expression::*, statement::*, identifier::Identifier, Block, module::Module}, utils::{source_pos::SourcePos, result::Result, wrap::Wrap}};
 
 pub struct Optimizer;
 
 impl Optimizer {
 	
-	pub fn optimize(&mut self, block: Block) -> Result<Block> {
+	pub fn optimize(&mut self, module: &mut Module) -> Result<()> {
+		module.env = module.env.iter().map(|(k, s)| (k.clone(), s.clone().accept(self).unwrap())).collect();
+		Ok(())
+	}
+
+	pub fn optimize_block(&mut self, block: Block) -> Result<Block> {
 		let mut statements = Block::new();
 		for stmt in block {
 			statements.push(stmt.accept(self)?);
@@ -112,7 +117,7 @@ impl ExprVisitor<Expression> for Optimizer {
 	}
 	
 	fn lambda(&mut self, mut data: LambdaData, pos: SourcePos) -> Result<Expression> {
-		data.body = self.optimize(data.body)?;
+		data.body = self.optimize_block(data.body)?;
 		ExprType::Lambda(data).to_expr(pos).wrap()
 	}
 	
@@ -140,7 +145,7 @@ impl ExprVisitor<Expression> for Optimizer {
 	}
 	
 	fn do_expr(&mut self, block: Block, pos: SourcePos) -> Result<Expression> {
-		let block = self.optimize(block)?;
+		let block = self.optimize_block(block)?;
 		ExprType::DoExpr(block).to_expr(pos).wrap()
 	}
 	
@@ -165,7 +170,7 @@ impl StmtVisitor<Statement> for Optimizer {
 	}
 	
 	fn func_declaration(&mut self, mut data: FunctionData, pos: SourcePos) -> Result<Statement> {
-		data.body = self.optimize(data.body)?;
+		data.body = self.optimize_block(data.body)?;
 		StmtType::FuncDeclaration(data).to_stmt(pos).wrap()
 	}
 
@@ -176,7 +181,7 @@ impl StmtVisitor<Statement> for Optimizer {
 		
 		let mut methods = Vec::new();
 		for mut method in data.methods.clone() {
-			method.body = self.optimize(method.body)?;
+			method.body = self.optimize_block(method.body)?;
 			methods.push(method);
 		}
 		data.methods = methods;
@@ -191,13 +196,13 @@ impl StmtVisitor<Statement> for Optimizer {
 	
 	fn if_stmt(&mut self, mut data: IfData, pos: SourcePos) -> Result<Statement> {
 		data.cond = data.cond.accept(self)?.wrap();
-		data.then_block = self.optimize(data.then_block)?;
-		data.else_block = self.optimize(data.else_block)?;
+		data.then_block = self.optimize_block(data.then_block)?;
+		data.else_block = self.optimize_block(data.else_block)?;
 		StmtType::If(data).to_stmt(pos).wrap()
 	}
 	
 	fn loop_stmt(&mut self, mut block: Block, pos: SourcePos) -> Result<Statement> {
-		block = self.optimize(block)?;
+		block = self.optimize_block(block)?;
 		StmtType::Loop(block).to_stmt(pos).wrap()
 	}
 	
@@ -215,7 +220,7 @@ impl StmtVisitor<Statement> for Optimizer {
 	}
 	
 	fn scoped_stmt(&mut self, mut block: Block, pos: SourcePos) -> Result<Statement> {
-		block = self.optimize(block)?;
+		block = self.optimize_block(block)?;
 		StmtType::Scoped(block).to_stmt(pos).wrap()
 	}
 	
