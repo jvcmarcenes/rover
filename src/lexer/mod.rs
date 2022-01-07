@@ -9,9 +9,20 @@ use self::token::{Keyword, LiteralType::*, Symbol::{self, *}, Token, TokenType::
 
 type TokenResult = Result<Option<Token>>;
 
+macro_rules! directives {
+	($($dir:ident),*) => {
+		pub struct Directives { $(pub $dir: bool),* }
+		impl Directives {
+			pub fn new(set: HashSet<String>) -> Self { Self { $($dir: set.contains(stringify!($dir))),* } }
+		}
+	};
+}
+
+directives!(script, dynamic);
+
 pub struct LexerResult {
 	pub tokens: Vec<Token>,
-	pub directives: HashSet<String>,
+	pub directives: Directives,
 	pub errors: ErrorList,
 }
 
@@ -255,7 +266,7 @@ impl Lexer {
 
 		LexerResult {
 			tokens,
-			directives: self.directives,
+			directives: Directives::new(self.directives),
 			errors
 		}
 	}

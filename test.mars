@@ -1,16 +1,13 @@
 
-#!infer
-
-# type MathFn = function(number) -> number
-
-function factorial(n: number): number {
-	if n == 1 { return 1 }
-	return n * factorial(n - 1)
-}
-
-function apply(x: number, f: function(number) -> number): number => f(x)
-
 function main() {
-	let x = apply(7, factorial)
-	writeline(x)
+	for i in range(0, 100) {
+		let s = ""
+
+		if i mod 3 == 0 { s += "fizz" }
+		if i mod 5 == 0 { s += "buzz" }
+
+		if s == "" { s = i }
+
+		writeline(s)
+	}
 }

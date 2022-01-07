@@ -35,7 +35,7 @@ fn run_file(path: &str) -> Result<()> {
 
 	let lexer_res = lexer.scan_tokens();
 
-	if lexer_res.directives.contains("script") {
+	if lexer_res.directives.script {
 		run_script(path, lexer_res)
 	} else {
 		run_module(path, lexer_res)
@@ -49,7 +49,7 @@ fn run_module(path: &str, lexer_res: LexerResult) -> Result<()> {
 
 	errors.try_append(Resolver::new().resolve(&module));
 
-	errors.try_append(TypeChecker::new(directives.contains("infer")).check(&module));
+	errors.try_append(TypeChecker::new(!directives.dynamic).check(&module));
 
 	errors.if_empty(())?;
 
@@ -74,7 +74,7 @@ fn run_script(path: &str, lexer_res: LexerResult) -> Result<()> {
 	errors.try_append(resolver.resolve(&module));
 	errors.try_append(resolver.resolve_block(&block));
 
-	let mut type_checker = TypeChecker::new(directives.contains("infer"));
+	let mut type_checker = TypeChecker::new(!directives.dynamic);
 	errors.try_append(type_checker.check(&module));
 	errors.try_append(type_checker.check_block(&block));
 	
