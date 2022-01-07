@@ -1,13 +1,32 @@
 
+type User = {
+	name: string
+	posts: [Post]
+}
+
+type Post = {
+	body: string
+	author: User
+}
+
+function add_post(author: User, body: string) {
+	let post: Post = { body, author }
+	author.posts.push(post)
+}
+
 function main() {
-	for i in range(0, 100) {
-		let s = ""
-
-		if i mod 3 == 0 { s += "fizz" }
-		if i mod 5 == 0 { s += "buzz" }
-
-		if s == "" { s = i }
-
-		writeline(s)
+	let user: User = {
+		name = "john"
+		posts = []
 	}
+
+	add_post(user, "hello world")
+	add_post(user, "lorem ipsum")
+
+	user.posts.iter(function(post) {
+		writeline(post.author.name)
+		writeline(post.body)
+		writeline('')
+	})
+
 }

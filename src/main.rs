@@ -48,6 +48,9 @@ fn run_module(path: &str, lexer_res: LexerResult) -> Result<()> {
 	let mut module = Parser::new(tokens).module()?;
 
 	errors.try_append(Resolver::new().resolve(&module));
+	if module.main_id.borrow().is_none() {
+		errors.add_mod_comp("Module did not contain a main function".to_owned());
+	}
 
 	errors.try_append(TypeChecker::new(!directives.dynamic).check(&module));
 

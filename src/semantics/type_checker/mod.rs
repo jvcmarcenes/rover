@@ -11,7 +11,7 @@ fn decl_type(stmt: &Statement, infer: bool) -> Type {
 			Type::Function { params, returns }
 		},
 		StmtType::AttrDeclaration(_) => todo!(),
-		StmtType::TypeAlias(_) => todo!(),
+		StmtType::TypeAlias(AliasData { alias: _, ref typ }) => typ.clone(),
 		_ => panic!("decl_type should ever only be called with declaration statements"),
 	}
 }
@@ -59,6 +59,7 @@ impl TypeChecker {
 	pub fn check_block(&mut self, block: &Block) -> Result<Type> {
 		let mut errors = ErrorList::new();
 		let mut typ = Type::Void;
+
 		for stmt in block.clone() {
 			match stmt.accept(self) {
 				Ok(Type::Void) => (),

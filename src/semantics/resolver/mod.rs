@@ -77,8 +77,9 @@ impl Resolver {
 
 		self.push_scope();
 
-		for id in module.env.keys().cloned() {
-			errors.try_append(self.add(id, true, SymbolType::Var, SourcePos::new(1, 1)));
+		for (id, stmt) in module.env.iter() {
+			let symbol_type = if matches!(stmt.typ, StmtType::TypeAlias(_)) { SymbolType::Alias } else { SymbolType::Var };
+			errors.try_append(self.add(id.clone(), true, symbol_type, SourcePos::new(1, 1)));
 		}
 		
 		for (id, stmt) in module.env.iter() {
@@ -415,11 +416,7 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<()> {
-		let mut errors = ErrorList::new();
-		let name = data.alias.get_name();
-		errors.try_append(self.add(data.alias, true, SymbolType::Alias, pos));
-		errors.try_append(self.resolve_type(data.typ, name.wrap(), false, pos));
-		errors.if_empty(())
+		self.resolve_type(data.typ, data.alias.get_name().wrap(), false, pos)
 	}
 	
 }

@@ -76,15 +76,11 @@ impl Interpreter {
 			stmt.accept(self)?;
 		}
 
-		if module.main_id.borrow().is_none() {
-			return ErrorList::mod_run("Module did not contain a main function".to_owned()).err();
-		}
-
 		let main = self.env.get(module.main_id.borrow().unwrap().clone());
 
 		let ret = castf!(fun main).borrow_mut().call(SourcePos::new(1, 1), self, Vec::new())?;
 
-		if let Ok(_) = ret.to_error(SourcePos::new(1, 1)) {
+		if ret.to_error(SourcePos::new(1, 1)).is_ok() {
 			println!("{}", ret.to_string(self, SourcePos::new(1, 1)).unwrap());
 		}
 

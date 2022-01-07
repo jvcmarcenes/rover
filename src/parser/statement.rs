@@ -13,6 +13,7 @@ impl Parser {
 		match self.peek().typ {
 			Keyword(Attr) => self.attr_declaration(),
 			Keyword(Function) => self.func_declaration(),
+			Keyword(Type) => self.type_alias(),
 			_ => ErrorList::comp("Expected a declaration".to_owned(), self.next().pos).err()
 		}
 	}
@@ -82,7 +83,27 @@ impl Parser {
 
 		self.module.add(id.clone(), decl, pos)?;
 
-		Ok(())
+		errors.if_empty(())
+	}
+
+	fn type_alias(&mut self) -> Result<()> {
+		let Token { pos, .. } = self.next();
+		let mut errors = ErrorList::new();
+		let next = self.next();
+		let alias = match next.typ {
+			TokenType::Identifier(name) => Identifier::new(name),
+			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
+		};
+		append!(self.expect(Symbol(Equals)); to errors);
+		let typ = append!(self.types(); to errors);
+		let typ = append!(typ.validate(Stage::Compile, pos); to errors);
+		errors.try_append(self.expect_eol());
+
+		let decl = StmtType::TypeAlias(AliasData { alias: alias.clone(), typ }).to_stmt(pos);
+
+		errors.try_append(self.module.add(alias.clone(), decl, pos));
+		
+		errors.if_empty(())
 	}
 
 	pub(super) fn statement(&mut self, accept_decl: bool) -> Result<Option<Statement>> {
@@ -94,9 +115,9 @@ impl Parser {
 			Keyword(Break) => self.break_stmt(),
 			Keyword(Continue) => self.continue_stmt(),
 			Keyword(Return) => self.return_stmt(),
-			Keyword(Attr) => return if accept_decl { self.func_declaration()?; None.wrap() } else { ErrorList::comp("Attribute declarations are only allowed in the top level".to_owned(), self.next().pos).err() },
+			Keyword(Attr) => return if accept_decl { self.attr_declaration()?; None.wrap() } else { ErrorList::comp("Attribute declarations are only allowed in the top level".to_owned(), self.next().pos).err() },
 			Keyword(Function) => return if accept_decl { self.func_declaration()?; None.wrap() } else { ErrorList::comp("Function declarations are only allowed in the top level".to_owned(), self.next().pos).err() },
-			Keyword(Type) => self.type_alias(),
+			Keyword(Type) => return if accept_decl { self.type_alias()?; None.wrap() } else { ErrorList::comp("Type aliases are only allowed in the top level".to_owned(), self.next().pos).err() },
 			_ => self.assignment_or_expression(),
 		}?.wrap()
 	}
@@ -254,21 +275,6 @@ impl Parser {
 		let Token { pos, .. } = self.next();
 		let expr = self.expression_or_none()?;
 		StmtType::Return(expr.wrap()).to_stmt(pos).wrap()
-	}
-
-	fn type_alias(&mut self) -> Result<Statement> {
-		let Token { pos, .. } = self.next();
-		let mut errors = ErrorList::new();
-		let next = self.next();
-		let alias = match next.typ {
-			TokenType::Identifier(name) => Identifier::new(name),
-			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
-		};
-		append!(self.expect(Symbol(Equals)); to errors);
-		let typ = append!(self.types(); to errors);
-		let typ = append!(typ.validate(Stage::Compile, pos); to errors);
-		errors.try_append(self.expect_eol());
-		errors.if_empty(StmtType::TypeAlias(AliasData { alias, typ }).to_stmt(pos))
 	}
 
 }
