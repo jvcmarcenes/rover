@@ -148,7 +148,7 @@ impl ErrorList {
 	pub fn append(&mut self, mut err: ErrorList) { self.0.append(&mut err.0) }
 	pub fn try_append<T>(&mut self, res: Result<T>) { if let Err(err) = res { self.append(err) } }
 	pub fn report(&self, path: &str) { self.0.iter().for_each(|err| err.report(path)) }
-	pub fn if_empty<T>(self, ret: T) -> Result<T> { if self.is_empty() { Ok(ret) } else { self.err() } }
+	pub fn if_empty<T>(&self, ret: T) -> Result<T> { if self.is_empty() { Ok(ret) } else { self.clone().err() } }
 }
 
 impl Display for ErrorList {

@@ -34,6 +34,7 @@ fn run_file(path: &str) -> Result<()> {
 	let lexer = Lexer::from_file(&path).map_err(|err| ErrorList::sys(err.to_string()))?;
 
 	let lexer_res = lexer.scan_tokens();
+	lexer_res.errors.report(path);
 
 	if lexer_res.directives.script {
 		run_script(path, lexer_res)
@@ -43,45 +44,51 @@ fn run_file(path: &str) -> Result<()> {
 }
 
 fn run_module(path: &str, lexer_res: LexerResult) -> Result<()> {
-	let LexerResult { tokens, directives, mut errors } = lexer_res;
-
+	let LexerResult { tokens, directives, errors: lexer_err } = lexer_res;
+	let mut errors = ErrorList::new();
+	
 	let mut module = Parser::new(tokens).module()?;
 
 	errors.try_append(Resolver::new().resolve(&module));
 	if module.main_id.borrow().is_none() {
 		errors.add_mod_comp("Module did not contain a main function".to_owned());
 	}
-
+	errors.if_empty(())?;
+	
 	errors.try_append(TypeChecker::new(!directives.dynamic).check(&module));
-
 	errors.if_empty(())?;
 
+	lexer_err.if_empty(())?;
+	
 	Optimizer.optimize(&mut module).unwrap();
-
+	
 	let mut pathbuf = Path::new(path).to_path_buf();
 	pathbuf.pop();
-
+	
 	let mut interpreter = Interpreter::new(pathbuf);
-
+	
 	interpreter.interpret_and_run(module)?;
-
+	
 	Ok(())
 }
 
 fn run_script(path: &str, lexer_res: LexerResult) -> Result<()> {
-	let LexerResult { tokens, directives, mut errors } = lexer_res;
-
+	let LexerResult { tokens, directives, errors: lexer_err } = lexer_res;
+	let mut errors = ErrorList::new();
+	
 	let (mut module, block) = Parser::new(tokens).script()?;
 
 	let mut resolver = Resolver::new();
 	errors.try_append(resolver.resolve(&module));
 	errors.try_append(resolver.resolve_block(&block));
+	errors.if_empty(())?;
 
 	let mut type_checker = TypeChecker::new(!directives.dynamic);
 	errors.try_append(type_checker.check(&module));
 	errors.try_append(type_checker.check_block(&block));
-	
 	errors.if_empty(())?;
+
+	lexer_err.if_empty(())?;
 
 	Optimizer.optimize(&mut module).unwrap();
 	let block = Optimizer.optimize_block(block).unwrap();
