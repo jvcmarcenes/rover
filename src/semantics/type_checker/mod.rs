@@ -32,12 +32,40 @@ impl TypeChecker {
 		}
 	}
 
+	fn check_rec_type(&mut self, names: &Vec<usize>, typ: &Type) -> bool {
+		match typ {
+			Type::Named(name) => {
+				if names.contains(&name.get_id()) { return true; }
+				if !self.type_map.contains_key(&name.get_id()) { return false; }
+				let mut names = names.clone();
+				names.push(name.get_id());
+				let typ = self.type_map.get(&name.get_id()).unwrap().clone();
+				self.check_rec_type(&names, &typ);
+			},
+			Type::Or(types) | Type::And(types) => {
+				for typ in types {
+					if self.check_rec_type(names, typ) { return true; }
+				}
+			},
+			_ => (),
+		}
+		false
+	}
+
 	pub fn check(&mut self, module: &Module) -> Result<()> {
 		let mut errors = ErrorList::new();
 
 		for (id, stmt) in module.env.iter() {
+			if let StmtType::TypeAlias(data) = stmt.typ.clone() {
+				let names = vec![data.alias.get_id()];
+				if self.check_rec_type(&names, &data.typ) {
+					errors.add_comp(format!("Illegal recursive type '{}'", data.alias), stmt.pos);
+				}
+			}
 			self.type_map.insert(id.get_id(), decl_type(stmt, self.infer));
 		}
+
+		errors.if_empty(())?;
 
 		for stmt in module.env.values().cloned() {
 			errors.try_append(stmt.accept(self));

@@ -139,17 +139,15 @@ impl Resolver {
 		let mut errors = ErrorList::new();
 		match typ {
 			Type::Named(name) => {
-				if alias.is_some() && alias.unwrap() == name.get_name() && !in_obj {
-					errors.add_comp(format!("Illegal recursive type '{}'", name), pos);
-				} else {
-					if let Some(var) = self.get_var(&name.get_name()) {
-						match var.symbol_type {
-							SymbolType::Var => errors.add_comp(format!("Expected type, found variable '{}'", name), pos),
-							SymbolType::Alias => *name.id.borrow_mut() = var.id,
-						}
-					} else {
-						errors.add_comp(format!("Use of undefined alias '{}'", name.get_name()), pos);
+				if let Some(var) = self.get_var(&name.get_name()) {
+					match var.symbol_type {
+						SymbolType::Var => errors.add_comp(format!("Expected type, found variable '{}'", name), pos),
+						SymbolType::Alias => {
+							*name.id.borrow_mut() = var.id
+						},
 					}
+				} else {
+					errors.add_comp(format!("Use of undefined alias '{}'", name.get_name()), pos);
 				}
 			},
 			Type::List(typ) => errors.try_append(self.resolve_type(*typ, alias, in_obj, pos)),

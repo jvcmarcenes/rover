@@ -1,32 +1,8 @@
 
-type User = {
-	name: string
-	posts: [Post]
-}
-
-type Post = {
-	body: string
-	author: User
-}
-
-function add_post(author: User, body: string) {
-	let post: Post = { body, author }
-	author.posts.push(post)
-}
+type Foo = [number or Foo]
 
 function main() {
-	let user: User = {
-		name = "john"
-		posts = []
-	}
+	let x: Foo = [1, [23, [42]], 2, 3, 4, [5, [6]]]
 
-	add_post(user, "hello world")
-	add_post(user, "lorem ipsum")
-
-	user.posts.iter(function(post) {
-		writeline(post.author.name)
-		writeline(post.body)
-		writeline('')
-	})
-
+	writeline(x)
 }
