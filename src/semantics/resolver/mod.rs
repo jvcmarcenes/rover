@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::{identifier::Identifier, expression::*, statement::*, Block, module::Module}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers, wrap::Wrap}, types::Type};
+use crate::{ast::{identifier::Identifier, expression::*, statement::*, Block, module::Module}, utils::{result::{ErrorList, Result}, source_pos::SourcePos, global_ids::get_global_identifiers}, types::Type};
 
 macro_rules! with_ctx {
 	($self:ident, $block:expr, $ctx:ident: $val:expr) => {{
@@ -135,7 +135,7 @@ impl Resolver {
 		None
 	}
 
-	fn resolve_type(&mut self, typ: Type, alias: Option<String>, in_obj: bool, pos: SourcePos) -> Result<()> {
+	fn resolve_type(&mut self, typ: Type, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		match typ {
 			Type::Named(name) => {
@@ -150,13 +150,26 @@ impl Resolver {
 					errors.add_comp(format!("Use of undefined alias '{}'", name.get_name()), pos);
 				}
 			},
-			Type::List(typ) => errors.try_append(self.resolve_type(*typ, alias, in_obj, pos)),
-			Type::Object(map) => for (_, typ) in map { errors.try_append(self.resolve_type(typ, alias.clone(), true, pos)); }
-			Type::Or(types) => for typ in types { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)) },
-			Type::And(types) => for typ in types { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)) },
+			Type::List(typ) => errors.try_append(self.resolve_type(*typ, pos)),
+			Type::Object(map) => for (_, typ) in map { errors.try_append(self.resolve_type(typ, pos)); }
+			Type::Or(types) => for typ in types { errors.try_append(self.resolve_type(typ, pos)) },
+			Type::And(types) => for typ in types { errors.try_append(self.resolve_type(typ, pos)) },
 			Type::Function { params, returns } => {
-				for typ in params { errors.try_append(self.resolve_type(typ, alias.clone(), in_obj, pos)); }
-				errors.try_append(self.resolve_type(*returns, alias, in_obj, pos));
+				for typ in params { errors.try_append(self.resolve_type(typ, pos)); }
+				errors.try_append(self.resolve_type(*returns, pos));
+			}
+			Type::Generic { base, args } => {
+				if let Some(name) = self.get_var(&base.get_name()) {
+					if name.symbol_type != SymbolType::Alias {
+						errors.add_comp(format!("'{}' is not a generic type", base), pos);
+					} else {
+						*base.id.borrow_mut() = name.id;
+					}
+				} else {
+					errors.add_comp(format!("Use of undefined type '{}'", base), pos);
+				}
+
+				for typ in args { errors.try_append(self.resolve_type(typ, pos)); }
 			}
 			_ => (),
 		}
@@ -251,8 +264,8 @@ impl ExprVisitor<()> for Resolver {
 		
 		data.types.iter().cloned()
 			.filter_map(|t| t)
-			.for_each(|typ| errors.try_append(self.resolve_type(typ, None, false, pos)));
-		if let Some(typ) = data.returns { errors.try_append(self.resolve_type(typ, None, false, pos)); }
+			.for_each(|typ| errors.try_append(self.resolve_type(typ, pos)));
+		if let Some(typ) = data.returns { errors.try_append(self.resolve_type(typ, pos)); }
 
 		with_ctx!(self, errors.try_append(self.resolve_block(&data.body)), in_function: true);
 
@@ -295,6 +308,13 @@ impl ExprVisitor<()> for Resolver {
 		errors.if_empty(())
 	}
 	
+	fn generic_call_expr(&mut self, data: GenericData, pos: SourcePos) -> Result<()> {
+		let mut errors = ErrorList::new();
+		errors.try_append(data.expr.accept(self));
+		for typ in data.args { errors.try_append(self.resolve_type(typ, pos)); }
+		errors.if_empty(())
+	}
+
 }
 
 impl StmtVisitor<()> for Resolver {
@@ -306,7 +326,7 @@ impl StmtVisitor<()> for Resolver {
 	fn declaration(&mut self, data: DeclarationData, pos: SourcePos) -> Result<()> {
 		let mut errors = ErrorList::new();
 		if let Some(typ) = data.type_restriction {
-			errors.try_append(self.resolve_type(typ, None, false, pos));
+			errors.try_append(self.resolve_type(typ, pos));
 		}
 		match data.expr.typ.clone() {
 			ExprType::Lambda(_) | ExprType::Literal(LiteralData::Object(_, _)) => {
@@ -325,15 +345,23 @@ impl StmtVisitor<()> for Resolver {
 		let mut errors = ErrorList::new();
 		self.push_scope();
 		
+		for (type_param, typ) in data.type_params {
+			errors.try_append(self.add(type_param, true, SymbolType::Alias, pos));
+			errors.try_append(self.resolve_type(typ, pos));
+		}
+
+		self.push_scope();
+
 		for param in data.params { errors.try_append(self.add(param, false, SymbolType::Var, pos)); }
 		
 		data.types.iter().cloned()
 			.filter_map(|t| t)
-			.for_each(|typ| errors.try_append(self.resolve_type(typ, None, false, pos)));
-		if let Some(typ) = data.returns { errors.try_append(self.resolve_type(typ, None, false, pos)); }
+			.for_each(|typ| errors.try_append(self.resolve_type(typ, pos)));
+		if let Some(typ) = data.returns { errors.try_append(self.resolve_type(typ, pos)); }
 
 		with_ctx!(self, errors.try_append(self.resolve_block(&data.body)), in_function: true);
 		
+		self.pop_scope();
 		self.pop_scope();
 		errors.if_empty(())
 	}
@@ -347,8 +375,8 @@ impl StmtVisitor<()> for Resolver {
 			
 			method.types.iter().cloned()
 				.filter_map(|t| t)
-				.for_each(|typ| errors.try_append(self.resolve_type(typ, None, false, pos)));
-			if let Some(typ) = method.returns { errors.try_append(self.resolve_type(typ, None, false, pos)); }
+				.for_each(|typ| errors.try_append(self.resolve_type(typ, pos)));
+			if let Some(typ) = method.returns { errors.try_append(self.resolve_type(typ, pos)); }
 			
 			with_ctx!(self, errors.try_append(self.resolve_block(&method.body)), in_function: true);
 			
@@ -414,7 +442,15 @@ impl StmtVisitor<()> for Resolver {
 	}
 	
 	fn type_alias(&mut self, data: AliasData, pos: SourcePos) -> Result<()> {
-		self.resolve_type(data.typ, data.alias.get_name().wrap(), false, pos)
+		let mut errors = ErrorList::new();
+		self.push_scope();
+		for (name, typ) in data.type_params {
+			errors.try_append(self.resolve_type(typ, pos));
+			errors.try_append(self.add(name, true, SymbolType::Alias, pos));
+		}
+		errors.try_append(self.resolve_type(data.typ, pos));
+		self.pop_scope();
+		errors.if_empty(())
 	}
 	
 }

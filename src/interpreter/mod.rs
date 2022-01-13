@@ -181,7 +181,7 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 	fn call(&mut self, data: CallData, pos: SourcePos) -> Result<Box<dyn Value>> {
 		let calee_pos = data.calee.pos;
 		let bound = match data.calee.typ {
-			ExprType::Variable(_) | ExprType::Index(_) | ExprType::FieldGet(_) => true,
+			ExprType::Variable(_) | ExprType::Index(_) | ExprType::FieldGet(_) | ExprType::GenericCall(_) => true,
 			_ => false,
 		};
 		let calee = pass_msg!(data.calee.accept(self)?);
@@ -262,6 +262,10 @@ impl ExprVisitor<Box<dyn Value>> for Interpreter {
 		let mut bound_method = method.borrow().cloned();
 		bound_method.bind(head);
 		ValCallable::new(bound_method.wrap()).wrap()
+	}
+
+	fn generic_call_expr(&mut self, data: GenericData, _pos: SourcePos) -> Result<Box<dyn Value>> {
+		data.expr.accept(self)?.wrap()
 	}
 
 }

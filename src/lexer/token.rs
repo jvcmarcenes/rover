@@ -73,7 +73,7 @@ pub enum Symbol {
 	Plus, Minus, Star, Slash, Exclam,
 	Equals, PlusEquals, MinusEquals, StarEquals, SlashEquals, Question,
 	DoubleEquals, ExclamEquals, OpenAngEquals, CloseAngEquals,
-	HashtagOpenBracket, EqualsCloseAng, BarCloseAng, MinusCloseAng,
+	HashtagOpenBracket, EqualsCloseAng, BarCloseAng, MinusCloseAng, ColonOpenAng,
 }
 
 #[derive(Debug, Clone, PartialEq)]

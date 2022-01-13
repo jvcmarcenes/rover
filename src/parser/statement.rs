@@ -18,21 +18,49 @@ impl Parser {
 		}
 	}
 
+	fn type_params(&mut self) -> Result<Vec<(Identifier, Type)>> {
+		let mut errors = ErrorList::new();
+		let mut type_params = Vec::new();
+		if self.optional(Symbol(OpenAng)).is_some() {
+			loop {
+				self.skip_new_lines();
+				let next = self.next();
+				match next.typ {
+					EOF => append!(ret comp "Unexpected EOF".to_owned(), next.pos; to errors),
+					Symbol(CloseAng) => return errors.if_empty(type_params),
+					Identifier(name) => {
+						let restrict = append!(self.type_restriction(); to errors; dummy None).unwrap_or(Type::Any);
+						type_params.push((Identifier::new(name), restrict));
+						if self.peek().typ == Symbol(CloseAng) { continue; }
+						if let Err(err) = self.expect_any(&[Symbol(Comma), EOL]) {
+							errors.append(err);
+							self.synchronize_complex(&[Symbol(Comma)], &[Symbol(CloseAng)]);
+						}
+					},
+					_ => append!(ret comp format!("Expected Identifier, found {}", next), next.pos; to errors),
+				}
+			}
+		} else {
+			Vec::new().wrap()
+		}
+	}
+
 	fn func_declaration(&mut self) -> Result<()> {
 		let Token { pos, .. } = self.next();
 		let next = self.next();
-		match next.typ {
-			Identifier(name) => {
-				let id = Identifier::new(name);
+		if let Identifier(name) = next.typ {
+			let id = Identifier::new(name);
 
-				let LambdaData { params, types, returns, body } = self.lambda_data()?;
-				let decl = StmtType::FuncDeclaration(FunctionData { name: id.clone(), params, types, returns, body }).to_stmt(pos);
+			let type_params = self.type_params()?;
 
-				self.module.add(id.clone(), decl, pos)?;
+			let LambdaData { params, types, returns, body } = self.lambda_data()?;
+			let decl = StmtType::FuncDeclaration(FunctionData { name: id.clone(), type_params, params, types, returns, body }).to_stmt(pos);
 
-				Ok(())
-			}
-			typ => ErrorList::comp(format!("Expected function name, found {}", typ), next.pos).err()
+			self.module.add(id.clone(), decl, pos)?;
+
+			Ok(())
+		} else {
+			ErrorList::comp(format!("Expected function name, found {}", next.typ), next.pos).err()
 		}
 	}
 
@@ -40,7 +68,7 @@ impl Parser {
 		let mut errors = ErrorList::new();
 		let Token { pos, .. } = self.next();
 		let next = self.next();
-		let id = match next.typ { 
+		let id = match next.typ {
 			TokenType::Identifier(name) => Identifier::new(name),
 			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
 		};
@@ -72,7 +100,7 @@ impl Parser {
 				}
 				Identifier(name) => {
 					let LambdaData { params, types, returns, body } = self.lambda_data()?;
-					methods.push(FunctionData { name: Identifier::new(name), params, types, returns, body });
+					methods.push(FunctionData { name: Identifier::new(name), type_params: Vec::new(), params, types, returns, body });
 					errors.try_append(self.expect_eol());
 				},
 				typ => append!(ret comp format!("Expected Identifier or CLOSE_BRACKET, found {}", typ), pos; to errors),
@@ -89,20 +117,25 @@ impl Parser {
 	fn type_alias(&mut self) -> Result<()> {
 		let Token { pos, .. } = self.next();
 		let mut errors = ErrorList::new();
+
 		let next = self.next();
 		let alias = match next.typ {
 			TokenType::Identifier(name) => Identifier::new(name),
 			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
 		};
+
+		let type_params = append!(self.type_params(); to errors; dummy Vec::new());
+
 		append!(self.expect(Symbol(Equals)); to errors);
+
 		let typ = append!(self.types(); to errors);
 		let typ = append!(typ.validate(Stage::Compile, pos); to errors);
 		errors.try_append(self.expect_eol());
 
-		let decl = StmtType::TypeAlias(AliasData { alias: alias.clone(), typ }).to_stmt(pos);
+		let decl = StmtType::TypeAlias(AliasData { alias: alias.clone(), type_params, typ }).to_stmt(pos);
 
 		errors.try_append(self.module.add(alias.clone(), decl, pos));
-		
+
 		errors.if_empty(())
 	}
 
@@ -149,7 +182,7 @@ impl Parser {
 				}
 			}
 		} else {
-			self.expect_eol()?;				
+			self.expect_eol()?;
 			StmtType::Expr(Box::new(left)).to_stmt(l_pos).wrap()
 		}
 	}
@@ -159,7 +192,7 @@ impl Parser {
 		let mut errors = ErrorList::new();
 		let constant = self.optional(Keyword(Const)).is_some();
 		let next = self.next();
-		let name = match next.typ { 
+		let name = match next.typ {
 			TokenType::Identifier(name) => Identifier::new(name),
 			typ => append!(ErrorList::comp(format!("Expected identifier, found {}", typ), next.pos).err(); to errors; dummy Identifier::new("".to_string())),
 		};
@@ -220,8 +253,8 @@ impl Parser {
 						calee: ExprType::FieldGet(FieldData {
 							head: ExprType::Variable(Identifier::new("$list".to_owned())).to_expr(pos).wrap(),
 							field: "size".to_owned(),
-						}).to_expr(pos).wrap(), 
-						args: vec![]
+						}).to_expr(pos).wrap(),
+						args: Vec::new(),
 					}).to_expr(pos).wrap()
 				}).to_stmt(pos),
 				StmtType::Loop(vec![
@@ -234,7 +267,7 @@ impl Parser {
 							rhs: ExprType::Literal(LiteralData::Num(1.0)).to_expr(pos).wrap(),
 						}).to_expr(pos).wrap(),
 					}).to_stmt(pos),
-					StmtType::If(IfData { 
+					StmtType::If(IfData {
 						cond: Box::new(ExprType::Binary(BinaryData {
 							lhs: ExprType::Variable(Identifier::new("$i".to_owned())).to_expr(pos).wrap(),
 							op: BinaryOperator::Gre,
@@ -270,7 +303,7 @@ impl Parser {
 		let Token { pos, .. } = self.next();
 		StmtType::Continue.to_stmt(pos).wrap()
 	}
-	
+
 	fn return_stmt(&mut self) -> Result<Statement> {
 		let Token { pos, .. } = self.next();
 		let expr = self.expression_or_none()?;

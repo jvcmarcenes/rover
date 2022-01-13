@@ -53,6 +53,8 @@ pub struct IndexData { pub head: Box<Expression>, pub index: Box<Expression> }
 pub struct FieldData { pub head: Box<Expression>, pub field: String }
 #[derive(Debug, Clone)]
 pub struct LambdaData { pub params: Vec<Identifier>, pub types: Vec<Option<Type>>, pub returns: Option<Type>, pub body: Block }
+#[derive(Debug, Clone)]
+pub struct GenericData { pub expr: Box<Expression>, pub args: Vec<Type> }
 
 #[derive(Debug, Clone)]
 pub enum ExprType {
@@ -69,6 +71,7 @@ pub enum ExprType {
 	Lambda(LambdaData),
 	DoExpr(Block),
 	SelfRef,
+	GenericCall(GenericData)
 }
 
 impl ExprType {
@@ -105,6 +108,7 @@ impl Expression {
 			SelfRef => visitor.self_ref(self.pos),
 			DoExpr(block) => visitor.do_expr(block, self.pos),
     	Binding(data) => visitor.bind_expr(data, self.pos),
+    	GenericCall(data) => visitor.generic_call_expr(data, self.pos),
 		}
 	}
 }
@@ -123,4 +127,5 @@ pub trait ExprVisitor<T> {
 	fn self_ref(&mut self, pos: SourcePos) -> Result<T>;
 	fn do_expr(&mut self, block: Block, pos: SourcePos) -> Result<T>;
 	fn bind_expr(&mut self, data: BindData, pos: SourcePos) -> Result<T>;
+	fn generic_call_expr(&mut self, data: GenericData, pos: SourcePos) -> Result<T>;
 }

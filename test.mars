@@ -1,8 +1,26 @@
 
-type Foo = [number or Foo]
+function dedup<T>(list: [T]): [T] {
+	let v: [T] = []
+	for elem in list {
+		if !v.contains(elem) {
+			v.push(elem)
+		}
+	}
+	return v
+}
 
 function main() {
-	let x: Foo = [1, [23, [42]], 2, 3, 4, [5, [6]]]
+
+	let x: [number] = [0, 1, 2, 1, 3, 4, 5, 5, 0, 2]
+	let a: [string] = ['hello', 'world', 'hello', 'john', 'goodbye', 'john']
 
 	writeline(x)
+	writeline(a)
+
+	let y: [number] = dedup:<number>(x)
+	let b: [string] = dedup:<string>(a)
+
+	writeline(y)
+	writeline(b)
+
 }

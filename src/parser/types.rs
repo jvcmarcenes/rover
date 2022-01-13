@@ -11,8 +11,7 @@ impl Parser {
 
 	pub fn type_restriction(&mut self) -> Result<Option<Type>> {
 		if let Some(Token { pos, .. }) = self.optional(Symbol(Symbol::Colon)) {
-			let typ = self.types()?.validate(Stage::Compile, pos)?;
-			typ.wrap()
+			self.types()?.validate(Stage::Compile, pos)?.wrap()
 		} else {
 			None.wrap()
 		}
@@ -116,9 +115,39 @@ impl Parser {
 				self.expect(Symbol(Symbol::ClosePar))?;
 				typ
 			}
-			Identifier(name) => Type::Named(Identifier::new(name)),
+			Identifier(name) => {
+				let typ = Type::Named(Identifier::new(name.clone()));
+
+				if self.optional(Symbol(Symbol::OpenAng)).is_some() {
+					let mut errors = ErrorList::new();
+					let mut type_args = Vec::new();
+					
+					loop {
+						self.skip_new_lines();
+						let peek = self.peek();
+						match peek.typ {
+							EOF => append!(ret comp "Unexpected EOF".to_owned(), peek.pos; to errors),
+							Symbol(Symbol::CloseAng) => { self.next(); break; }
+							_ => {
+								let typ = append!(self.types(); to errors; dummy Type::Void);
+								type_args.push(typ);
+		
+								if self.next_match(Symbol(Symbol::CloseAng)) { continue; }
+								if let Err(err) = self.expect_any(&[Symbol(Symbol::Comma), EOL]) {
+									errors.append(err);
+									self.synchronize_complex(&[Symbol(Symbol::Comma)], &[Symbol(Symbol::CloseAng)]);
+								}
+							}
+						}
+					}
+		
+					Type::Generic { base: Identifier::new(name), args: type_args }
+				} else {
+					typ
+				}
+			}
 			_ => return ErrorList::comp(format!("Expected type, found {}", token), token.pos).err()
 		}.wrap()
 	}
-	
+
 }

@@ -155,6 +155,11 @@ impl ExprVisitor<Expression> for Optimizer {
 		ExprType::Binding(data).to_expr(pos).wrap()
 	}
 	
+	fn generic_call_expr(&mut self, mut data: GenericData, pos: SourcePos) -> Result<Expression> {
+		data.expr = data.expr.accept(self)?.wrap();
+		ExprType::GenericCall(data).to_expr(pos).wrap()
+	}
+
 }
 
 impl StmtVisitor<Statement> for Optimizer {

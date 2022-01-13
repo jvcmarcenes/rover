@@ -7,6 +7,45 @@ use crate::{utils::{result::{Result, Stage, ErrorList, append}, source_pos::Sour
 
 use self::Type::*;
 
+pub fn mismatched_types(t0: &Type, t1: &Type, pos: SourcePos) -> ErrorList {
+	ErrorList::comp(format!("Mismatched types, expected {}, found {}", t0, t1), pos)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GenericType {
+	pub params: HashMap<usize, Type>,
+	pub result: Box<Type>,
+}
+
+impl GenericType {
+	pub fn new(params: HashMap<usize, Type>, result: Box<Type>) -> Self {
+		Self { params, result }
+	}
+
+	pub fn apply(&self, args: Vec<Type>, checker: &dyn TypeEnv, pos: SourcePos) -> Result<Type> {
+		if self.params.len() != args.len() {
+			return ErrorList::comp(format!("Expected {} type arguments, got {}", self.params.len(), args.len()), pos).err();
+		}
+
+		let mut errors = ErrorList::new();
+		let mut typ = *self.result.clone();
+		for ((name, expected), got) in self.params.iter().zip(args.iter()) {
+			if expected.accepts(got, checker, pos) {
+				typ = typ.substitute_name(*name, got.clone());
+			} else {
+				errors.append(mismatched_types(expected, got, pos));
+			}
+		}
+
+		errors.if_empty(typ)
+	}
+}
+
+pub trait TypeEnv {
+	fn get_type_map(&self) -> &HashMap<usize, Type>;
+	fn get_generics_map(&self) -> &HashMap<usize, GenericType>;
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypePrim { Num, Str, Bool }
 
@@ -20,6 +59,8 @@ pub enum Type {
 	And(Vec<Type>),
 	Named(Identifier),
 	Function { params: Vec<Type>, returns: Box<Type> },
+	Generic { base: Identifier, args: Vec<Type> },
+	UnboundGeneric(GenericType),
 }
 
 impl Type {
@@ -28,8 +69,7 @@ impl Type {
 	pub const STR: Type = Type::Primitive(TypePrim::Str);
 	pub const BOOL: Type = Type::Primitive(TypePrim::Bool);
 
-	pub fn accepts(&self, other: &Type, type_map: &HashMap<usize, Type>) -> bool {
-		// this should return a result with the error clarifying why type 0 does not accept type 1
+	pub fn accepts(&self, other: &Type, checker: &dyn TypeEnv, pos: SourcePos) -> bool {
 
 		match (self, other) {
 			(Void, _) | (_, Void) => false,
@@ -38,20 +78,23 @@ impl Type {
 
 			(t0, t1) if t0 == t1 => true,
 
-			(t0, Named(name)) => t0.accepts(type_map.get(&name.get_id()).unwrap(), type_map),
-			(Named(name), t1) => type_map.get(&name.get_id()).unwrap().accepts(t1, type_map),
+			(t0, Named(name)) => t0.accepts(checker.get_type_map().get(&name.get_id()).unwrap(), checker, pos),
+			(Named(name), t1) => checker.get_type_map().get(&name.get_id()).unwrap().accepts(t1, checker, pos),
 
-			(Primitive(t0), Primitive(t1)) => t0 == t1,
+			(Primitive(t0), Primitive(t1)) if t0 == t1 => true,
 
-			(List(t0), List(t1)) => t0.accepts(t1, type_map),
+			(List(t0), List(t1)) => t0.accepts(t1, checker, pos),
 
-			(Object(m0), Object(m1)) => m0.iter().all(|(k, t0)| m1.get(k).map_or(false, |t1| t0.accepts(t1, type_map))),
+			(Object(m0), Object(m1)) => m0.iter().all(|(k, t0)| m1.get(k).map_or(false, |t1| t0.accepts(t1, checker, pos))),
 
-			(t0, Or(t1)) => t1.iter().all(|typ1| t0.accepts(typ1, type_map)),
-			(Or(types), other) => types.iter().any(|typ| typ.accepts(other, type_map)),
+			(t0, Or(t1)) => t1.iter().all(|typ1| t0.accepts(typ1, checker, pos)),
+			(Or(types), other) => types.iter().any(|typ| typ.accepts(other, checker, pos)),
 
-			(t0, And(t1)) => t1.iter().any(|typ1| t0.accepts(typ1, type_map)),
-			(And(types), other) => types.iter().all(|typ| typ.accepts(other, type_map)),
+			(t0, And(t1)) => t1.iter().any(|typ1| t0.accepts(typ1, checker, pos)),
+			(And(types), other) => types.iter().all(|typ| typ.accepts(other, checker, pos)),
+
+			(Generic { base, args }, t1) => checker.get_generics_map().get(&base.get_id()).unwrap().apply(args.clone(), checker, pos).map_or(false, |t0| t0.accepts(t1, checker, pos)),
+			(t0, Generic { base, args }) => checker.get_generics_map().get(&base.get_id()).unwrap().apply(args.clone(), checker, pos).map_or(false, |t1| t0.accepts(&t1, checker, pos)),
 
 			_ => false,
 		}
@@ -100,9 +143,33 @@ impl Type {
 				let returns = append!(returns.validate(stage, pos); to errors; dummy Type::Void).wrap();
 				Function { params: new_params, returns }
 			}
+			Generic { base, args } => {
+				let mut new_args = Vec::new();
+				for arg in args { new_args.push(append!(arg.validate(stage, pos); to errors; dummy Type::Void)); }
+				Generic { base: base.clone(), args: new_args }
+			}
 			typ => typ.clone()
 		};
 		errors.if_empty(typ)
+	}
+
+	fn substitute_name(&self, name: usize, typ: Type) -> Type {
+		match self {
+			List(t0) => List(t0.substitute_name(name, typ.clone()).wrap()),
+			Object(map) => Object(map.iter().map(|(k, t)| (k.clone(), t.substitute_name(name, typ.clone()))).collect()),
+			Or(types) => Or(types.iter().cloned().map(|t| t.substitute_name(name, typ.clone())).collect()),
+			And(types) => And(types.iter().cloned().map(|t| t.substitute_name(name, typ.clone())).collect()),
+			Function { params, returns } => Function {
+				params: params.iter().cloned().map(|t| t.substitute_name(name, typ.clone())).collect(),
+				returns: returns.substitute_name(name, typ).wrap(),
+			},
+			Generic { base, args } => Generic {
+				base: base.clone(),
+				args: args.iter().cloned().map(|t| t.substitute_name(name, typ.clone())).collect(),
+			},
+			Named(id) if id.get_id() == name => typ.clone(),
+			typ => typ.clone(),
+		}
 	}
 
 }
@@ -158,6 +225,23 @@ impl Display for Type {
 				}
 				write!(f, ") -> {}", returns)?;
 				Ok(())
+			}
+			Generic { base, args } => {
+				write!(f, "{}<", base)?;
+				let mut types = args.iter().peekable();
+				while let Some(typ) = types.next() {
+					write!(f, "{}", typ)?;
+					if let Some(_) = types.peek() { write!(f, ", ")?; }
+				}
+				write!(f, ">")?;
+				Ok(())
+			}
+			UnboundGeneric(data) => {
+				let mut res = *data.result.clone();
+				for (name, typ) in data.params.iter() {
+					res = res.substitute_name(name.clone(), typ.clone());
+				}
+				write!(f, "{}", res)
 			}
 		}
 	}

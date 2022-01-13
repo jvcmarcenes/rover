@@ -165,6 +165,7 @@ impl Parser {
 		loop {
 			expr = match self.peek().typ {
 				Symbol(OpenPar) => self.function_call(expr)?,
+				Symbol(ColonOpenAng) => self.generic_call(expr)?,
 				Symbol(OpenSqr) => self.index(expr)?,
 				Symbol(Dot) => self.field(expr)?,
 				Symbol(Question) => {
@@ -208,6 +209,35 @@ impl Parser {
 		errors.if_empty(exprs)
 	}
 	
+	fn generic_call(&mut self, calee: Expression) -> ExprResult {
+		let Token { pos, .. } = self.next();
+
+		let mut types = Vec::new();
+		let mut errors = ErrorList::new();
+
+		loop {
+			self.skip_new_lines();
+			let peek = self.peek();
+			match peek.typ {
+				EOF => append!(ret comp "Unexpected EOF".to_owned(), peek.pos; to errors),
+				Symbol(CloseAng) => { self.next(); break; },
+				_ => {
+					match self.types() {
+						Ok(typ) => types.push(typ),
+						Err(err) => errors.append(err),
+					}
+					if self.next_match(Symbol(CloseAng)) { continue; }
+					if let Err(err) = self.expect_any(&[Symbol(Comma), EOL]) {
+						errors.append(err);
+						self.synchronize_complex(&[Symbol(Comma)], &[Symbol(CloseAng)]);
+					}
+				}
+			}
+		}
+
+		errors.if_empty(ExprType::GenericCall(GenericData { expr: calee.wrap(), args: types }).to_expr(pos))
+	}
+
 	fn function_call(&mut self, calee: Expression) -> ExprResult {
 		let Token { pos, .. } = self.next();
 		let args = self.expr_list(Symbol(ClosePar))?;

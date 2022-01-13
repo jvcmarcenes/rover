@@ -215,6 +215,7 @@ impl Lexer {
 			'.' => self.symbol(Dot),
 			',' => self.symbol(Comma),
 			';' => Token::new(EOL, self.cursor).wrap(),
+			':' if self.next_match('<') => self.symbol(ColonOpenAng),
 			':' if self.next_match(':') => self.symbol(DoubleColon),
 			':' => self.symbol(Colon),
 			'+' if self.next_match('=') => self.symbol(PlusEquals),
