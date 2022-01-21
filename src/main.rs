@@ -1,6 +1,4 @@
 
-#![allow(dead_code)]
-
 mod utils;
 mod lexer;
 mod ast;
@@ -8,7 +6,7 @@ mod parser;
 mod semantics;
 mod interpreter;
 
-use std::{path::Path, process};
+use std::path::Path;
 
 use interpreter::Interpreter;
 use lexer::{Lexer, LexerResult};
@@ -24,24 +22,24 @@ fn main() {
 	}
 
 	match args.next() {
-		Some(path) => run_file(&path).unwrap_or_else(|errors| { errors.report(&path); process::exit(1) }),
+		Some(path) => run_file(&path, args.collect()).unwrap_or_else(|errors| errors.report(&path)),
 		None => eprintln!("{}: {}", ansi_term::Color::Red.paint("error"), "No file path specified"),
 	}
 }
 
-fn run_file(path: &str) -> Result<()> {
+fn run_file(path: &str, args: Vec<String>) -> Result<()> {
 	let lexer = Lexer::from_file(&path).map_err(|err| ErrorList::sys(err.to_string()))?;
 
 	let lexer_res = lexer.scan_tokens();
 
 	if lexer_res.directives.contains("script") {
-		run_script(path, lexer_res)
+		run_script(path, lexer_res, args)
 	} else {
-		run_module(path, lexer_res)
+		run_module(path, lexer_res, args)
 	}
 }
 
-fn run_module(path: &str, lexer_res: LexerResult) -> Result<()> {
+fn run_module(path: &str, lexer_res: LexerResult, args: Vec<String>) -> Result<()> {
 	let LexerResult { tokens, directives: _, mut errors } = lexer_res;
 
 	let mut module = Parser::new(tokens).module()?;
@@ -57,12 +55,12 @@ fn run_module(path: &str, lexer_res: LexerResult) -> Result<()> {
 
 	let mut interpreter = Interpreter::new(pathbuf);
 
-	interpreter.interpret_and_run(module)?;
+	interpreter.interpret_and_run(module, args)?;
 
 	Ok(())
 }
 
-fn run_script(path: &str, lexer_res: LexerResult) -> Result<()> {
+fn run_script(path: &str, lexer_res: LexerResult, _args: Vec<String>) -> Result<()> {
 	let LexerResult { tokens, directives: _, mut errors } = lexer_res;
 
 	let (mut module, block) = Parser::new(tokens).script()?;

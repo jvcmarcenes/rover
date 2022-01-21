@@ -1,15 +1,6 @@
 
-#!script
+function main(args) {
 
-writeline('hello world!')
+	writeline(args)
 
-function foo() {
-	writeline('hello from foo')
-}
-
-foo()
-bar() # bar is hoisted, so we can call it here
-
-function bar() {
-	writeline('hello from bar')
 }

@@ -71,7 +71,7 @@ impl Interpreter {
 		Ok(())
 	}
 
-	pub fn interpret_and_run(&mut self, module: Module) -> Result<()> {
+	pub fn interpret_and_run(&mut self, module: Module, args: Vec<String>) -> Result<()> {
 		for stmt in module.env.values().cloned() {
 			stmt.accept(self)?;
 		}
@@ -82,7 +82,8 @@ impl Interpreter {
 
 		let main = self.env.get(module.main_id.borrow().unwrap().clone());
 
-		let ret = castf!(fun main).borrow_mut().call(SourcePos::new(1, 1), self, Vec::new())?;
+		let args = List::new(args.iter().map(|str| Str::new(str.clone())).collect());
+		let ret = castf!(fun main).borrow_mut().call(SourcePos::new(1, 1), self, vec![(args, SourcePos::new(0, 0))])?;
 
 		if let Ok(_) = ret.to_error(SourcePos::new(1, 1)) {
 			println!("{}", ret.to_string(self, SourcePos::new(1, 1)).unwrap());
