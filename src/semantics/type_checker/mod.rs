@@ -90,11 +90,25 @@ impl TypeChecker {
 		
 		if let Some(main_id) = module.main_id.borrow().clone() {
 			let typ = self.type_map.get(&main_id).unwrap();
-			if let Type::Function { returns, .. } = typ.clone() {
-				match *returns {
-					Type::Void => (),
-					_ => errors.add_mod_comp(format!("Illegal return type for 'main' function {}", typ)),
+			if let Type::Function { returns, params } = typ.clone() {
+				if !matches!(*returns, Type::Void) {
+					errors.add_mod_comp(format!("'main' function may only return void or error, got {}", returns));
 				}
+				
+				if params.len() > 1 {
+					errors.add_mod_comp("'main' function may only have 0 or 1 argument".to_owned());
+				}
+
+				if let Some(t0) = params.get(0) {
+					if let Type::List(t1) = t0 {
+						if **t1 != Type::STR {
+							errors.add_mod_comp(format!("'main' function argument type must be [string], got {}", t0));
+						}
+					} else {
+						errors.add_mod_comp(format!("'main' function argument type must be [string], got {}", t0));
+					}
+				}
+				
 			}
 		}
 		
