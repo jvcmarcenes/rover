@@ -150,7 +150,6 @@ impl ExprVisitor<Type> for TypeChecker {
 			LiteralData::Num(_) => Type::NUM,
 			LiteralData::Bool(_) => Type::BOOL,
 			LiteralData::Template(exprs) => {
-				let mut errors = ErrorList::new();
 				for expr in exprs { errors.try_append(expr.accept(self)); }
 				Type::STR
 			}
